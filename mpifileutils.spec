@@ -50,7 +50,7 @@ Group:		System Environment/Libraries
 License:	Copyright and BSD License
 URL:		https://hpc.github.io/mpifileutils
 Source:		https://github.com/hpc/%{name}/archive/v%{version}.tar.gz
-Patch1:     0.10.1...871d8f7.patch
+Patch1:     0.10.1...4ec7841.patch
 BuildRoot:  %_topdir/BUILDROOT
 %if (0%{?suse_version} >= 1500)
 BuildRequires: cmake >= 3.1
@@ -70,63 +70,65 @@ BuildRequires: gcc-c++
 File utilities designed for scalability and performance.
 
 %if %{with_openmpi3}
-%package openmpi3
+%package daos-openmpi3
 Summary:	File utilities designed for scalability and performance.
 BuildRequires: openmpi3-devel
 BuildRequires: dtcmp-openmpi3-devel
 BuildRequires: libcircle-openmpi3-devel
+BuildRequires: daos-devel
 
-%description openmpi3
+%description daos-openmpi3
 File utilities designed for scalability and performance.
 
 %if (0%{?suse_version} >= 1500)
-%package -n libmfu0-openmpi3
+%package -n libmfu0-daos-openmpi3
 Summary:	File utilities designed for scalability and performance.
 
-%description -n libmfu0-openmpi3
-Shared libraries for %{name}-openmpi3.
+%description -n libmfu0-daos-openmpi3
+Shared libraries for %{name}-daos-openmpi3.
 %endif
 
-%package openmpi3-devel
+%package daos-openmpi3-devel
 Summary:	File utilities designed for scalability and performance.
 %if (0%{?suse_version} >= 1500)
-Requires: libmfu0-openmpi3%{_isa} = %version-%release
+Requires: libmfu0-daos-openmpi3%{_isa} = %version-%release
 %else
-Requires: %{name}-openmpi3%{_isa} = %version-%release
+Requires: %{name}-daos-openmpi3%{_isa} = %version-%release
 %endif
 
-%description openmpi3-devel
-Development files for %{name}-openmpi3.
+%description daos-openmpi3-devel
+Development files for %{name}-daos-openmpi3.
 %endif
 
 %if %{with_mpich}
-%package mpich
+%package daos-mpich
 Summary:	File utilities designed for scalability and performance.
 BuildRequires: mpich-devel
 BuildRequires: dtcmp-mpich-devel
 BuildRequires: libcircle-mpich-devel
+BuildRequires: daos-devel
 
-%description mpich
+%description daos-mpich
 File utilities designed for scalability and performance.
 
 %if (0%{?suse_version} >= 1500)
-%package -n libmfu0-mpich
+%package -n libmfu0-daos-mpich
 Summary:	File utilities designed for scalability and performance.
 
-%description -n libmfu0-mpich
-Shared libraries for %{name}-mpich.
+%description -n libmfu0-daos-mpich
+Shared libraries for %{name}-daos-mpich.
 %endif
 
-%package mpich-devel
+%package daos-mpich-devel
 Summary:	File utilities designed for scalability and performance.
 %if (0%{?suse_version} >= 1500)
-Requires: libmfu0-mpich%{_isa} = %version-%release
+Requires: libmfu0-daos-mpich%{_isa} = %version-%release
 %else
-Requires: %{name}-mpich%{_isa} = %version-%release
+Requires: %{name}-daos-mpich%{_isa} = %version-%release
 %endif
 
-%description mpich-devel
-Development files for %{name}-mpich.
+%description daos-mpich-devel
+Development files for %{name}-daos-mpich.
 %endif
 
 
@@ -163,38 +165,42 @@ for mpi in %{?mpi_list}; do
 done
 
 %if %{with_openmpi3}
-%files openmpi3
+%files daos-openmpi3
 %defattr(-,root,root,-)
 %{mpi_libdir}/openmpi3/bin/*
 %{mpi_libdir}/openmpi3/share/man/*
 %if (0%{?suse_version} >= 1500)
-%files -n libmfu0-openmpi3
+%files -n libmfu0-daos-openmpi3
 %endif
 %{mpi_libdir}/openmpi3/%{mpi_lib_ext}/libmfu.so.*
 
-%files openmpi3-devel
+%files daos-openmpi3-devel
 %{mpi_includedir}/openmpi3%{mpi_include_ext}/*
 %{mpi_libdir}/openmpi3/%{mpi_lib_ext}/lib*.so
 %{mpi_libdir}/openmpi3/%{mpi_lib_ext}/lib*.a
 %endif
 
 %if %{with_mpich}
-%files mpich
+%files daos-mpich
 %defattr(-,root,root,-)
 %{mpi_libdir}/mpich/bin/*
 %{mpi_libdir}/mpich/share/man/*
 %if (0%{?suse_version} >= 1500)
-%files -n libmfu0-mpich
+%files -n libmfu0-daos-mpich
 %endif
 %{mpi_libdir}/mpich/%{mpi_lib_ext}/libmfu.so.*
 
-%files mpich-devel
+%files daos-mpich-devel
 %{mpi_includedir}/mpich%{mpi_include_ext}/*
 %{mpi_libdir}/mpich/%{mpi_lib_ext}/lib*.so
 %{mpi_libdir}/mpich/%{mpi_lib_ext}/lib*.a
 %endif
 
 %changelog
+* Wed Oct 21 2020 Dalton A. Bohning <> - 0.10.1-1
+- Updated to latest patch file 0.10.1...4ec7841.patch
+- Added daos to the package names. E.g. daos-mpich
+- Moved daos-devel into these daos packages
 * Tue Sep 29 2020 Brian J. Murrell <brian.murrell@intel.com> - 0.10.1-1
 - Initial package
 - Package for multiple MPI stacks and multiple distros
