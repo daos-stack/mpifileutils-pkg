@@ -603,8 +603,57 @@ index 53dc2d5..05e3524 100644
  
  /* TODO: integrate this into the file list proper, or otherwise move it to another file */
  /* element structure in linked list returned by mfu_file_chunk_list_alloc */
+diff --git a/src/common/mfu_flist_chunk.c b/src/common/mfu_flist_chunk.c
+index 74e2ab8..50e547d 100644
+--- a/src/common/mfu_flist_chunk.c
++++ b/src/common/mfu_flist_chunk.c
+@@ -393,6 +393,44 @@ mfu_file_chunk* mfu_file_chunk_list_alloc(mfu_flist list, uint64_t chunk_size)
+         tail = p;
+     }
+ 
++    /* free the send and receive flag arrays */
++    mfu_free(&sendlist);
++    mfu_free(&recvlist);
++
++    /* free the linked lists, packed send buffers, and related arrays */
++    for (int i = 0; i < send_ranks; i++) {
++        mfu_free(&sendbufs[i]);
++
++        /* free the element linked list for each rank.
++         * Do not free elem->name because it is needed by the mfu_flist entry. */
++        mfu_file_chunk* elem = heads[i];
++        mfu_file_chunk* tmp;
++        while (elem != NULL) {
++            tmp = elem;
++            elem = elem->next;
++            mfu_free(&tmp);
++        }
++    }
++    mfu_free(&heads);
++    mfu_free(&tails);
++    mfu_free(&counts);
++    mfu_free(&bytes);
++    mfu_free(&sendbufs);
++
++    /* free the array for ranks recevied from */
++    mfu_free(&recvranklist);
++
++    /* free the request and status messages */
++    mfu_free(&request);
++    mfu_free(&status);
++    
++    /* free the bytes counts arrays */
++    mfu_free(&send_counts);
++    mfu_free(&recv_counts);
++
++    /* free the receive buffer */
++    mfu_free(&recvbuf);
++
+     return head;
+ }
+ 
 diff --git a/src/common/mfu_flist_copy.c b/src/common/mfu_flist_copy.c
-index 8024cba..3d9109c 100644
+index 8024cba..c4660e8 100644
 --- a/src/common/mfu_flist_copy.c
 +++ b/src/common/mfu_flist_copy.c
 @@ -42,8 +42,15 @@
@@ -639,13 +688,15 @@ index 8024cba..3d9109c 100644
  } mfu_copy_file_cache_t;
  
  /****************************************
-@@ -92,67 +102,107 @@ static mfu_copy_stats_t mfu_copy_stats;
+@@ -92,67 +102,119 @@ static mfu_copy_stats_t mfu_copy_stats;
  static mfu_copy_file_cache_t mfu_copy_src_cache;
  static mfu_copy_file_cache_t mfu_copy_dst_cache;
  
 -static int mfu_copy_open_file(const char* file, int read_flag,
 -        mfu_copy_file_cache_t* cache, mfu_copy_opts_t* mfu_copy_opts)
-+static void mfu_copy_open_file(
++/* open and cache a file.
++ * Returns 0 on success; -1 otherwise */
++static int mfu_copy_open_file(
 +    const char* file,             /* path to file to be opened */
 +    int read_flag,                /* set to 1 to open in read only, 0 for write */
 +    mfu_copy_file_cache_t* cache, /* cache the open file to avoid repetitive open/close of the same file */
@@ -666,7 +717,7 @@ index 8024cba..3d9109c 100644
              /* the file we're trying to open matches name and read/write mode,
               * so just return the cached descriptor */
 -            return fd;
-+            return;
++            return 0;
          } else {
              /* the file we're trying to open is different,
               * close the old file and delete the name */
@@ -698,7 +749,11 @@ index 8024cba..3d9109c 100644
  
      /* cache the file descriptor */
 -    if (newfd != -1) {
-+    if (mfu_file->fd != -1 && mfu_file->type == POSIX) {
++    if (mfu_file->type == POSIX) {
++        if (mfu_file->fd < 0) {
++            return -1;
++        }
++
          cache->name = MFU_STRDUP(file);
 -        cache->fd   = newfd;
 +        cache->fd   = mfu_file->fd;
@@ -729,12 +784,18 @@ index 8024cba..3d9109c 100644
  
 -    return newfd;
 +#ifdef DAOS_SUPPORT
-+    if (mfu_file->obj != NULL && mfu_file->type == DAOS) {
++    if (mfu_file->type == DAOS) {
++        if (mfu_file->obj == NULL) {
++            return -1;
++        }
++        
 +        cache->name = MFU_STRDUP(file);
 +        cache->read = read_flag;
 +        cache->obj  = mfu_file->obj;
 +    }
 +#endif
++
++    return 0;
 +}
 +
 +/* close a file that opened with mfu_copy_open_file */
@@ -766,7 +827,7 @@ index 8024cba..3d9109c 100644
  }
  
  /* copy all extended attributes from op->operand to dest_path,
-@@ -339,7 +389,8 @@ static int mfu_copy_ownership(
+@@ -339,7 +401,8 @@ static int mfu_copy_ownership(
  static int mfu_copy_permissions(
      mfu_flist flist,
      uint64_t idx,
@@ -776,7 +837,7 @@ index 8024cba..3d9109c 100644
  {
      /* assume we'll succeed */
      int rc = 0;
-@@ -350,14 +401,12 @@ static int mfu_copy_permissions(
+@@ -350,14 +413,12 @@ static int mfu_copy_permissions(
  
      /* change mode */
      if(type != MFU_TYPE_LINK) {
@@ -793,7 +854,7 @@ index 8024cba..3d9109c 100644
      return rc;
  }
  
-@@ -381,56 +430,57 @@ static int mfu_copy_acls(
+@@ -381,56 +442,57 @@ static int mfu_copy_acls(
            * We use the opaque method as we are not trying to alter the ACL contents.
            * Note that if the source is not a GPFS file-system, then the call will
            * fail with EINVAL and so we never try to apply this to the dest_path */
@@ -862,7 +923,7 @@ index 8024cba..3d9109c 100644
           /* check whether we read the ACL successfully */
           if (r == 0) {
             /* Assuming we now have a valid call to an ACL,
-@@ -451,10 +501,10 @@ static int mfu_copy_acls(
+@@ -451,10 +513,10 @@ static int mfu_copy_acls(
               rc = -1;
             }
           }
@@ -875,7 +936,7 @@ index 8024cba..3d9109c 100644
  #endif /* GPFS_SUPPORT */
  
      return rc;
-@@ -497,29 +547,6 @@ static int mfu_copy_timestamps(
+@@ -497,29 +559,6 @@ static int mfu_copy_timestamps(
      return rc;
  }
  
@@ -905,7 +966,7 @@ index 8024cba..3d9109c 100644
  /* progress message to print while setting file metadata */
  static void meta_progress_fn(const uint64_t* vals, int count, int complete, int ranks, double secs)
  {
-@@ -558,9 +585,16 @@ static void meta_progress_fn(const uint64_t* vals, int count, int complete, int
+@@ -558,9 +597,16 @@ static void meta_progress_fn(const uint64_t* vals, int count, int complete, int
   * and permissions starting from deepest level and working upwards,
   * we go in this direction in case updating a file updates its
   * parent directory */
@@ -925,7 +986,7 @@ index 8024cba..3d9109c 100644
  {
      /* assume we'll succeed */
      int rc = 0;
-@@ -573,7 +607,7 @@ static int mfu_copy_set_metadata(int levels, int minlevel, mfu_flist* lists,
+@@ -573,7 +619,7 @@ static int mfu_copy_set_metadata(int levels, int minlevel, mfu_flist* lists,
      MPI_Comm_rank(MPI_COMM_WORLD, &rank);
  
      if (rank == 0) {
@@ -934,7 +995,7 @@ index 8024cba..3d9109c 100644
              MFU_LOG(MFU_LOG_INFO, "Setting ownership, permissions, and timestamps.");
          }
          else {
-@@ -608,7 +642,7 @@ static int mfu_copy_set_metadata(int levels, int minlevel, mfu_flist* lists,
+@@ -608,7 +654,7 @@ static int mfu_copy_set_metadata(int levels, int minlevel, mfu_flist* lists,
  
              /* get destination name of item */
              char* dest = mfu_param_path_copy_dest(name, numpaths,
@@ -943,7 +1004,7 @@ index 8024cba..3d9109c 100644
  
              /* No need to copy it */
              if (dest == NULL) {
-@@ -618,12 +652,12 @@ static int mfu_copy_set_metadata(int levels, int minlevel, mfu_flist* lists,
+@@ -618,12 +664,12 @@ static int mfu_copy_set_metadata(int levels, int minlevel, mfu_flist* lists,
              /* update our running total */
              total_count++;
  
@@ -958,7 +1019,7 @@ index 8024cba..3d9109c 100644
                  if (tmp_rc < 0) {
                      rc = -1;
                  }
-@@ -639,7 +673,7 @@ static int mfu_copy_set_metadata(int levels, int minlevel, mfu_flist* lists,
+@@ -639,7 +685,7 @@ static int mfu_copy_set_metadata(int levels, int minlevel, mfu_flist* lists,
              else {
                  /* TODO: set permissions based on source permissons
                   * masked by umask */
@@ -967,7 +1028,7 @@ index 8024cba..3d9109c 100644
                  if (tmp_rc < 0) {
                      rc = -1;
                  }
-@@ -687,9 +721,16 @@ static int mfu_copy_set_metadata(int levels, int minlevel, mfu_flist* lists,
+@@ -687,9 +733,16 @@ static int mfu_copy_set_metadata(int levels, int minlevel, mfu_flist* lists,
   * and permissions starting from deepest level and working upwards,
   * we go in this direction in case updating a file updates its
   * parent directory */
@@ -987,7 +1048,7 @@ index 8024cba..3d9109c 100644
  {
      /* assume we'll succeed */
      int rc = 0;
-@@ -702,7 +743,7 @@ static int mfu_copy_set_metadata_dirs(int levels, int minlevel, mfu_flist* lists
+@@ -702,7 +755,7 @@ static int mfu_copy_set_metadata_dirs(int levels, int minlevel, mfu_flist* lists
      MPI_Comm_rank(MPI_COMM_WORLD, &rank);
  
      if (rank == 0) {
@@ -996,7 +1057,7 @@ index 8024cba..3d9109c 100644
              MFU_LOG(MFU_LOG_INFO, "Setting ownership, permissions, and timestamps on directories.");
          }
          else {
-@@ -734,7 +775,7 @@ static int mfu_copy_set_metadata_dirs(int levels, int minlevel, mfu_flist* lists
+@@ -734,7 +787,7 @@ static int mfu_copy_set_metadata_dirs(int levels, int minlevel, mfu_flist* lists
  
              /* get destination name of item */
              char* dest = mfu_param_path_copy_dest(name, numpaths,
@@ -1005,7 +1066,7 @@ index 8024cba..3d9109c 100644
  
              /* No need to copy it */
              if (dest == NULL) {
-@@ -750,12 +791,12 @@ static int mfu_copy_set_metadata_dirs(int levels, int minlevel, mfu_flist* lists
+@@ -750,12 +803,12 @@ static int mfu_copy_set_metadata_dirs(int levels, int minlevel, mfu_flist* lists
              /* update our running total */
              total_count++;
  
@@ -1020,7 +1081,7 @@ index 8024cba..3d9109c 100644
                  if (tmp_rc < 0) {
                      rc = -1;
                  }
-@@ -771,7 +812,7 @@ static int mfu_copy_set_metadata_dirs(int levels, int minlevel, mfu_flist* lists
+@@ -771,7 +824,7 @@ static int mfu_copy_set_metadata_dirs(int levels, int minlevel, mfu_flist* lists
              else {
                  /* TODO: set permissions based on source permissons
                   * masked by umask */
@@ -1029,7 +1090,7 @@ index 8024cba..3d9109c 100644
                  if (tmp_rc < 0) {
                      rc = -1;
                  }
-@@ -814,9 +855,15 @@ static int mfu_copy_set_metadata_dirs(int levels, int minlevel, mfu_flist* lists
+@@ -814,9 +867,15 @@ static int mfu_copy_set_metadata_dirs(int levels, int minlevel, mfu_flist* lists
   * and creates dir at same relative path under destpath, copies xattrs
   * when preserving permissions, which contains file striping info on Lustre,
   * returns 0 on success and -1 on error */
@@ -1048,7 +1109,7 @@ index 8024cba..3d9109c 100644
  {
      /* assume we'll succeed */
      int rc = 0;
-@@ -826,7 +873,7 @@ static int mfu_create_directory(mfu_flist list, uint64_t idx,
+@@ -826,7 +885,7 @@ static int mfu_create_directory(mfu_flist list, uint64_t idx,
  
      /* get destination name */
      char* dest_path = mfu_param_path_copy_dest(name, numpaths, paths,
@@ -1057,7 +1118,7 @@ index 8024cba..3d9109c 100644
  
      /* No need to copy it */
      if (dest_path == NULL) {
-@@ -845,7 +892,7 @@ static int mfu_create_directory(mfu_flist list, uint64_t idx,
+@@ -845,7 +904,7 @@ static int mfu_create_directory(mfu_flist list, uint64_t idx,
       * not dsync is on happens prior to this in
       * mfu_param_path_copy_dest. */
  
@@ -1066,7 +1127,7 @@ index 8024cba..3d9109c 100644
          (strncmp(dest_path, destpath->path, strlen(dest_path)) == 0) &&
          destpath->target_stat_valid)
      {
-@@ -855,7 +902,7 @@ static int mfu_create_directory(mfu_flist list, uint64_t idx,
+@@ -855,7 +914,7 @@ static int mfu_create_directory(mfu_flist list, uint64_t idx,
  
      /* create the destination directory */
      MFU_LOG(MFU_LOG_DBG, "Creating directory `%s'", dest_path);
@@ -1075,7 +1136,7 @@ index 8024cba..3d9109c 100644
      if(mkdir_rc < 0) {
          if(errno == EEXIST) {
              MFU_LOG(MFU_LOG_WARN,
-@@ -875,7 +922,7 @@ static int mfu_create_directory(mfu_flist list, uint64_t idx,
+@@ -875,7 +934,7 @@ static int mfu_create_directory(mfu_flist list, uint64_t idx,
       * creating / striping files in the directory */
  
      /* copy extended attributes on directory */
@@ -1084,7 +1145,7 @@ index 8024cba..3d9109c 100644
          int tmp_rc = mfu_copy_xattrs(list, idx, dest_path);
          if (tmp_rc < 0) {
              rc = -1;
-@@ -895,9 +942,16 @@ static int mfu_create_directory(mfu_flist list, uint64_t idx,
+@@ -895,9 +954,16 @@ static int mfu_create_directory(mfu_flist list, uint64_t idx,
   * with a barrier in between levels, so that we don't try to create
   * a child directory until the parent exists,
   * returns 0 on success and -1 on failure */
@@ -1104,7 +1165,7 @@ index 8024cba..3d9109c 100644
  {
      /* assume we'll succeed */
      int rc = 0;
-@@ -938,7 +992,7 @@ static int mfu_create_directories(int levels, int minlevel, mfu_flist* lists,
+@@ -938,7 +1004,7 @@ static int mfu_create_directories(int levels, int minlevel, mfu_flist* lists,
              if (type == MFU_TYPE_DIR) {
                  /* create the directory */
                  int tmp_rc = mfu_create_directory(list, idx, numpaths,
@@ -1113,7 +1174,7 @@ index 8024cba..3d9109c 100644
                  if (tmp_rc < 0) {
                      rc = -1;
                  }
-@@ -1003,9 +1057,15 @@ static int mfu_create_directories(int levels, int minlevel, mfu_flist* lists,
+@@ -1003,9 +1069,15 @@ static int mfu_create_directories(int levels, int minlevel, mfu_flist* lists,
   * that contains source link, computes relative path to link under source path,
   * and creates link at same relative path under destpath,
   * returns 0 on success and -1 on error */
@@ -1132,7 +1193,7 @@ index 8024cba..3d9109c 100644
  {
      /* assume we'll succeed */
      int rc = 0;
-@@ -1015,7 +1075,7 @@ static int mfu_create_link(mfu_flist list, uint64_t idx,
+@@ -1015,7 +1087,7 @@ static int mfu_create_link(mfu_flist list, uint64_t idx,
  
      /* get destination name */
      const char* dest_path = mfu_param_path_copy_dest(src_path, numpaths,
@@ -1141,7 +1202,25 @@ index 8024cba..3d9109c 100644
  
      /* No need to copy it */
      if (dest_path == NULL) {
-@@ -1053,7 +1113,7 @@ static int mfu_create_link(mfu_flist list, uint64_t idx,
+@@ -1024,7 +1096,7 @@ static int mfu_create_link(mfu_flist list, uint64_t idx,
+ 
+     /* read link target */
+     char path[PATH_MAX + 1];
+-    ssize_t readlink_rc = mfu_readlink(src_path, path, sizeof(path) - 1);
++    ssize_t readlink_rc = mfu_file_readlink(src_path, path, sizeof(path) - 1, mfu_src_file);
+     if(readlink_rc < 0) {
+         MFU_LOG(MFU_LOG_ERR, "Failed to read link `%s' readlink() (errno=%d %s)",
+             src_path, errno, strerror(errno)
+@@ -1037,7 +1109,7 @@ static int mfu_create_link(mfu_flist list, uint64_t idx,
+     path[readlink_rc] = '\0';
+ 
+     /* create new link */
+-    int symlink_rc = mfu_symlink(path, dest_path);
++    int symlink_rc = mfu_file_symlink(path, dest_path, mfu_dst_file);
+     if(symlink_rc < 0) {
+         if(errno == EEXIST) {
+             MFU_LOG(MFU_LOG_WARN,
+@@ -1053,7 +1125,7 @@ static int mfu_create_link(mfu_flist list, uint64_t idx,
      }
  
      /* set permissions on link */
@@ -1150,7 +1229,7 @@ index 8024cba..3d9109c 100644
          int xattr_rc = mfu_copy_xattrs(list, idx, dest_path);
          if (xattr_rc < 0) {
              rc = -1;
-@@ -1074,9 +1134,15 @@ static int mfu_create_link(mfu_flist list, uint64_t idx,
+@@ -1074,9 +1146,15 @@ static int mfu_create_link(mfu_flist list, uint64_t idx,
   * and creates file at same relative path under destpath, copies xattrs
   * when preserving permissions, which contains file striping info on Lustre,
   * returns 0 on success and -1 on error */
@@ -1169,7 +1248,7 @@ index 8024cba..3d9109c 100644
  {
      /* assume we'll succeed */
      int rc = 0;
-@@ -1086,7 +1152,7 @@ static int mfu_create_file(mfu_flist list, uint64_t idx,
+@@ -1086,7 +1164,7 @@ static int mfu_create_file(mfu_flist list, uint64_t idx,
  
      /* get destination name */
      const char* dest_path = mfu_param_path_copy_dest(src_path, numpaths,
@@ -1178,7 +1257,7 @@ index 8024cba..3d9109c 100644
  
      /* No need to copy it */
      if (dest_path == NULL) {
-@@ -1101,12 +1167,11 @@ static int mfu_create_file(mfu_flist list, uint64_t idx,
+@@ -1101,12 +1179,11 @@ static int mfu_create_file(mfu_flist list, uint64_t idx,
       * see makedev() to create valid dev */
      dev_t dev;
      memset(&dev, 0, sizeof(dev_t));
@@ -1193,7 +1272,7 @@ index 8024cba..3d9109c 100644
                      dest_path, errno, strerror(errno));
          } else {
              /* failed to create inode, that's a problem */
-@@ -1121,7 +1186,7 @@ static int mfu_create_file(mfu_flist list, uint64_t idx,
+@@ -1121,7 +1198,7 @@ static int mfu_create_file(mfu_flist list, uint64_t idx,
      /* copy extended attributes, important to do this first before
       * writing data because some attributes tell file system how to
       * stripe data, e.g., Lustre */
@@ -1202,7 +1281,7 @@ index 8024cba..3d9109c 100644
          int tmp_rc = mfu_copy_xattrs(list, idx, dest_path);
          if (tmp_rc < 0) {
              rc = -1;
-@@ -1131,10 +1196,10 @@ static int mfu_create_file(mfu_flist list, uint64_t idx,
+@@ -1131,10 +1208,10 @@ static int mfu_create_file(mfu_flist list, uint64_t idx,
      /* Truncate destination files to 0 bytes when sparse file is enabled,
       * this is because we will not overwrite sections corresponding to holes
       * and we need those to be set to 0 */
@@ -1215,7 +1294,7 @@ index 8024cba..3d9109c 100644
          if (status == 0) {
              /* destination exists, truncate it to 0 bytes */
              status = mfu_truncate(dest_path, 0);
-@@ -1166,9 +1231,14 @@ static int mfu_create_file(mfu_flist list, uint64_t idx,
+@@ -1166,9 +1243,14 @@ static int mfu_create_file(mfu_flist list, uint64_t idx,
  
  /* creates hardlink in destpath for specified file, identifies source path
   * returns 0 on success and -1 on error */
@@ -1233,7 +1312,7 @@ index 8024cba..3d9109c 100644
  {
      /* assume we'll succeed */
      int rc = 0;
-@@ -1178,7 +1248,7 @@ static int mfu_create_hardlink(mfu_flist list, uint64_t idx,
+@@ -1178,7 +1260,7 @@ static int mfu_create_hardlink(mfu_flist list, uint64_t idx,
  
      /* get destination name */
      const char* dest_path = mfu_param_path_copy_dest(src_path, 1,
@@ -1242,7 +1321,7 @@ index 8024cba..3d9109c 100644
  
      /* No need to copy it */
      if (dest_path == NULL) {
-@@ -1238,9 +1308,16 @@ static void create_progress_fn(const uint64_t* vals, int count, int complete, in
+@@ -1238,9 +1320,16 @@ static void create_progress_fn(const uint64_t* vals, int count, int complete, in
  
  /* creates file inodes and symlinks,
   * returns 0 on success and -1 on error */
@@ -1262,7 +1341,7 @@ index 8024cba..3d9109c 100644
  {
      int rc = 0;
  
-@@ -1284,7 +1361,7 @@ static int mfu_create_files(int levels, int minlevel, mfu_flist* lists,
+@@ -1284,7 +1373,7 @@ static int mfu_create_files(int levels, int minlevel, mfu_flist* lists,
              if (type == MFU_TYPE_FILE) {
                  /* create inode and copy xattr for regular file */
                  int tmp_rc = mfu_create_file(list, idx, numpaths,
@@ -1271,7 +1350,7 @@ index 8024cba..3d9109c 100644
                  if (tmp_rc < 0) {
                      rc = -1;
                  }
-@@ -1293,7 +1370,7 @@ static int mfu_create_files(int levels, int minlevel, mfu_flist* lists,
+@@ -1293,7 +1382,7 @@ static int mfu_create_files(int levels, int minlevel, mfu_flist* lists,
              } else if (type == MFU_TYPE_LINK) {
                  /* create symlink */
                  int tmp_rc = mfu_create_link(list, idx, numpaths,
@@ -1280,7 +1359,7 @@ index 8024cba..3d9109c 100644
                  if (tmp_rc < 0) {
                      rc = -1;
                  }
-@@ -1359,9 +1436,15 @@ static int mfu_create_files(int levels, int minlevel, mfu_flist* lists,
+@@ -1359,9 +1448,15 @@ static int mfu_create_files(int levels, int minlevel, mfu_flist* lists,
  
  /* creates hardlinks,
   * returns 0 on success and -1 on error */
@@ -1299,7 +1378,7 @@ index 8024cba..3d9109c 100644
  {
      int rc = 0;
  
-@@ -1404,8 +1487,9 @@ static int mfu_create_hardlinks(int levels, int minlevel, mfu_flist* lists,
+@@ -1404,8 +1499,9 @@ static int mfu_create_hardlinks(int levels, int minlevel, mfu_flist* lists,
                  continue;
              }
  
@@ -1311,7 +1390,7 @@ index 8024cba..3d9109c 100644
              if (tmp_rc != 0) {
                  rc = -1;
              }
-@@ -1527,95 +1611,87 @@ static int mfu_is_all_null(const char* buf, uint64_t buf_size)
+@@ -1527,95 +1623,87 @@ static int mfu_is_all_null(const char* buf, uint64_t buf_size)
      return 1;
  }
  
@@ -1414,7 +1493,10 @@ index 8024cba..3d9109c 100644
          /* read data from source file */
 -        ssize_t num_of_bytes_read = mfu_read(src, in_fd, buf, left_to_read);
 +        ssize_t bytes_read = mfu_file_pread(src, buf, left_to_read, off, mfu_src_file);
-+
+ 
+-        /* check for EOF */
+-        if(! num_of_bytes_read) {
+-            break;
 +        /* If we're using O_DIRECT, deal with short reads.
 +         * Retry with same buffer and offset since those must
 +         * be aligned at block boundaries. */
@@ -1433,10 +1515,7 @@ index 8024cba..3d9109c 100644
 +                src, dest, errno, strerror(errno));
 +            return -1;
 +        }
- 
--        /* check for EOF */
--        if(! num_of_bytes_read) {
--            break;
++
 +        /* check for early EOF */
 +        if (bytes_read == 0) {
 +            MFU_LOG(MFU_LOG_ERR, "Source file `%s' shorter than expected %llu (errno=%d %s)",
@@ -1464,7 +1543,7 @@ index 8024cba..3d9109c 100644
                  memset(bufzero, 0, remainder);
              }
  
-@@ -1623,69 +1699,46 @@ static int mfu_copy_file_normal(
+@@ -1623,69 +1711,46 @@ static int mfu_copy_file_normal(
              bytes_to_write = buf_size;
          }
  
@@ -1491,14 +1570,6 @@ index 8024cba..3d9109c 100644
 +        if (copy_opts->sparse && mfu_is_all_null(buf, bytes_to_write)) {
 +            skip_write = 1;
 +        }
-+
-+        /* write data to destination file if needed */
-+        if (! skip_write) {
-+            /* we loop to account for short writes */
-+            ssize_t n = 0;
-+            while (n < bytes_to_write) {
-+                /* write bytes to destination file */
-+                ssize_t bytes_written = mfu_file_pwrite(dest, ((char*)buf) + n, bytes_to_write - n, off + n, mfu_dst_file);
  
 -            /* if we're at the end of the file, write out a byte,
 -             * otherwise just seek out destination file pointer
@@ -1508,6 +1579,14 @@ index 8024cba..3d9109c 100644
 -                if(mfu_lseek(dest, out_fd, (off_t)bytes_to_write - 1, SEEK_CUR) == (off_t)-1) {
 -                    MFU_LOG(MFU_LOG_ERR, "Couldn't seek in destination path `%s' (errno=%d %s)",
 -                        dest, errno, strerror(errno));
++        /* write data to destination file if needed */
++        if (! skip_write) {
++            /* we loop to account for short writes */
++            ssize_t n = 0;
++            while (n < bytes_to_write) {
++                /* write bytes to destination file */
++                ssize_t bytes_written = mfu_file_pwrite(dest, ((char*)buf) + n, bytes_to_write - n, off + n, mfu_dst_file);
++
 +                /* check for an error */
 +                if (bytes_written < 0) {
 +                    MFU_LOG(MFU_LOG_ERR, "Write error when copying from `%s' to `%s' (errno=%d %s)",
@@ -1535,8 +1614,8 @@ index 8024cba..3d9109c 100644
 -        } else {
 -            /* write bytes to destination file */
 -            num_of_bytes_written = mfu_write(dest, out_fd, buf, bytes_to_write);
--        }
--
+         }
+ 
 -        /* check for an error */
 -        if(num_of_bytes_written < 0) {
 -            MFU_LOG(MFU_LOG_ERR, "Write error when copying from `%s' to `%s' (errno=%d %s)",
@@ -1549,8 +1628,8 @@ index 8024cba..3d9109c 100644
 -            MFU_LOG(MFU_LOG_ERR, "Write error when copying from `%s' to `%s'",
 -                src, dest);
 -            return -1;
-         }
- 
+-        }
+-
 -        /* add bytes to our total (use bytes read,
 -         * which may be less than number written) */
 -        total_bytes += (size_t) num_of_bytes_read;
@@ -1564,7 +1643,7 @@ index 8024cba..3d9109c 100644
          mfu_progress_update(&copy_count, copy_prog);
      }
  
-@@ -1695,17 +1748,11 @@ static int mfu_copy_file_normal(
+@@ -1695,17 +1760,11 @@ static int mfu_copy_file_normal(
  
  #if 0
      /* force data to file system */
@@ -1583,7 +1662,7 @@ index 8024cba..3d9109c 100644
      /* if we wrote the last chunk, truncate the file */
      off_t last_written = offset + length;
      off_t file_size_offt = (off_t) file_size;
-@@ -1713,31 +1760,29 @@ static int mfu_copy_file_normal(
+@@ -1713,31 +1772,29 @@ static int mfu_copy_file_normal(
          /* Use ftruncate() here rather than truncate(), because grouplock
           * of Lustre would cause block to truncate() since the fd is different
           * from the out_fd. */
@@ -1621,7 +1700,7 @@ index 8024cba..3d9109c 100644
          goto fail_normal_copy;
      }
  
-@@ -1758,11 +1803,11 @@ static int mfu_copy_file_fiemap(
+@@ -1758,11 +1815,11 @@ static int mfu_copy_file_fiemap(
      fiemap->fm_mapped_extents = 0;
  
      struct stat sb;
@@ -1635,7 +1714,7 @@ index 8024cba..3d9109c 100644
          MFU_LOG(MFU_LOG_ERR, "fiemap ioctl() failed for src `%s'", src);
          goto fail_normal_copy;
      }
-@@ -1780,7 +1825,7 @@ static int mfu_copy_file_fiemap(
+@@ -1780,7 +1837,7 @@ static int mfu_copy_file_fiemap(
      fiemap->fm_extent_count   = fiemap->fm_mapped_extents;
      fiemap->fm_mapped_extents = 0;
  
@@ -1644,7 +1723,7 @@ index 8024cba..3d9109c 100644
          MFU_LOG(MFU_LOG_ERR, "fiemap ioctl() failed for src `%s'", src);
          goto fail_normal_copy;
      }
-@@ -1806,14 +1851,14 @@ static int mfu_copy_file_fiemap(
+@@ -1806,14 +1863,14 @@ static int mfu_copy_file_fiemap(
      *normal_copy_required = false;
  
      /* seek to offset in source file */
@@ -1661,7 +1740,7 @@ index 8024cba..3d9109c 100644
          MFU_LOG(MFU_LOG_ERR, "Couldn't seek in destination path `%s' (errno=%d %s)",
              dest, errno, strerror(errno));
          goto fail;
-@@ -1825,20 +1870,20 @@ static int mfu_copy_file_fiemap(
+@@ -1825,20 +1882,20 @@ static int mfu_copy_file_fiemap(
          size_t ext_len;
          size_t ext_hole_size;
  
@@ -1686,7 +1765,7 @@ index 8024cba..3d9109c 100644
                  MFU_LOG(MFU_LOG_ERR, "Couldn't seek in destination path `%s' (errno=%d %s)",
                      dest, errno, strerror(errno));
                  goto fail;
-@@ -1849,12 +1894,11 @@ static int mfu_copy_file_fiemap(
+@@ -1849,12 +1906,11 @@ static int mfu_copy_file_fiemap(
          last_ext_len = ext_len;
  
          while (ext_len) {
@@ -1701,7 +1780,7 @@ index 8024cba..3d9109c 100644
  
              if (num_written < 0) {
                  MFU_LOG(MFU_LOG_ERR, "Write error when copying from `%s' to `%s' (errno=%d %s)",
-@@ -1878,7 +1922,7 @@ static int mfu_copy_file_fiemap(
+@@ -1878,7 +1934,7 @@ static int mfu_copy_file_fiemap(
          /* Use ftruncate() here rather than truncate(), because grouplock
           * of Lustre would cause block to truncate() since the fd is different
           * from the out_fd. */
@@ -1710,7 +1789,7 @@ index 8024cba..3d9109c 100644
              MFU_LOG(MFU_LOG_ERR, "Failed to truncate destination file: %s (errno=%d %s)",
                  dest, errno, strerror(errno));
              goto fail;
-@@ -1907,38 +1951,41 @@ static int mfu_copy_file(
+@@ -1907,38 +1963,42 @@ static int mfu_copy_file(
      uint64_t offset,
      uint64_t length,
      uint64_t file_size,
@@ -1725,9 +1804,9 @@ index 8024cba..3d9109c 100644
      /* open the input file */
 -    int in_fd = mfu_copy_open_file(src, 1, &mfu_copy_src_cache, mfu_copy_opts);
 -    if (in_fd < 0) {
-+    mfu_copy_open_file(src, 1, &mfu_copy_src_cache,
-+                       copy_opts, mfu_src_file);
-+    if (mfu_src_file->fd < 0 && mfu_src_file->type != DAOS) {
++    ret = mfu_copy_open_file(src, 1, &mfu_copy_src_cache,
++                             copy_opts, mfu_src_file);
++    if (ret) {
          MFU_LOG(MFU_LOG_ERR, "Failed to open input file `%s' (errno=%d %s)",
              src, errno, strerror(errno));
          return -1;
@@ -1736,12 +1815,12 @@ index 8024cba..3d9109c 100644
      /* open the output file */
 -    int out_fd = mfu_copy_open_file(dest, 0, &mfu_copy_dst_cache, mfu_copy_opts);
 -    if (out_fd < 0) {
--        MFU_LOG(MFU_LOG_ERR, "Failed to open output file `%s' (errno=%d %s)",
++    ret = mfu_copy_open_file(dest, 0, &mfu_copy_dst_cache,
++                             copy_opts, mfu_dst_file);
++    if (ret) {
+         MFU_LOG(MFU_LOG_ERR, "Failed to open output file `%s' (errno=%d %s)",
 -            dest, errno, strerror(errno));
-+    mfu_copy_open_file(dest, 0, &mfu_copy_dst_cache,
-+                       copy_opts, mfu_dst_file);
-+    if (mfu_dst_file->fd < 0 && mfu_dst_file->type != DAOS) {
-+        MFU_LOG(MFU_LOG_ERR, "Failed to open output file `%s' (errno=%d %s)", dest, errno, strerror(errno));
++                dest, errno, strerror(errno));
          return -1;
      }
  
@@ -1766,7 +1845,7 @@ index 8024cba..3d9109c 100644
  
      return ret;
  }
-@@ -1946,9 +1993,14 @@ static int mfu_copy_file(
+@@ -1946,9 +2006,14 @@ static int mfu_copy_file(
  /* slices files in list at boundaries of chunk size, evenly distributes
   * chunks, and copies data from source to destination file,
   * returns 0 on success and -1 on error */
@@ -1784,7 +1863,7 @@ index 8024cba..3d9109c 100644
  {
      /* assume we'll succeed */
      int rc = 0;
-@@ -1979,7 +2031,7 @@ static int mfu_copy_files(mfu_flist list, uint64_t chunk_size,
+@@ -1979,7 +2044,7 @@ static int mfu_copy_files(mfu_flist list, uint64_t chunk_size,
  
      /* split file list into a linked list of file sections,
       * this evenly spreads the file sections across processes */
@@ -1793,7 +1872,7 @@ index 8024cba..3d9109c 100644
  
      /* get a count of how many items are the chunk list */
      uint64_t list_count = mfu_file_chunk_list_size(head);
-@@ -1998,7 +2050,7 @@ static int mfu_copy_files(mfu_flist list, uint64_t chunk_size,
+@@ -1998,7 +2063,7 @@ static int mfu_copy_files(mfu_flist list, uint64_t chunk_size,
  
          /* get name of destination file */
          char* dest = mfu_param_path_copy_dest(p->name, numpaths,
@@ -1802,7 +1881,7 @@ index 8024cba..3d9109c 100644
          if (dest == NULL) {
              /* No need to copy it */
              p = p->next;
-@@ -2011,7 +2063,8 @@ static int mfu_copy_files(mfu_flist list, uint64_t chunk_size,
+@@ -2011,7 +2076,8 @@ static int mfu_copy_files(mfu_flist list, uint64_t chunk_size,
          /* copy portion of file corresponding to this chunk,
           * and record whether copy operation succeeded */
          int copy_rc = mfu_copy_file(p->name, dest, (uint64_t)p->offset,
@@ -1812,7 +1891,7 @@ index 8024cba..3d9109c 100644
          if (copy_rc < 0) {
              /* error copying file */
              vals[i] = 1;
-@@ -2025,8 +2078,8 @@ static int mfu_copy_files(mfu_flist list, uint64_t chunk_size,
+@@ -2025,8 +2091,8 @@ static int mfu_copy_files(mfu_flist list, uint64_t chunk_size,
      }
  
      /* close files */
@@ -1823,7 +1902,7 @@ index 8024cba..3d9109c 100644
  
      /* barrier to ensure all files are closed,
       * may try to unlink bad destination files below */
-@@ -2052,7 +2105,7 @@ static int mfu_copy_files(mfu_flist list, uint64_t chunk_size,
+@@ -2052,7 +2118,7 @@ static int mfu_copy_files(mfu_flist list, uint64_t chunk_size,
               * compute destination name and delete it */
              const char* name = mfu_flist_file_get_name(list, i);
              const char* dest = mfu_param_path_copy_dest(name, numpaths,
@@ -1832,7 +1911,7 @@ index 8024cba..3d9109c 100644
              if (dest != NULL) {
                  /* sanity check to ensure we don't * delete the source file */
                  if (strcmp(dest, name) != 0) {
-@@ -2060,7 +2113,7 @@ static int mfu_copy_files(mfu_flist list, uint64_t chunk_size,
+@@ -2060,7 +2126,7 @@ static int mfu_copy_files(mfu_flist list, uint64_t chunk_size,
                      rc = -1;
  #if 0
                      /* delete destination file */
@@ -1841,7 +1920,17 @@ index 8024cba..3d9109c 100644
                      if (unlink_rc != 0) {
                          MFU_LOG(MFU_LOG_ERR, "Failed to unlink `%s' (errno=%d %s)",
                                    name, errno, strerror(errno)
-@@ -2243,25 +2296,35 @@ static void print_summary(mfu_flist flist)
+@@ -2075,6 +2141,9 @@ static int mfu_copy_files(mfu_flist list, uint64_t chunk_size,
+         }
+     }
+ 
++    /* free the list of success/fail for each chunk */
++    mfu_free(&vals);
++
+     /* free copy flags */
+     mfu_free(&results);
+ 
+@@ -2243,25 +2312,35 @@ static void print_summary(mfu_flist flist)
      return;
  }
  
@@ -1884,7 +1973,7 @@ index 8024cba..3d9109c 100644
      }
      mfu_flist_print_summary(src_cp_list);
  
-@@ -2270,8 +2333,8 @@ int mfu_flist_copy(mfu_flist src_cp_list, int numpaths,
+@@ -2270,8 +2349,8 @@ int mfu_flist_copy(mfu_flist src_cp_list, int numpaths,
  
      /* allocate buffer to read/write files, aligned on 1MB boundaraies */
      size_t alignment = 1024*1024;
@@ -1895,7 +1984,7 @@ index 8024cba..3d9109c 100644
  
      /* Grab a relative and actual start time for the epilogue. */
      time(&(mfu_copy_stats.time_started));
-@@ -2298,13 +2361,13 @@ int mfu_flist_copy(mfu_flist src_cp_list, int numpaths,
+@@ -2298,13 +2377,13 @@ int mfu_flist_copy(mfu_flist src_cp_list, int numpaths,
  
      /* create directories, from top down */
      int tmp_rc = mfu_create_directories(levels, minlevel, lists, numpaths,
@@ -1911,7 +2000,7 @@ index 8024cba..3d9109c 100644
      if (batch_size > 0) {
          /* operate in batches, get total size of list, our global
           * offset within it, and the local size of our list to
-@@ -2361,14 +2424,14 @@ int mfu_flist_copy(mfu_flist src_cp_list, int numpaths,
+@@ -2361,14 +2440,14 @@ int mfu_flist_copy(mfu_flist src_cp_list, int numpaths,
  
                  /* create files and links */
                  tmp_rc = mfu_create_files(levels2, minlevel2, lists2, numpaths,
@@ -1929,7 +2018,7 @@ index 8024cba..3d9109c 100644
                  if (tmp_rc < 0) {
                      rc = -1;
                  }
-@@ -2379,7 +2442,7 @@ int mfu_flist_copy(mfu_flist src_cp_list, int numpaths,
+@@ -2379,7 +2458,7 @@ int mfu_flist_copy(mfu_flist src_cp_list, int numpaths,
  
                  /* set permissions, ownership, and timestamps if needed */
                  mfu_copy_set_metadata(levels2, minlevel2, lists2, numpaths,
@@ -1938,7 +2027,7 @@ index 8024cba..3d9109c 100644
  
                  /* free our lists of levels */
                  mfu_flist_array_free(levels2, &lists2);
-@@ -2466,7 +2529,7 @@ int mfu_flist_copy(mfu_flist src_cp_list, int numpaths,
+@@ -2466,7 +2545,7 @@ int mfu_flist_copy(mfu_flist src_cp_list, int numpaths,
  
          /* set permissions, ownership, and timestamps if needed */
          mfu_copy_set_metadata_dirs(levels, minlevel, lists, numpaths,
@@ -1947,7 +2036,7 @@ index 8024cba..3d9109c 100644
  
          /* force updates to disk */
          mfu_sync_all("Syncing directory updates to disk.");
-@@ -2475,14 +2538,14 @@ int mfu_flist_copy(mfu_flist src_cp_list, int numpaths,
+@@ -2475,14 +2554,14 @@ int mfu_flist_copy(mfu_flist src_cp_list, int numpaths,
  
          /* create files and links */
          tmp_rc = mfu_create_files(levels, minlevel, lists, numpaths,
@@ -1965,7 +2054,7 @@ index 8024cba..3d9109c 100644
          if (tmp_rc < 0) {
              rc = -1;
          }
-@@ -2493,7 +2556,7 @@ int mfu_flist_copy(mfu_flist src_cp_list, int numpaths,
+@@ -2493,7 +2572,7 @@ int mfu_flist_copy(mfu_flist src_cp_list, int numpaths,
  
          /* set permissions, ownership, and timestamps if needed */
          mfu_copy_set_metadata(levels, minlevel, lists, numpaths,
@@ -1974,7 +2063,7 @@ index 8024cba..3d9109c 100644
  
          /* force updates to disk */
          mfu_sync_all("Syncing directory updates to disk.");
-@@ -2503,8 +2566,8 @@ int mfu_flist_copy(mfu_flist src_cp_list, int numpaths,
+@@ -2503,8 +2582,8 @@ int mfu_flist_copy(mfu_flist src_cp_list, int numpaths,
      mfu_flist_array_free(levels, &lists);
  
      /* free buffers */
@@ -1985,7 +2074,7 @@ index 8024cba..3d9109c 100644
  
      /* Determine the actual and relative end time for the epilogue. */
      mfu_copy_stats.wtime_ended = MPI_Wtime();
-@@ -2642,12 +2705,14 @@ static int mfu_fill_file(
+@@ -2642,17 +2721,17 @@ static int mfu_fill_file(
      uint64_t offset,
      uint64_t length,
      uint64_t file_size,
@@ -1993,16 +2082,22 @@ index 8024cba..3d9109c 100644
 +    mfu_copy_opts_t* copy_opts,
 +    mfu_file_t* mfu_file)
  {
-     int ret;
- 
+-    int ret;
+-
      /* open the file */
 -    int out_fd = mfu_copy_open_file(dest, 0, &mfu_copy_dst_cache, mfu_copy_opts);
-+    mfu_copy_open_file(dest, 0, &mfu_copy_dst_cache, copy_opts, mfu_file);
-+    int out_fd = mfu_file->fd; 
-     if (out_fd < 0) {
+-    if (out_fd < 0) {
++    int ret = mfu_copy_open_file(dest, 0, &mfu_copy_dst_cache, copy_opts, mfu_file);
++    if (ret) {
          MFU_LOG(MFU_LOG_ERR, "Failed to open output file `%s' (errno=%d %s)",
              dest, errno, strerror(errno));
-@@ -2662,8 +2727,8 @@ static int mfu_fill_file(
+         return -1;
+     }
++    int out_fd = mfu_file->fd;
+ 
+     /* seek to offset in file */
+     if (mfu_lseek(dest, out_fd, offset, SEEK_SET) == (off_t)-1) {
+@@ -2662,8 +2741,8 @@ static int mfu_fill_file(
      }
  
      /* get buffer */
@@ -2013,7 +2108,7 @@ index 8024cba..3d9109c 100644
  
      /* fill buffer with data */
  
-@@ -2678,7 +2743,7 @@ static int mfu_fill_file(
+@@ -2678,7 +2757,7 @@ static int mfu_fill_file(
          }
  
          /* compute number of bytes to write */
@@ -2022,7 +2117,7 @@ index 8024cba..3d9109c 100644
              /* O_DIRECT requires particular write sizes,
               * ok to write beyond end of file so long as
               * we truncate in cleanup step */
-@@ -2715,7 +2780,6 @@ static int mfu_fill_file(
+@@ -2715,7 +2794,6 @@ static int mfu_fill_file(
      /* Increment the global counter. */
      //mfu_copy_stats.total_size += (int64_t) total_bytes;
      //mfu_copy_stats.total_bytes_copied += (int64_t) total_bytes;
@@ -2030,7 +2125,7 @@ index 8024cba..3d9109c 100644
  #if 0
      /* force data to file system */
      if(total_bytes > 0) {
-@@ -2742,19 +2806,19 @@ static int mfu_fill_file(
+@@ -2742,19 +2820,19 @@ static int mfu_fill_file(
      return ret;
  }
  
@@ -2055,7 +2150,7 @@ index 8024cba..3d9109c 100644
      }
  
      /* determine whether we should print status messages */
-@@ -2784,7 +2848,7 @@ int mfu_flist_fill(mfu_flist list, mfu_copy_opts_t* mfu_copy_opts)
+@@ -2784,7 +2862,7 @@ int mfu_flist_fill(mfu_flist list, mfu_copy_opts_t* mfu_copy_opts)
  
      /* split file list into a linked list of file sections,
       * this evenly spreads the file sections across processes */
@@ -2064,7 +2159,7 @@ index 8024cba..3d9109c 100644
  
      /* get a count of how many items are the chunk list */
      uint64_t list_count = mfu_file_chunk_list_size(head);
-@@ -2807,7 +2871,7 @@ int mfu_flist_fill(mfu_flist list, mfu_copy_opts_t* mfu_copy_opts)
+@@ -2807,7 +2885,7 @@ int mfu_flist_fill(mfu_flist list, mfu_copy_opts_t* mfu_copy_opts)
          /* copy portion of file corresponding to this chunk,
           * and record whether copy operation succeeded */
          int copy_rc = mfu_fill_file(p->name, (uint64_t)p->offset,
@@ -2073,7 +2168,7 @@ index 8024cba..3d9109c 100644
          if (copy_rc < 0) {
              /* error copying file */
              vals[i] = 1;
-@@ -2818,7 +2882,7 @@ int mfu_flist_fill(mfu_flist list, mfu_copy_opts_t* mfu_copy_opts)
+@@ -2818,7 +2896,7 @@ int mfu_flist_fill(mfu_flist list, mfu_copy_opts_t* mfu_copy_opts)
      }
  
      /* close files */
@@ -2082,7 +2177,7 @@ index 8024cba..3d9109c 100644
  
      /* barrier to ensure all files are closed,
       * may try to unlink bad destination files below */
-@@ -2893,7 +2957,7 @@ int mfu_flist_fill(mfu_flist list, mfu_copy_opts_t* mfu_copy_opts)
+@@ -2893,7 +2971,7 @@ int mfu_flist_fill(mfu_flist list, mfu_copy_opts_t* mfu_copy_opts)
      }
  
      /* force data to backend to avoid the following metadata
@@ -2091,7 +2186,7 @@ index 8024cba..3d9109c 100644
       mfu_sync_all("Syncing data to disk.");
  
      /* determine whether any process reported an error,
-@@ -2901,13 +2965,16 @@ int mfu_flist_fill(mfu_flist list, mfu_copy_opts_t* mfu_copy_opts)
+@@ -2901,13 +2979,16 @@ int mfu_flist_fill(mfu_flist list, mfu_copy_opts_t* mfu_copy_opts)
      int all_rc;
      MPI_Allreduce(&rc, &all_rc, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
      rc = all_rc;
@@ -2112,7 +2207,7 @@ index 8024cba..3d9109c 100644
  {
      /* assume we'll succeed */
      int rc = 0;
-@@ -2916,14 +2983,12 @@ int mfu_flist_hardlink(mfu_flist src_link_list,
+@@ -2916,14 +2997,12 @@ int mfu_flist_hardlink(mfu_flist src_link_list,
      int rank;
      MPI_Comm_rank(MPI_COMM_WORLD, &rank);
  
@@ -2129,7 +2224,7 @@ index 8024cba..3d9109c 100644
      }
      mfu_flist_print_summary(src_link_list);
  
-@@ -2952,7 +3017,7 @@ int mfu_flist_hardlink(mfu_flist src_link_list,
+@@ -2952,7 +3031,7 @@ int mfu_flist_hardlink(mfu_flist src_link_list,
  
      /* create directories, from top down */
      int tmp_rc = mfu_create_directories(levels, minlevel, lists, 1,
@@ -2138,7 +2233,7 @@ index 8024cba..3d9109c 100644
      if (tmp_rc < 0) {
          rc = -1;
      }
-@@ -2964,14 +3029,14 @@ int mfu_flist_hardlink(mfu_flist src_link_list,
+@@ -2964,14 +3043,14 @@ int mfu_flist_hardlink(mfu_flist src_link_list,
       * has better idea for it. */
      /* create hard links */
      tmp_rc = mfu_create_hardlinks(levels, minlevel, lists,
@@ -2155,7 +2250,7 @@ index 8024cba..3d9109c 100644
  
      /* force updates to disk */
      mfu_sync_all("Syncing directory updates to disk.");
-@@ -3037,7 +3102,9 @@ int mfu_flist_hardlink(mfu_flist src_link_list,
+@@ -3037,7 +3116,9 @@ int mfu_flist_hardlink(mfu_flist src_link_list,
      return rc;
  }
  
@@ -2166,7 +2261,7 @@ index 8024cba..3d9109c 100644
  {
      /* assume we'll succeed */
      int rc = 0;
-@@ -3065,19 +3132,13 @@ int mfu_flist_file_sync_meta(mfu_flist src_list, uint64_t src_index, mfu_flist d
+@@ -3065,19 +3146,13 @@ int mfu_flist_file_sync_meta(mfu_flist src_list, uint64_t src_index, mfu_flist d
      mode_t src_mode = (mode_t) mfu_flist_file_get_mode(src_list, src_index);
      mode_t dst_mode = (mode_t) mfu_flist_file_get_mode(dst_list, dst_index);
      if (src_mode != dst_mode) {
@@ -2187,7 +2282,7 @@ index 8024cba..3d9109c 100644
  
      /* get atime seconds and nsecs */
      uint64_t src_atime      = mfu_flist_file_get_atime(src_list, src_index);
-@@ -3104,6 +3165,28 @@ int mfu_flist_file_sync_meta(mfu_flist src_list, uint64_t src_index, mfu_flist d
+@@ -3104,6 +3179,28 @@ int mfu_flist_file_sync_meta(mfu_flist src_list, uint64_t src_index, mfu_flist d
      return rc;
  }
  
@@ -2216,7 +2311,7 @@ index 8024cba..3d9109c 100644
  /* return a newly allocated copy_opts structure, set default values on its fields */
  mfu_copy_opts_t* mfu_copy_opts_new(void)
  {
-@@ -3113,36 +3196,36 @@ mfu_copy_opts_t* mfu_copy_opts_new(void)
+@@ -3113,36 +3210,36 @@ mfu_copy_opts_t* mfu_copy_opts_new(void)
      opts->copy_into_dir = 0;
  
      /* By default, we want the sync option off */
@@ -2266,7 +2361,7 @@ index 8024cba..3d9109c 100644
      return opts;
  }
 diff --git a/src/common/mfu_flist_walk.c b/src/common/mfu_flist_walk.c
-index 264bf2a..08836c4 100644
+index 264bf2a..048b39f 100644
 --- a/src/common/mfu_flist_walk.c
 +++ b/src/common/mfu_flist_walk.c
 @@ -50,6 +50,7 @@ static const char** CURRENT_DIRS;
@@ -2311,7 +2406,7 @@ index 264bf2a..08836c4 100644
  
      return;
  }
-@@ -257,7 +262,8 @@ static void walk_getdents_create(CIRCLE_handle* handle)
+@@ -257,9 +262,11 @@ static void walk_getdents_create(CIRCLE_handle* handle)
  
          /* stat top level item */
          struct stat st;
@@ -2319,9 +2414,13 @@ index 264bf2a..08836c4 100644
 +        mfu_file_t* mfu_file = *CURRENT_PFILE;
 +        int status = mfu_file_lstat(path, &st, mfu_file);
          if (status != 0) {
-             /* TODO: print error */
+-            /* TODO: print error */
++            MFU_LOG(MFU_LOG_ERR, "Failed to stat: '%s' (errno=%d %s)",
++                    path, errno, strerror(errno));
              return;
-@@ -296,19 +302,21 @@ static void walk_getdents_process(CIRCLE_handle* handle)
+         }
+ 
+@@ -296,35 +303,33 @@ static void walk_getdents_process(CIRCLE_handle* handle)
  static void walk_readdir_process_dir(const char* dir, CIRCLE_handle* handle)
  {
      /* TODO: may need to try these functions multiple times */
@@ -2342,12 +2441,22 @@ index 264bf2a..08836c4 100644
              st.st_mode |= S_IXUSR;
 -            mfu_chmod(dir, st.st_mode);
 -            dirp = mfu_opendir(dir);
+-            if (dirp == NULL) {
+-                if (errno == EACCES) {
+-                    MFU_LOG(MFU_LOG_ERR, "Failed to open directory with opendir: `%s' (errno=%d %s)", dir, errno, strerror(errno));
+-                }
+-            }
 +            mfu_file_chmod(dir, st.st_mode, mfu_file);
 +            dirp = mfu_file_opendir(dir, mfu_file);
-             if (dirp == NULL) {
-                 if (errno == EACCES) {
-                     MFU_LOG(MFU_LOG_ERR, "Failed to open directory with opendir: `%s' (errno=%d %s)", dir, errno, strerror(errno));
-@@ -324,7 +332,7 @@ static void walk_readdir_process_dir(const char* dir, CIRCLE_handle* handle)
+         }
+     }
+ 
+     if (! dirp) {
+-        /* TODO: print error */
++        MFU_LOG(MFU_LOG_ERR, "Failed to open directory with opendir: '%s' (errno=%d %s)",
++                dir, errno, strerror(errno));
+     }
+     else {
          /* Read all directory entries */
          while (1) {
              /* read next directory entry */
@@ -2356,7 +2465,7 @@ index 264bf2a..08836c4 100644
              if (entry == NULL) {
                  break;
              }
-@@ -349,7 +357,7 @@ static void walk_readdir_process_dir(const char* dir, CIRCLE_handle* handle)
+@@ -349,7 +354,7 @@ static void walk_readdir_process_dir(const char* dir, CIRCLE_handle* handle)
                          /* unlink files here if remove option is on,
                           * and dtype is known without a stat */
                          if (REMOVE_FILES && (entry->d_type != DT_DIR)) {
@@ -2365,7 +2474,7 @@ index 264bf2a..08836c4 100644
                          } else {
                              /* we can read object type from directory entry */
                              have_mode = 1;
-@@ -360,14 +368,14 @@ static void walk_readdir_process_dir(const char* dir, CIRCLE_handle* handle)
+@@ -360,20 +365,21 @@ static void walk_readdir_process_dir(const char* dir, CIRCLE_handle* handle)
                      else {
                          /* type is unknown, we need to stat it */
                          struct stat st;
@@ -2382,7 +2491,15 @@ index 264bf2a..08836c4 100644
                              } else {
                                  mfu_flist_insert_stat(CURRENT_LIST, newpath, mode, &st);
                              }
-@@ -395,7 +403,7 @@ static void walk_readdir_process_dir(const char* dir, CIRCLE_handle* handle)
+                         }
+                         else {
+-                            /* error */
++                            MFU_LOG(MFU_LOG_ERR, "Failed to stat: '%s' (errno=%d %s)",
++                                    newpath, errno, strerror(errno));
+                         }
+                     }
+ 
+@@ -395,7 +401,7 @@ static void walk_readdir_process_dir(const char* dir, CIRCLE_handle* handle)
          }
      }
  
@@ -2391,7 +2508,7 @@ index 264bf2a..08836c4 100644
  
      return;
  }
-@@ -409,7 +417,8 @@ static void walk_readdir_create(CIRCLE_handle* handle)
+@@ -409,9 +415,11 @@ static void walk_readdir_create(CIRCLE_handle* handle)
  
          /* stat top level item */
          struct stat st;
@@ -2399,9 +2516,13 @@ index 264bf2a..08836c4 100644
 +        mfu_file_t* mfu_file = *CURRENT_PFILE;
 +        int status = mfu_file_lstat(path, &st, mfu_file);
          if (status != 0) {
-             /* TODO: print error */
+-            /* TODO: print error */
++            MFU_LOG(MFU_LOG_ERR, "Failed to stat: '%s' (errno=%d %s)",
++                    path, errno, strerror(errno));
              return;
-@@ -448,7 +457,8 @@ static void walk_readdir_process(CIRCLE_handle* handle)
+         }
+ 
+@@ -448,15 +456,17 @@ static void walk_readdir_process(CIRCLE_handle* handle)
  static void walk_stat_process_dir(char* dir, CIRCLE_handle* handle)
  {
      /* TODO: may need to try these functions multiple times */
@@ -2410,8 +2531,10 @@ index 264bf2a..08836c4 100644
 +    DIR* dirp = mfu_file_opendir(dir, mfu_file);
  
      if (! dirp) {
-         /* TODO: print error */
-@@ -456,7 +466,7 @@ static void walk_stat_process_dir(char* dir, CIRCLE_handle* handle)
+-        /* TODO: print error */
++        MFU_LOG(MFU_LOG_ERR, "Failed to open directory with opendir: '%s' (errno=%d %s)",
++                dir, errno, strerror(errno));
+     }
      else {
          while (1) {
              /* read next directory entry */
@@ -2546,7 +2669,7 @@ index 264bf2a..08836c4 100644
              MFU_LOG(MFU_LOG_ERR, "mfu_lstat() failed: `%s' rc=%d (errno=%d %s)", name, status, errno, strerror(errno));
              continue;
 diff --git a/src/common/mfu_io.c b/src/common/mfu_io.c
-index 0ec97da..a43e039 100644
+index 0ec97da..6bd72ff 100644
 --- a/src/common/mfu_io.c
 +++ b/src/common/mfu_io.c
 @@ -9,13 +9,260 @@
@@ -2670,8 +2793,8 @@ index 0ec97da..a43e039 100644
 +
 +    /* Allocate space for name, up to PATH_MAX,
 +     * leaving 1 extra for the null terminator */
-+    size_t name_len = strnlen(name, PATH_MAX-1);
-+    if (name_len >= PATH_MAX-1) {
++    size_t name_len = strnlen(name, PATH_MAX);
++    if (name_len > PATH_MAX-1) {
 +        MFU_LOG(MFU_LOG_ERR, "name is too long");
 +        daos_dir_hdl_delete(&hdl);
 +        return NULL;
@@ -3062,7 +3185,155 @@ index 0ec97da..a43e039 100644
  /* call remove, retry a few times on EINTR or EIO */
  int mfu_remove(const char* path)
  {
-@@ -253,6 +694,50 @@ retry:
+@@ -187,6 +628,54 @@ retry:
+  * Links
+  ****************************/
+ 
++/* emulates readlink with dfs_lookup, dfs_get_symlink_value */
++ssize_t daos_readlink(const char* path, char* buf, size_t bufsize, mfu_file_t* mfu_file)
++{
++#ifdef DAOS_SUPPORT
++    char* name     = NULL;
++    char* dir_name = NULL;
++    parse_filename(path, &name, &dir_name);
++    assert(dir_name);
++
++    daos_size_t got_size = (daos_size_t) bufsize;
++
++    /* Lookup the parent directory first, since it is likely cached */
++    dfs_obj_t* parent = daos_hash_lookup(dir_name, mfu_file);
++    if (parent == NULL) {
++        errno = ENOENT;
++        got_size = -1;
++    } else { 
++        /* Lookup the symlink within the parent */
++        dfs_obj_t* sym_obj;
++        int rc = dfs_lookup_rel(mfu_file->dfs, parent, name, O_RDWR, &sym_obj, NULL, NULL);
++        if (sym_obj == NULL) {
++            MFU_LOG(MFU_LOG_ERR, "dfs_lookup_rel %s failed", path);
++            errno = ENOENT;
++            got_size = -1;
++        } else {
++            /* Read the symlink value. This also makes sure it is S_IFLNK */
++            rc = dfs_get_symlink_value(sym_obj, buf, &got_size);
++            if (rc) {
++                errno = rc;
++                got_size = -1;
++            } else {
++                /* got_size includes the NULL terminator, but mfu_file_readlink
++                * expects that it does not */
++                got_size--;
++            }
++
++            /* Release the symlink */
++            dfs_release(sym_obj);
++        }
++    }
++
++    return (ssize_t) got_size;
++
++#else
++    return (ssize_t) 0;
++#endif
++}
++
+ /* call readlink, retry a few times on EINTR or EIO */
+ ssize_t mfu_readlink(const char* path, char* buf, size_t bufsize)
+ {
+@@ -208,6 +697,69 @@ retry:
+     return rc;
+ }
+ 
++ssize_t mfu_file_readlink(const char* path, char* buf, size_t bufsize, mfu_file_t* mfu_file)
++{
++    int rc;
++
++    if (mfu_file->type == POSIX) {
++        rc = mfu_readlink(path, buf, bufsize);
++    } else if (mfu_file->type == DAOS) {
++        rc = daos_readlink(path, buf, bufsize, mfu_file);
++    } else {
++        MFU_ABORT(-1, "File type not known: %s type=%d",
++                  path, mfu_file->type);
++    }
++
++    return rc;
++}
++
++/* emulates symlink for a DAOS symlink */
++int daos_symlink(const char* oldpath, const char* newpath, mfu_file_t* mfu_file)
++{
++#ifdef DAOS_SUPPORT
++    char* name     = NULL;
++    char* dir_name = NULL;
++    parse_filename(newpath, &name, &dir_name);
++    assert(dir_name);
++
++    int rc = 0;
++
++    /* Lookup the parent directory */
++    dfs_obj_t* parent = daos_hash_lookup(dir_name, mfu_file);
++    if (parent == NULL) {
++        errno = ENOENT;
++        rc = -1;
++    } else {
++        /* open/create the symlink */
++        rc = dfs_open(mfu_file->dfs, parent, name,
++                      S_IFLNK, O_CREAT,
++                      0, 0, oldpath, &(mfu_file->obj));
++        if (rc) {
++            MFU_LOG(MFU_LOG_ERR, "dfs_open %s failed (%d %s)",
++                    name, rc, strerror(rc));
++            errno = rc;
++            rc = -1;
++        } else {
++            /* close the symlink */
++            rc = dfs_release(mfu_file->obj);
++            if (rc) {
++                MFU_LOG(MFU_LOG_ERR, "dfs_release %s failed (%d %s)",
++                        newpath, rc, strerror(rc));
++                errno = rc;
++                rc = -1;
++            }
++        }
++    }
++
++    mfu_free(&name);
++    mfu_free(&dir_name);
++
++    return rc;
++#else
++    return 0;
++#endif
++}
++
+ /* call symlink, retry a few times on EINTR or EIO */
+ int mfu_symlink(const char* oldpath, const char* newpath)
+ {
+@@ -229,6 +781,22 @@ retry:
+     return rc;
+ }
+ 
++int mfu_file_symlink(const char* oldpath, const char* newpath, mfu_file_t* mfu_file)
++{
++    int rc;
++
++    if (mfu_file->type == POSIX) {
++        rc = mfu_symlink(oldpath, newpath);
++    } else if (mfu_file->type == DAOS) {
++        rc = daos_symlink(oldpath, newpath, mfu_file);
++    } else {
++        MFU_ABORT(-1, "File type not known: %s type=%d",
++                  oldpath, mfu_file->type);
++    }
++
++    return rc;
++}
++
+ /* call hardlink, retry a few times on EINTR or EIO */
+ int mfu_hardlink(const char* oldpath, const char* newpath)
+ {
+@@ -253,6 +821,50 @@ retry:
  /*****************************
   * Files
   ****************************/
@@ -3113,7 +3384,7 @@ index 0ec97da..a43e039 100644
  
  /* open file with specified flags and mode, retry open a few times on failure */
  int mfu_open(const char* file, int flags, ...)
-@@ -297,13 +782,56 @@ int mfu_open(const char* file, int flags, ...)
+@@ -297,13 +909,56 @@ int mfu_open(const char* file, int flags, ...)
              tries--;
          }
  
@@ -3174,7 +3445,7 @@ index 0ec97da..a43e039 100644
  }
  
  /* close file */
-@@ -326,6 +854,42 @@ retry:
+@@ -326,6 +981,42 @@ retry:
      return rc;
  }
  
@@ -3217,7 +3488,7 @@ index 0ec97da..a43e039 100644
  /* seek file descriptor to specified position */
  off_t mfu_lseek(const char* file, int fd, off_t pos, int whence)
  {
-@@ -346,7 +910,67 @@ retry:
+@@ -346,7 +1037,67 @@ retry:
      return rc;
  }
  
@@ -3285,7 +3556,7 @@ index 0ec97da..a43e039 100644
  ssize_t mfu_read(const char* file, int fd, void* buf, size_t size)
  {
      int tries = MFU_IO_TRIES;
-@@ -384,9 +1008,23 @@ ssize_t mfu_read(const char* file, int fd, void* buf, size_t size)
+@@ -384,9 +1135,23 @@ ssize_t mfu_read(const char* file, int fd, void* buf, size_t size)
  }
  
  /* reliable write to file descriptor (retries, if necessary, until hard error) */
@@ -3310,7 +3581,7 @@ index 0ec97da..a43e039 100644
      ssize_t n = 0;
      while ((size_t)n < size) {
          errno = 0;
-@@ -419,6 +1057,181 @@ ssize_t mfu_write(const char* file, int fd, const void* buf, size_t size)
+@@ -419,6 +1184,181 @@ ssize_t mfu_write(const char* file, int fd, const void* buf, size_t size)
      return n;
  }
  
@@ -3492,7 +3763,7 @@ index 0ec97da..a43e039 100644
  /* truncate a file */
  int mfu_truncate(const char* file, off_t length)
  {
-@@ -440,7 +1253,24 @@ retry:
+@@ -440,7 +1380,24 @@ retry:
      return rc;
  }
  
@@ -3518,7 +3789,7 @@ index 0ec97da..a43e039 100644
  int mfu_ftruncate(int fd, off_t length)
  {
      int rc;
-@@ -461,6 +1291,76 @@ retry:
+@@ -461,6 +1418,76 @@ retry:
      return rc;
  }
  
@@ -3595,7 +3866,7 @@ index 0ec97da..a43e039 100644
  /* delete a file */
  int mfu_unlink(const char* file)
  {
-@@ -519,7 +1419,44 @@ void mfu_getcwd(char* buf, size_t size)
+@@ -519,7 +1546,44 @@ void mfu_getcwd(char* buf, size_t size)
      }
  }
  
@@ -3641,7 +3912,7 @@ index 0ec97da..a43e039 100644
  int mfu_mkdir(const char* dir, mode_t mode)
  {
      int rc;
-@@ -540,6 +1477,21 @@ retry:
+@@ -540,6 +1604,21 @@ retry:
      return rc;
  }
  
@@ -3663,7 +3934,7 @@ index 0ec97da..a43e039 100644
  /* remove directory, retry a few times on EINTR or EIO */
  int mfu_rmdir(const char* dir)
  {
-@@ -561,6 +1513,39 @@ retry:
+@@ -561,6 +1640,39 @@ retry:
      return rc;
  }
  
@@ -3703,7 +3974,7 @@ index 0ec97da..a43e039 100644
  /* open directory, retry a few times on EINTR or EIO */
  DIR* mfu_opendir(const char* dir)
  {
-@@ -582,6 +1567,40 @@ retry:
+@@ -582,6 +1694,40 @@ retry:
      return dirp;
  }
  
@@ -3744,7 +4015,7 @@ index 0ec97da..a43e039 100644
  /* close directory, retry a few times on EINTR or EIO */
  int mfu_closedir(DIR* dirp)
  {
-@@ -603,6 +1622,54 @@ retry:
+@@ -603,6 +1749,54 @@ retry:
      return rc;
  }
  
@@ -3799,7 +4070,7 @@ index 0ec97da..a43e039 100644
  /* read directory entry, retry a few times on ENOENT, EIO, or EINTR */
  struct dirent* mfu_readdir(DIR* dirp)
  {
-@@ -624,3 +1691,17 @@ retry:
+@@ -624,3 +1818,17 @@ retry:
      }
      return entry;
  }
@@ -3818,7 +4089,7 @@ index 0ec97da..a43e039 100644
 +    }
 +}
 diff --git a/src/common/mfu_io.h b/src/common/mfu_io.h
-index cbbf1c1..2a878c4 100644
+index cbbf1c1..db3fd72 100644
 --- a/src/common/mfu_io.h
 +++ b/src/common/mfu_io.h
 @@ -34,6 +34,13 @@ extern "C" {
@@ -3835,7 +4106,7 @@ index cbbf1c1..2a878c4 100644
  /* Intent is to wrap all POSIX I/O routines used by mfu tools.  May
   * abort on fatal conditions to avoid checking condition at every call.
   * May also automatically retry on things like EINTR. */
-@@ -47,29 +54,46 @@ struct stat64;
+@@ -47,68 +54,114 @@ struct stat64;
   ****************************/
  
  /* calls access, and retries a few times if we get EIO or EINTR */
@@ -3884,8 +4155,10 @@ index cbbf1c1..2a878c4 100644
  /*****************************
   * Links
   ****************************/
-@@ -77,38 +101,63 @@ int mfu_remove(const char* path);
+ 
  /* call readlink, retry a few times on EINTR or EIO */
++ssize_t mfu_file_readlink(const char* path, char* buf, size_t bufsize, mfu_file_t* mfu_file);
++ssize_t daos_readlink(const char* path, char* buf, size_t bufsize, mfu_file_t* mfu_file);
  ssize_t mfu_readlink(const char* path, char* buf, size_t bufsize);
  
 -/* call symlink, retry a few times on EINTR or EIO */
@@ -3895,6 +4168,8 @@ index cbbf1c1..2a878c4 100644
  int mfu_hardlink(const char* oldpath, const char* newpath);
  
 +/* call symlink, retry a few times on EINTR or EIO */
++int mfu_file_symlink(const char* oldpath, const char* newpath, mfu_file_t* mfu_file);
++int daos_symlink(const char* oldpath, const char* newpath, mfu_file_t* mfu_file);
 +int mfu_symlink(const char* oldpath, const char* newpath);
 +
  /*****************************
@@ -3951,7 +4226,7 @@ index cbbf1c1..2a878c4 100644
  int mfu_unlink(const char* file);
  
  /* force flush of written data */
-@@ -122,19 +171,22 @@ int mfu_fsync(const char* file, int fd);
+@@ -122,19 +175,22 @@ int mfu_fsync(const char* file, int fd);
  void mfu_getcwd(char* buf, size_t size);
  
  /* create directory, retry a few times on EINTR or EIO */

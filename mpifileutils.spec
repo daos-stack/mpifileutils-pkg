@@ -50,7 +50,7 @@ Group:		System Environment/Libraries
 License:	Copyright and BSD License
 URL:		https://hpc.github.io/mpifileutils
 Source:		https://github.com/hpc/%{name}/archive/v%{version}.tar.gz
-Patch1:     0.10.1...871d8f7.patch
+Patch1:     0.10.1...4ec7841.patch
 BuildRoot:  %_topdir/BUILDROOT
 %if (0%{?suse_version} >= 1500)
 BuildRequires: cmake >= 3.1
@@ -197,4 +197,5 @@ done
 %changelog
 * Tue Sep 29 2020 Brian J. Murrell <brian.murrell@intel.com> - 0.10.1-1
 - Initial package
-- Package for multiple MPI stacks and multiple distros
+PR-repos: daos@PR-3347:212- Package for multiple MPI stacks and multiple distros
+- Updated to latest patch file 0.10.1...4ec7841.patch
