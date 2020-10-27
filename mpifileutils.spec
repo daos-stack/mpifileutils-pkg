@@ -82,7 +82,7 @@ File utilities designed for scalability and performance.
 %if (0%{?suse_version} >= 1500)
 %package -n libmfu0-openmpi3
 Summary:	File utilities designed for scalability and performance.
-Provides: openmpi3-daos-0
+Provides: %{name}-openmpi3-daos-0
 
 %description -n libmfu0-openmpi3
 Shared libraries for %{name}-openmpi3.
@@ -106,7 +106,7 @@ Summary:	File utilities designed for scalability and performance.
 BuildRequires: mpich-devel
 BuildRequires: dtcmp-mpich-devel
 BuildRequires: libcircle-mpich-devel
-Provides: mpich-daos-0
+Provides: %{name}-mpich-daos-0
 
 %description mpich
 File utilities designed for scalability and performance.
@@ -114,7 +114,7 @@ File utilities designed for scalability and performance.
 %if (0%{?suse_version} >= 1500)
 %package -n libmfu0-mpich
 Summary:	File utilities designed for scalability and performance.
-Provides: mpich-daos-0
+Provides: %{name}-mpich-daos-0
 
 %description -n libmfu0-mpich
 Shared libraries for %{name}-mpich.
