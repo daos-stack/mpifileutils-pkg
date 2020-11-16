@@ -43,7 +43,7 @@
 
 Name:		mpifileutils
 Version:	0.10.1
-Release:	1%{?dist}
+Release:	2%{?dist}
 Summary:	File utilities designed for scalability and performance.
 
 Group:		System Environment/Libraries
@@ -75,6 +75,7 @@ Summary:	File utilities designed for scalability and performance.
 BuildRequires: openmpi3-devel
 BuildRequires: dtcmp-openmpi3-devel
 BuildRequires: libcircle-openmpi3-devel
+Provides: %{name}-openmpi3-daos-0
 
 %description openmpi3
 File utilities designed for scalability and performance.
@@ -82,7 +83,6 @@ File utilities designed for scalability and performance.
 %if (0%{?suse_version} >= 1500)
 %package -n libmfu0-openmpi3
 Summary:	File utilities designed for scalability and performance.
-Provides: %{name}-openmpi3-daos-0
 
 %description -n libmfu0-openmpi3
 Shared libraries for %{name}-openmpi3.
@@ -114,7 +114,6 @@ File utilities designed for scalability and performance.
 %if (0%{?suse_version} >= 1500)
 %package -n libmfu0-mpich
 Summary:	File utilities designed for scalability and performance.
-Provides: %{name}-mpich-daos-0
 
 %description -n libmfu0-mpich
 Shared libraries for %{name}-mpich.
@@ -198,6 +197,8 @@ done
 %endif
 
 %changelog
+* Tue Nov 10 2020 Dalton A. Bohninc <daltonx.bohning@intel.com> - 0.10.1-2
+- Moved Provides from libmfu* to <mpi>*
 * Tue Sep 29 2020 Brian J. Murrell <brian.murrell@intel.com> - 0.10.1-1
 - Initial package
 PR-repos: daos@PR-3347:212- Package for multiple MPI stacks and multiple distros
