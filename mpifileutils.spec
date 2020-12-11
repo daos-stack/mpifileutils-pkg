@@ -31,7 +31,7 @@
 %else
 %global mpi_libdir %{_libdir}
 %global mpi_lib_ext lib
-%global mpi_includedir  %{_includedir}
+%global mpi_includedir %{_includedir}
 %global mpi_include_ext -%{_arch}
 %endif
 
@@ -43,14 +43,13 @@
 
 Name:		mpifileutils
 Version:	0.10.1
-Release:	2%{?dist}
+Release:	3%{?relval}%{?dist}
 Summary:	File utilities designed for scalability and performance.
 
 Group:		System Environment/Libraries
 License:	Copyright and BSD License
 URL:		https://hpc.github.io/mpifileutils
-Source:		https://github.com/hpc/%{name}/archive/v%{version}.tar.gz
-Patch1:     0.10.1...4ec7841.patch
+Source:		%{source_commit}.tar.gz
 BuildRoot:  %_topdir/BUILDROOT
 %if (0%{?suse_version} >= 1500)
 BuildRequires: cmake >= 3.1
@@ -133,7 +132,7 @@ Development files for %{name}-mpich.
 
 
 %prep
-%autosetup -p1
+%setup -n %{name}-%{source_commit}
 
 %build
 for mpi in %{?mpi_list}; do
@@ -197,6 +196,8 @@ done
 %endif
 
 %changelog
+* Mon Dec 14 2020 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.10.1-3
+- Updated to latest patch file 0.10.1...7c32b9c
 * Tue Nov 10 2020 Dalton A. Bohninc <daltonx.bohning@intel.com> - 0.10.1-2
 - Moved Provides from libmfu* to <mpi>*
 * Tue Sep 29 2020 Brian J. Murrell <brian.murrell@intel.com> - 0.10.1-1
