@@ -1,11 +1,9 @@
-NAME       := mpifileutils
-SRC_EXT    := gz
-REPO_NAME  := mpifileutils-pkg
+NAME      := mpifileutils
+SRC_EXT   := gz
+REPO_NAME := mpifileutils-pkg
+GIT_SHORT := 7c32b9c
 
-GIT_SHORT       := $(shell git rev-parse --short=8 HEAD)
-GIT_NUM_COMMITS := $(shell git rev-list HEAD --count)
-
-BUILD_DEFINES   := --define "relval .$(GIT_NUM_COMMITS).g$(GIT_SHORT)"
+BUILD_DEFINES := --define "relval g$(GIT_SHORT)"
 
 RPM_BUILD_OPTIONS := $(BUILD_DEFINES)
 
