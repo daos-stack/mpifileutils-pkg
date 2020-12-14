@@ -49,7 +49,8 @@ Summary:	File utilities designed for scalability and performance.
 Group:		System Environment/Libraries
 License:	Copyright and BSD License
 URL:		https://hpc.github.io/mpifileutils
-Source:		%{source_commit}.tar.gz
+Source:		https://github.com/hpc/%{name}/archive/v%{version}.tar.gz
+Patch1:     0.10.1...7c32b9c.patch
 BuildRoot:  %_topdir/BUILDROOT
 %if (0%{?suse_version} >= 1500)
 BuildRequires: cmake >= 3.1
@@ -132,7 +133,7 @@ Development files for %{name}-mpich.
 
 
 %prep
-%setup -n %{name}-%{source_commit}
+%autosetup -p1
 
 %build
 for mpi in %{?mpi_list}; do
