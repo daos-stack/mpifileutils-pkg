@@ -199,6 +199,7 @@ done
 %changelog
 * Mon Dec 14 2020 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.10.1-3
 - Updated to latest patch file 0.10.1...7c32b9c
+- Include relval in Release
 * Tue Nov 10 2020 Dalton A. Bohninc <daltonx.bohning@intel.com> - 0.10.1-2
 - Moved Provides from libmfu* to <mpi>*
 * Tue Sep 29 2020 Brian J. Murrell <brian.murrell@intel.com> - 0.10.1-1
