@@ -3,7 +3,7 @@ SRC_EXT   := gz
 REPO_NAME := mpifileutils-pkg
 GIT_SHORT := 7c32b9c
 
-BUILD_DEFINES := --define "relval g$(GIT_SHORT)"
+BUILD_DEFINES := --define "relval .g$(GIT_SHORT)"
 
 RPM_BUILD_OPTIONS := $(BUILD_DEFINES)
 
