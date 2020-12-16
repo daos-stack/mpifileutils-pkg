@@ -43,14 +43,14 @@
 
 Name:		mpifileutils
 Version:	0.10.1
-Release:	3%{?relval}%{?dist}
+Release:	4%{?relval}%{?dist}
 Summary:	File utilities designed for scalability and performance.
 
 Group:		System Environment/Libraries
 License:	Copyright and BSD License
 URL:		https://hpc.github.io/mpifileutils
 Source:		https://github.com/hpc/%{name}/archive/v%{version}.tar.gz
-Patch1:     0.10.1...7c32b9c.patch
+Patch1:     0.10.1...4ec7841.patch
 BuildRoot:  %_topdir/BUILDROOT
 %if (0%{?suse_version} >= 1500)
 BuildRequires: cmake >= 3.1
@@ -197,12 +197,18 @@ done
 %endif
 
 %changelog
+* Tue Dec 15 2020 Brian J. Murrell <brian.murrell@intel.com> - 0.10.1-4
+- Revert update to 7c32b9c as it breaks compatibility
+
 * Mon Dec 14 2020 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.10.1-3
 - Updated to latest patch file 0.10.1...7c32b9c
 - Include relval in Release
+
 * Tue Nov 10 2020 Dalton A. Bohninc <daltonx.bohning@intel.com> - 0.10.1-2
 - Moved Provides from libmfu* to <mpi>*
+
 * Tue Sep 29 2020 Brian J. Murrell <brian.murrell@intel.com> - 0.10.1-1
 - Initial package
+
 PR-repos: daos@PR-3347:212- Package for multiple MPI stacks and multiple distros
 - Updated to latest patch file 0.10.1...4ec7841.patch
