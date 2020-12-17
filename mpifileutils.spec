@@ -1,3 +1,4 @@
+%global daos_major 1
 %global with_mpich 1
 %global with_openmpi 0
 %global with_openmpi3 1
@@ -43,7 +44,7 @@
 
 Name:		mpifileutils
 Version:	0.10.1
-Release:	5%{?relval}%{?dist}
+Release:	6%{?relval}%{?dist}
 Summary:	File utilities designed for scalability and performance.
 
 Group:		System Environment/Libraries
@@ -75,7 +76,7 @@ Summary:	File utilities designed for scalability and performance.
 BuildRequires: openmpi3-devel
 BuildRequires: dtcmp-openmpi3-devel
 BuildRequires: libcircle-openmpi3-devel
-Provides: %{name}-openmpi3-daos-0
+Provides: %{name}-openmpi3-daos-%{daos_major}
 
 %description openmpi3
 File utilities designed for scalability and performance.
@@ -106,7 +107,7 @@ Summary:	File utilities designed for scalability and performance.
 BuildRequires: mpich-devel
 BuildRequires: dtcmp-mpich-devel
 BuildRequires: libcircle-mpich-devel
-Provides: %{name}-mpich-daos-0
+Provides: %{name}-mpich-daos-%{daos_major}
 
 %description mpich
 File utilities designed for scalability and performance.
@@ -197,6 +198,9 @@ done
 %endif
 
 %changelog
+* Mon Jan 11 2021 Kenneth Cain <kenneth.c.cain@intel.com> - 0.10.1-6
+- update to daos major version 1 for libdaos API update
+
 * Sat Dec 19 2020 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.10.1-5
 - Update to 1ed76ea, now that daos is ready
 
