@@ -50,7 +50,7 @@ Group:		System Environment/Libraries
 License:	Copyright and BSD License
 URL:		https://hpc.github.io/mpifileutils
 Source:		https://github.com/hpc/%{name}/archive/v%{version}.tar.gz
-Patch1:     0.10.1...7c32b9c.patch
+Patch1:     0.10.1...d7655a2.patch
 BuildRoot:  %_topdir/BUILDROOT
 %if (0%{?suse_version} >= 1500)
 BuildRequires: cmake >= 3.1
@@ -198,7 +198,7 @@ done
 
 %changelog
 * Wed Dec 16 2020 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.10.1-5
-- Update to 7c32b9c, now that daos is ready
+- Update to d7655a2, now that daos is ready
 
 * Tue Dec 15 2020 Brian J. Murrell <brian.murrell@intel.com> - 0.10.1-4
 - Revert update to 7c32b9c as it breaks compatibility
