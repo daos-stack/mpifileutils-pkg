@@ -5815,7 +5815,7 @@ index 9e6f4ed..e2b81c6 100644
  
  #endif /* MFU_PARAM_PATH_H */
 diff --git a/src/common/mfu_util.c b/src/common/mfu_util.c
-index edd8703..4bc5e5b 100644
+index edd8703..ca93932 100644
 --- a/src/common/mfu_util.c
 +++ b/src/common/mfu_util.c
 @@ -4,6 +4,7 @@
@@ -5838,7 +5838,7 @@ index edd8703..4bc5e5b 100644
  int mfu_initialized = 0;
  
  /* set globals */
-@@ -36,6 +42,188 @@ mfu_loglevel mfu_debug_level = MFU_LOG_ERR;
+@@ -36,6 +42,193 @@ mfu_loglevel mfu_debug_level = MFU_LOG_ERR;
  /* default progress message timeout in seconds */
  int mfu_progress_timeout = 10;
  
@@ -5932,8 +5932,13 @@ index edd8703..4bc5e5b 100644
 +        /* Connect to DAOS pool */
 +        if (connect_pool) {
 +            daos_pool_info_t pool_info = {0};
++#if DAOS_API_VERSION_MAJOR < 1
 +            rc = daos_pool_connect(pool_uuid, NULL, NULL, DAOS_PC_RW,
 +                    poh, &pool_info, NULL);
++#else
++            rc = daos_pool_connect(pool_uuid, NULL, DAOS_PC_RW,
++                    poh, &pool_info, NULL);
++#endif
 +            if (rc != 0) {
 +                MFU_LOG(MFU_LOG_ERR, "Failed to connect to pool");
 +                goto bcast;
@@ -6027,7 +6032,7 @@ index edd8703..4bc5e5b 100644
  /* initialize mfu library,
   * reference counting allows for multiple init/finalize pairs */
  int mfu_init()
-@@ -44,10 +232,10 @@ int mfu_init()
+@@ -44,10 +237,10 @@ int mfu_init()
          /* set globals */
          MPI_Comm_rank(MPI_COMM_WORLD, &mfu_rank);
          mfu_debug_stream = stdout;
@@ -6039,7 +6044,7 @@ index edd8703..4bc5e5b 100644
      return MFU_SUCCESS;
  }
  
-@@ -682,33 +870,57 @@ int mfu_compare_contents(
+@@ -682,33 +875,57 @@ int mfu_compare_contents(
      const char* dst_name,          /* IN  - path name to destination file */
      off_t offset,                  /* IN  - offset with file to start comparison */
      off_t length,                  /* IN  - number of bytes to be compared */
@@ -6102,7 +6107,7 @@ index edd8703..4bc5e5b 100644
          mfu_close(src_name, src_fd);
          return -1;
      }
-@@ -720,53 +932,62 @@ int mfu_compare_contents(
+@@ -720,53 +937,62 @@ int mfu_compare_contents(
      /* assume we'll find that file contents are the same */
      int rc = 0;
  
@@ -6196,7 +6201,7 @@ index edd8703..4bc5e5b 100644
              rc = -1;
              break;
          }
-@@ -775,11 +996,34 @@ int mfu_compare_contents(
+@@ -775,11 +1001,34 @@ int mfu_compare_contents(
          *count_bytes_read += (uint64_t) src_read;
  
          /* read data from destination file */
@@ -6233,7 +6238,7 @@ index edd8703..4bc5e5b 100644
              rc = -1;
              break;
          }
-@@ -787,13 +1031,17 @@ int mfu_compare_contents(
+@@ -787,13 +1036,17 @@ int mfu_compare_contents(
          /* tally up number of bytes read */
          *count_bytes_read += (uint64_t) dst_read;
  
@@ -6255,7 +6260,7 @@ index edd8703..4bc5e5b 100644
              rc = 1;
              if (! overwrite) {
                  break;
-@@ -801,53 +1049,63 @@ int mfu_compare_contents(
+@@ -801,53 +1054,63 @@ int mfu_compare_contents(
              need_copy = 1;
          }
  
@@ -6357,7 +6362,7 @@ index edd8703..4bc5e5b 100644
  
          /* update number of bytes read and written for progress messages */
          uint64_t count_bytes[2];
-@@ -856,8 +1114,24 @@ int mfu_compare_contents(
+@@ -856,8 +1119,24 @@ int mfu_compare_contents(
          mfu_progress_update(count_bytes, prg);
      }
  
@@ -6383,7 +6388,7 @@ index edd8703..4bc5e5b 100644
      mfu_free(&src_buf);
  
      /* close files */
-@@ -966,11 +1240,11 @@ void mfu_stripe_set(const char *path, uint64_t stripe_size, int stripe_count)
+@@ -966,11 +1245,11 @@ void mfu_stripe_set(const char *path, uint64_t stripe_size, int stripe_count)
  }
  
  /* executes a logical AND operation on flag on all procs on comm,
