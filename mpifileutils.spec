@@ -43,14 +43,14 @@
 
 Name:		mpifileutils
 Version:	0.10.1
-Release:	4%{?relval}%{?dist}
+Release:	5%{?relval}%{?dist}
 Summary:	File utilities designed for scalability and performance.
 
 Group:		System Environment/Libraries
 License:	Copyright and BSD License
 URL:		https://hpc.github.io/mpifileutils
 Source:		https://github.com/hpc/%{name}/archive/v%{version}.tar.gz
-Patch1:     0.10.1...4ec7841.patch
+Patch1:     0.10.1...1ed76ea.patch
 BuildRoot:  %_topdir/BUILDROOT
 %if (0%{?suse_version} >= 1500)
 BuildRequires: cmake >= 3.1
@@ -197,6 +197,9 @@ done
 %endif
 
 %changelog
+* Sat Dec 19 2020 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.10.1-5
+- Update to 1ed76ea, now that daos is ready
+
 * Tue Dec 15 2020 Brian J. Murrell <brian.murrell@intel.com> - 0.10.1-4
 - Revert update to 7c32b9c as it breaks compatibility
 
