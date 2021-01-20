@@ -198,7 +198,7 @@ done
 %endif
 
 %changelog
-* Mon Jan 11 2021 Kenneth Cain <kenneth.c.cain@intel.com> - 0.10.1-6
+* Wed Jan 20 2021 Kenneth Cain <kenneth.c.cain@intel.com> - 0.10.1-6
 - update to daos major version 1 for libdaos API update
 
 * Sat Dec 19 2020 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.10.1-5
