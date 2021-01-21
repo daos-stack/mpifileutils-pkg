@@ -43,15 +43,15 @@
 %endif
 
 Name:		mpifileutils
-Version:	0.10.1
-Release:	6%{?relval}%{?dist}
+Version:	0.11.0
+Release:	7%{?relval}%{?dist}
 Summary:	File utilities designed for scalability and performance.
 
 Group:		System Environment/Libraries
 License:	Copyright and BSD License
 URL:		https://hpc.github.io/mpifileutils
 Source:		https://github.com/hpc/%{name}/archive/v%{version}.tar.gz
-Patch1:     0.10.1...1ed76ea.patch
+#Patch1:     0.10.1...1ed76ea.patch
 BuildRoot:  %_topdir/BUILDROOT
 %if (0%{?suse_version} >= 1500)
 BuildRequires: cmake >= 3.1
@@ -64,7 +64,6 @@ BuildRequires: Lmod
 BuildRequires: bzip2-devel
 BuildRequires: openssl-devel
 %endif
-BuildRequires: libarchive-devel
 BuildRequires: gcc-c++
 
 %description
@@ -142,6 +141,7 @@ for mpi in %{?mpi_list}; do
   pushd $mpi
   %module_load $mpi
   %cmake ../ -DENABLE_DAOS=ON                                                     \
+             -DENABLE_LIBARCHIVE=OFF                                              \
              -DDTCMP_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}        \
              -DDTCMP_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libdtcmp.so      \
              -DLibCircle_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}    \
@@ -198,6 +198,10 @@ done
 %endif
 
 %changelog
+* Mon Feb 01 2021 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.10.1-7
+- Update to version 0.11.0
+- Remove libarchive dependency
+
 * Wed Jan 20 2021 Kenneth Cain <kenneth.c.cain@intel.com> - 0.10.1-6
 - update to daos major version 1 for libdaos API update
 
