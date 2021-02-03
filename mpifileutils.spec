@@ -43,7 +43,7 @@
 %endif
 
 Name:		mpifileutils
-Version:	0.11.0
+Version:	0.11
 Release:	7%{?relval}%{?dist}
 Summary:	File utilities designed for scalability and performance.
 
