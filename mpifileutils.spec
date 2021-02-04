@@ -44,7 +44,7 @@
 
 Name:		mpifileutils
 Version:	0.11
-Release:	7%{?relval}%{?dist}
+Release:	1%{?relval}%{?dist}
 Summary:	File utilities designed for scalability and performance.
 
 Group:		System Environment/Libraries
@@ -198,8 +198,8 @@ done
 %endif
 
 %changelog
-* Mon Feb 01 2021 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.10.1-7
-- Update to version 0.11.0
+* Thu Feb 04 2021 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11-1
+- Update to version 0.11
 - Remove libarchive dependency
 
 * Wed Jan 20 2021 Kenneth Cain <kenneth.c.cain@intel.com> - 0.10.1-6
