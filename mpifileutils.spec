@@ -78,6 +78,7 @@ Summary:	File utilities designed for scalability and performance.
 BuildRequires: openmpi3-devel
 BuildRequires: dtcmp-openmpi3-devel
 BuildRequires: libcircle-openmpi3-devel
+BuildRequires: hdf5-vol-daos-openmpi3-devel
 Provides: %{name}-openmpi3-daos-%{daos_major}
 
 %description openmpi3
@@ -109,6 +110,7 @@ Summary:	File utilities designed for scalability and performance.
 BuildRequires: mpich-devel
 BuildRequires: dtcmp-mpich-devel
 BuildRequires: libcircle-mpich-devel
+BuildRequires: hdf5-vol-daos-mpich-devel
 Provides: %{name}-mpich-daos-%{daos_major}
 
 %description mpich
@@ -143,16 +145,19 @@ for mpi in %{?mpi_list}; do
   mkdir $mpi
   pushd $mpi
   %module_load $mpi
-  %cmake ../ -DENABLE_DAOS=ON                                                     \
-             -DENABLE_LIBARCHIVE=OFF                                              \
-             -DDTCMP_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}        \
-             -DDTCMP_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libdtcmp.so      \
-             -DLibCircle_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}    \
-             -DLibCircle_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libcircle.so \
-             -DWITH_CART_PREFIX=/usr                                              \
-             -DWITH_DAOS_PREFIX=/usr                                              \
-             -DCMAKE_INSTALL_INCLUDEDIR=%{mpi_includedir}/$mpi%{mpi_include_ext}  \
-             -DCMAKE_INSTALL_PREFIX=%{mpi_libdir}/$mpi                            \
+  %cmake ../ -DENABLE_DAOS=ON                                                       \
+             -DENABLE_LIBARCHIVE=OFF                                                \
+             -DENABLE_HDF5=ON                                                       \
+             -DDTCMP_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}          \
+             -DDTCMP_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libdtcmp.so        \
+             -DLibCircle_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}      \
+             -DLibCircle_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libcircle.so   \
+             -DHDF5_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}           \
+             -DHDF5_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libhdf5_vol_daos.so \
+             -DWITH_CART_PREFIX=/usr                                                \
+             -DWITH_DAOS_PREFIX=/usr                                                \
+             -DCMAKE_INSTALL_INCLUDEDIR=%{mpi_includedir}/$mpi%{mpi_include_ext}    \
+             -DCMAKE_INSTALL_PREFIX=%{mpi_libdir}/$mpi                              \
              -DCMAKE_INSTALL_LIBDIR=%{mpi_lib_ext}
 
   make
@@ -204,6 +209,7 @@ done
 * Thu Mar 04 2021 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11-2
 - Update to patch d9adfee
 - Added libuuid-devel dependency
+- Build with HDF5 support
 
 * Thu Feb 04 2021 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11-1
 - Update to version 0.11
