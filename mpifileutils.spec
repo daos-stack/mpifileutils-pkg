@@ -65,7 +65,7 @@ BuildRequires: bzip2-devel
 BuildRequires: openssl-devel
 %endif
 BuildRequires: gcc-c++
-BuildRequires: uuid-devel
+BuildRequires: libuuid-devel
 
 %description
 File utilities designed for scalability and performance.
@@ -201,7 +201,7 @@ done
 %changelog
 * Thu Mar 04 2021 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11-2
 - Update to patch d9adfee
-- Added uuid-devel dependency
+- Added libuuid-devel dependency
 
 * Thu Feb 04 2021 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11-1
 - Update to version 0.11
