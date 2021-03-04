@@ -51,7 +51,7 @@ Group:		System Environment/Libraries
 License:	Copyright and BSD License
 URL:		https://hpc.github.io/mpifileutils
 Source:		https://github.com/hpc/%{name}/archive/v%{version}.tar.gz
-Patch1:		v%{version}..%{git_short}.patch
+Patch1:		v%{version}..%{?git_short}.patch
 BuildRoot:	%_topdir/BUILDROOT
 %if (0%{?suse_version} >= 1500)
 BuildRequires: cmake >= 3.1
