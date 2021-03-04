@@ -44,14 +44,16 @@
 
 Name:		mpifileutils
 Version:	0.11
-Release:	2%{?relval}%{?dist}
+Release:	2%{?git_short:.g%{git_short}}%{?dist}
 Summary:	File utilities designed for scalability and performance.
 
 Group:		System Environment/Libraries
 License:	Copyright and BSD License
 URL:		https://hpc.github.io/mpifileutils
 Source:		https://github.com/hpc/%{name}/archive/v%{version}.tar.gz
+%if %{git_short}
 Patch1:		v%{version}..%{?git_short}.patch
+$endif
 BuildRoot:	%_topdir/BUILDROOT
 %if (0%{?suse_version} >= 1500)
 BuildRequires: cmake >= 3.1
