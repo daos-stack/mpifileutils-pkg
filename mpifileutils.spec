@@ -44,13 +44,14 @@
 
 Name:		mpifileutils
 Version:	0.11
-Release:	1%{?relval}%{?dist}
+Release:	2%{?relval}%{?dist}
 Summary:	File utilities designed for scalability and performance.
 
 Group:		System Environment/Libraries
 License:	Copyright and BSD License
 URL:		https://hpc.github.io/mpifileutils
 Source:		https://github.com/hpc/%{name}/archive/v%{version}.tar.gz
+Patch1:     v%{version}..%{git_short}.patch
 BuildRoot:  %_topdir/BUILDROOT
 %if (0%{?suse_version} >= 1500)
 BuildRequires: cmake >= 3.1
@@ -197,6 +198,9 @@ done
 %endif
 
 %changelog
+* Thu Mar 04 2021 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11-2
+- Update to patch d9adfee
+
 * Thu Feb 04 2021 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11-1
 - Update to version 0.11
 - Remove libarchive dependency
