@@ -53,7 +53,7 @@ URL:		https://hpc.github.io/mpifileutils
 Source:		https://github.com/hpc/%{name}/archive/v%{version}.tar.gz
 %if 0%{?git_short:1}
 Patch1:		v%{version}..%{?git_short}.patch
-$endif
+%endif
 BuildRoot:	%_topdir/BUILDROOT
 %if (0%{?suse_version} >= 1500)
 BuildRequires: cmake >= 3.1
