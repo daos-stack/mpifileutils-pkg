@@ -206,8 +206,8 @@ done
 %endif
 
 %changelog
-* Thu Mar 04 2021 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11-2
-- Update to patch d9adfee
+* Fri Mar 12 2021 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11-2
+- Update to patch b0d402d
 - Added libuuid-devel dependency
 - Build with HDF5 support
 

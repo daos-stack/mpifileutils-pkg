@@ -1,8 +1,8 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 8cef16b..6107e7c 100644
+index 8cef16b..c22789b 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -92,6 +92,15 @@ IF(ENABLE_LIBARCHIVE)
+@@ -92,6 +92,16 @@ IF(ENABLE_LIBARCHIVE)
    ADD_DEFINITIONS(-DLIBARCHIVE_SUPPORT)
  ENDIF(ENABLE_LIBARCHIVE)
  
@@ -13,6 +13,7 @@ index 8cef16b..6107e7c 100644
 +  INCLUDE_DIRECTORIES(${HDF5_INCLUDE_DIRS})
 +  LIST(APPEND MFU_EXTERNAL_LIBS ${HDF5_LIBRARIES})
 +  ADD_DEFINITIONS(-DHDF5_SUPPORT)
++  ADD_DEFINITIONS(-DHDF5_BIN_DIR=\"${HDF5_BIN_DIR}\")
 +ENDIF(ENABLE_HDF5)
 +
  OPTION(ENABLE_DAOS "Enable DAOS support")
@@ -126,10 +127,10 @@ index 3e01829..9fd2156 100644
 +```
 diff --git a/cmake/FindHDF5.cmake b/cmake/FindHDF5.cmake
 new file mode 100644
-index 0000000..75909f4
+index 0000000..ee9e0a1
 --- /dev/null
 +++ b/cmake/FindHDF5.cmake
-@@ -0,0 +1,31 @@
+@@ -0,0 +1,38 @@
 +# - Try to find hdf5
 +# Once done this will define
 +#  HDF5_FOUND - System has hdf5
@@ -150,16 +151,23 @@ index 0000000..75909f4
 +    HINTS ${WITH_HDF5_PREFIX}/include
 +)
 +
++FIND_PATH(HDF5_BIN_DIR
++    NAMES h5cc h5pcc
++    HINTS ${WITH_HDF5_PREFIX}/bin
++)
++
 +INCLUDE(FindPackageHandleStandardArgs)
 +FIND_PACKAGE_HANDLE_STANDARD_ARGS(HDF5 DEFAULT_MSG
 +    HDF5_LIBRARIES
 +    HDF5_INCLUDE_DIRS
++    HDF5_BIN_DIR
 +)
 +
 +# Hide these vars from ccmake GUI
 +MARK_AS_ADVANCED(
-+	HDF5_LIBRARIES
-+	HDF5_INCLUDE_DIRS
++    HDF5_LIBRARIES
++    HDF5_INCLUDE_DIRS
++    HDF5_BIN_DIR
 +)
 diff --git a/doc/rst/daos-deserialize.1.rst b/doc/rst/daos-deserialize.1.rst
 new file mode 100644
@@ -294,10 +302,18 @@ index 2f83d2d..1bbfcd2 100644
    ADD_SUBDIRECTORY(dtar)
  ENDIF(ENABLE_LIBARCHIVE)
 diff --git a/src/common/mfu_daos.c b/src/common/mfu_daos.c
-index c9ebc02..beb2db4 100644
+index c9ebc02..e576c87 100644
 --- a/src/common/mfu_daos.c
 +++ b/src/common/mfu_daos.c
-@@ -14,10 +14,145 @@
+@@ -7,6 +7,7 @@
+ 
+ #include <sys/types.h>
+ #include <sys/stat.h>
++#include <sys/wait.h>
+ #include <unistd.h>
+ 
+ #include <daos_fs.h>
+@@ -14,11 +15,165 @@
  #include <gurt/common.h>
  #include <gurt/hash.h>
  
@@ -310,21 +326,11 @@ index c9ebc02..beb2db4 100644
 +
  /*
   * Private definitions.
++ * TODO - Need to reorganize some functions in this file.
   */
  
-+typedef struct mfu_daos_copy_stats {
-+    uint64_t total_oids;    /* sum of object ids */
-+    uint64_t total_dkeys;   /* sum of dkeys */
-+    uint64_t total_akeys;   /* sum of akeys */
-+    uint64_t bytes_read;    /* sum of bytes read (src and dst) */
-+    uint64_t bytes_written; /* sum of bytes written */
-+    time_t   time_started;  /* time when copy started */
-+    time_t   time_ended;    /* time when copy ended */
-+    double   wtime_started; /* relative time when copy started */
-+    double   wtime_ended;   /* relative time when copy ended */
-+} mfu_daos_copy_stats_t;
-+
-+static inline void mfu_daos_copy_stats_init(mfu_daos_copy_stats_t* stats)
+-static bool daos_uuid_valid(const uuid_t uuid)
++void mfu_daos_stats_init(mfu_daos_stats_t* stats)
 +{
 +    stats->total_oids = 0;
 +    stats->total_dkeys = 0;
@@ -336,19 +342,19 @@ index c9ebc02..beb2db4 100644
 +    stats->wtime_ended = 0;
 +}
 +
-+static inline void mfu_daos_copy_stats_start(mfu_daos_copy_stats_t* stats)
++void mfu_daos_stats_start(mfu_daos_stats_t* stats)
 +{
 +    time(&stats->time_started);
 +    stats->wtime_started = MPI_Wtime();
 +}
 +
-+static inline void mfu_daos_copy_stats_end(mfu_daos_copy_stats_t* stats)
++void mfu_daos_stats_end(mfu_daos_stats_t* stats)
 +{
 +    time(&stats->time_ended);
 +    stats->wtime_ended = MPI_Wtime();
 +}
 +
-+static void mfu_daos_copy_stats_sum(mfu_daos_copy_stats_t* stats, mfu_daos_copy_stats_t* stats_sum)
++void mfu_daos_stats_sum(mfu_daos_stats_t* stats, mfu_daos_stats_t* stats_sum)
 +{
 +    int num_values = 5;
 +    /* put local values into buffer */
@@ -376,7 +382,12 @@ index c9ebc02..beb2db4 100644
 +    stats_sum->wtime_ended = stats->wtime_ended;
 +}
 +
-+static void mfu_daos_copy_stats_print(mfu_daos_copy_stats_t* stats)
++void mfu_daos_stats_print(
++    mfu_daos_stats_t* stats,
++    bool print_read,
++    bool print_write,
++    bool print_read_rate,
++    bool print_write_rate)
 +{
 +    /* format start time */
 +    char starttime_str[256];
@@ -396,54 +407,80 @@ index c9ebc02..beb2db4 100644
 +    const char* read_size_units;
 +    mfu_format_bytes(stats->bytes_read, &read_size_tmp, &read_size_units);
 +
-+    /* compute read rate */
-+    double read_rate = 0;
-+    if (stats->bytes_read > 0) {
-+        read_rate = (double) stats->bytes_read / rel_time;
-+    }
-+
-+    /* convert read rate to units */
-+    double read_rate_tmp;
-+    const char* read_rate_units;
-+    mfu_format_bw(read_rate, &read_rate_tmp, &read_rate_units);
-+
 +    /* convert write size to units */
 +    double write_size_tmp;
 +    const char* write_size_units;
 +    mfu_format_bytes(stats->bytes_written, &write_size_tmp, &write_size_units);
 +
-+    /* compute write rate */
-+    double write_rate = 0;
-+    if (stats->bytes_written > 0) {
-+        write_rate = (double) stats->bytes_written / rel_time;
++    MFU_LOG(MFU_LOG_INFO, "Started       : %s", starttime_str);
++    MFU_LOG(MFU_LOG_INFO, "Completed     : %s", endtime_str);
++    MFU_LOG(MFU_LOG_INFO, "Seconds       : %.3lf", rel_time);
++    MFU_LOG(MFU_LOG_INFO, "Objects       : %" PRId64, stats->total_oids);
++    MFU_LOG(MFU_LOG_INFO, "  D-Keys      : %" PRId64, stats->total_dkeys);
++    MFU_LOG(MFU_LOG_INFO, "  A-Keys      : %" PRId64, stats->total_akeys);
++
++    if (print_read) {
++        MFU_LOG(MFU_LOG_INFO, "Bytes read    : %.3lf %s (%" PRId64 " bytes)",
++                read_size_tmp, read_size_units, stats->bytes_read);
++    }
++    if (print_write) {
++        MFU_LOG(MFU_LOG_INFO, "Bytes written : %.3lf %s (%" PRId64 " bytes)",
++                write_size_tmp, write_size_units, stats->bytes_written);
 +    }
 +
-+    /* convert write rate to units */
-+    double write_rate_tmp;
-+    const char* write_rate_units;
-+    mfu_format_bw(write_rate, &write_rate_tmp, &write_rate_units);
++    if (print_read_rate) {
++        /* Compute read rate */
++        double read_rate = 0;
++        if (rel_time > 0) {
++            read_rate = (double) stats->bytes_read / rel_time;
++        }
 +
-+    MFU_LOG(MFU_LOG_INFO, "Started    : %s", starttime_str);
-+    MFU_LOG(MFU_LOG_INFO, "Completed  : %s", endtime_str);
-+    MFU_LOG(MFU_LOG_INFO, "Seconds    : %.3lf", rel_time);
-+    MFU_LOG(MFU_LOG_INFO, "Objects    : %" PRId64, stats->total_oids);
-+    MFU_LOG(MFU_LOG_INFO, "  D-Keys   : %" PRId64, stats->total_dkeys);
-+    MFU_LOG(MFU_LOG_INFO, "  A-Keys   : %" PRId64, stats->total_akeys);
++        /* Convert read rate to units */
++        double read_rate_tmp;
++        const char* read_rate_units;
++        mfu_format_bw(read_rate, &read_rate_tmp, &read_rate_units);
 +
-+    MFU_LOG(MFU_LOG_INFO, "Bytes read    : %.3lf %s (%" PRId64 " bytes)",
-+            read_size_tmp, read_size_units, stats->bytes_read);
-+    MFU_LOG(MFU_LOG_INFO, "Bytes written : %.3lf %s (%" PRId64 " bytes)",
-+            write_size_tmp, write_size_units, stats->bytes_written);
-+    MFU_LOG(MFU_LOG_INFO, "Read rate  : %.3lf %s",
-+            read_rate_tmp, read_rate_units);
-+    MFU_LOG(MFU_LOG_INFO, "Write rate : %.3lf %s",
-+            write_rate_tmp, write_rate_units);
++        MFU_LOG(MFU_LOG_INFO, "Read rate     : %.3lf %s",
++                read_rate_tmp, read_rate_units);
++    }
++
++    if (print_write_rate) {
++        /* Compute write rate */
++        double write_rate = 0;
++        if (rel_time > 0) {
++            write_rate = (double) stats->bytes_written / rel_time;
++        }
++
++        /* Convert write rate to units */
++        double write_rate_tmp;
++        const char* write_rate_units;
++        mfu_format_bw(write_rate, &write_rate_tmp, &write_rate_units);
++
++        MFU_LOG(MFU_LOG_INFO, "Write rate    : %.3lf %s",
++                write_rate_tmp, write_rate_units);
++    }
 +}
 +
- static bool daos_uuid_valid(const uuid_t uuid)
++void mfu_daos_stats_print_sum(
++    int rank,
++    mfu_daos_stats_t* stats,
++    bool print_read,
++    bool print_write,
++    bool print_read_rate,
++    bool print_write_rate)
++{
++    mfu_daos_stats_t stats_sum;
++    mfu_daos_stats_sum(stats, &stats_sum);
++    if (rank == 0) {
++        mfu_daos_stats_print(&stats_sum, print_read, print_write, print_read_rate, print_write_rate);
++    }
++}
++
++bool daos_uuid_valid(const uuid_t uuid)
  {
      return uuid && !uuid_is_null(uuid);
-@@ -58,14 +193,8 @@ static int daos_check_args(
+ }
+@@ -58,14 +213,8 @@ static int daos_check_args(
      
      /* Determine whether the source and destination
       * use the same pool and container */
@@ -460,7 +497,7 @@ index c9ebc02..beb2db4 100644
  
      /* Determine whether the source and destination paths are the same.
       * Assume NULL == NULL. */
-@@ -129,15 +258,17 @@ static bool daos_check_prefix(
+@@ -129,7 +278,7 @@ static bool daos_check_prefix(
   * Returns 1 if a daos path was not parsed.
   * Returns -1 for actual errors.
   */
@@ -469,116 +506,138 @@ index c9ebc02..beb2db4 100644
      char* path,
      size_t path_len,
      uuid_t* p_uuid,
--    uuid_t* c_uuid)
-+    uuid_t* c_uuid,
-+    bool daos_no_prefix)
- {
+@@ -138,6 +287,7 @@ static int daos_parse_path(
      struct duns_attr_t  dattr = {0};
      int                 rc;
  
-+    dattr.da_no_prefix = daos_no_prefix;
++    /* Check if this path represents a daos pool and/or container. */
      rc = duns_resolve_path(path, &dattr);
      if (rc == 0) {
          /* daos:// or UNS path */
-@@ -148,7 +279,7 @@ static int daos_parse_path(
-         } else {
-             strncpy(path, dattr.da_rel_path, path_len);
-         }
--    } else if (strncmp(path, "daos:", 5) == 0) {
-+    } else if (strncmp(path, "daos:", 5) == 0 || daos_no_prefix == false) {
-         /* Actual error, since we expect a daos path */
-         rc = -1;
-     } else {
-@@ -172,6 +303,7 @@ static int daos_set_paths(
+@@ -172,6 +322,9 @@ static int daos_set_paths(
      int     rc = 0;
      bool    prefix_on_src = false;
      bool    prefix_on_dst = false;
-+    bool    daos_no_prefix = false;
++    char*   prefix_path = NULL;
++    char*   src_path = NULL;
++    char*   dst_path = NULL;
  
      /* find out if a dfs_prefix is being used,
       * if so, then that means that the container
-@@ -194,7 +326,9 @@ static int daos_set_paths(
+@@ -183,7 +336,7 @@ static int daos_set_paths(
+         int     prefix_rc;
+ 
+         size_t prefix_len = strlen(da->dfs_prefix);
+-        char* prefix_path = strndup(da->dfs_prefix, prefix_len);
++        prefix_path = strndup(da->dfs_prefix, prefix_len);
+         if (prefix_path == NULL) {
+             MFU_LOG(MFU_LOG_ERR, "Unable to allocate space for DAOS prefix.");
+             rc = 1;
+@@ -194,10 +347,10 @@ static int daos_set_paths(
          uuid_clear(prefix_c_uuid);
  
          /* Get the pool/container uuids from the prefix */
 -        prefix_rc = daos_parse_path(prefix_path, prefix_len, &prefix_p_uuid, &prefix_c_uuid);
+-        if (prefix_rc != 0 || prefix_p_uuid == NULL || prefix_c_uuid == NULL) {
 +        prefix_rc = daos_parse_path(prefix_path, prefix_len,
-+                                    &prefix_p_uuid, &prefix_c_uuid,
-+                                    daos_no_prefix);
-         if (prefix_rc != 0 || prefix_p_uuid == NULL || prefix_c_uuid == NULL) {
++                                    &prefix_p_uuid, &prefix_c_uuid);
++        if (prefix_rc != 0 || !daos_uuid_valid(prefix_p_uuid) || !daos_uuid_valid(prefix_c_uuid)) {
              MFU_LOG(MFU_LOG_ERR, "Failed to resolve DAOS Prefix UNS path");
-             mfu_free(&prefix_path);
-@@ -247,7 +381,9 @@ static int daos_set_paths(
+-            mfu_free(&prefix_path);
+             rc = 1;
+             goto out;
+         }
+@@ -205,7 +358,6 @@ static int daos_set_paths(
+         /* In case the user tries to give a sub path in the UNS path */
+         if (strcmp(prefix_path, "/") != 0) {
+             MFU_LOG(MFU_LOG_ERR, "DAOS prefix must be a UNS path");
+-            mfu_free(&prefix_path);
+             rc = 1;
+             goto out;
+         }
+@@ -228,7 +380,6 @@ static int daos_set_paths(
+ 
+         if (!prefix_on_src && !prefix_on_dst) {
+             MFU_LOG(MFU_LOG_ERR, "DAOS prefix does not match source or destination");
+-            mfu_free(&prefix_path);
+             rc = 1;
+             goto out;
+         }
+@@ -241,19 +392,28 @@ static int daos_set_paths(
+      */
+     if (!prefix_on_src) {
+         size_t src_len = strlen(argpaths[0]);
+-        char* src_path = strndup(argpaths[0], src_len);
++        src_path = strndup(argpaths[0], src_len);
+         if (src_path == NULL) {
+             MFU_LOG(MFU_LOG_ERR, "Unable to allocate space for source path.");
              rc = 1;
              goto out;
          }
 -        int src_rc = daos_parse_path(src_path, src_len, &da->src_pool_uuid, &da->src_cont_uuid);
 +        int src_rc = daos_parse_path(src_path, src_len,
-+                                     &da->src_pool_uuid, &da->src_cont_uuid,
-+                                     daos_no_prefix);
++                                     &da->src_pool_uuid, &da->src_cont_uuid);
          if (src_rc == 0) {
++            if (!daos_uuid_valid(da->src_cont_uuid)) {
++                MFU_LOG(MFU_LOG_ERR, "Source pool requires a source container.");
++                rc = 1;
++                goto out;
++            }
              argpaths[0] = da->src_path = strdup(src_path);
-             mfu_free(&src_path);
-@@ -262,14 +398,55 @@ static int daos_set_paths(
+-            mfu_free(&src_path);
++            if (argpaths[0] == NULL) {
++                MFU_LOG(MFU_LOG_ERR, "Unable to allocate space for source path.");
++                rc = 1;
++                goto out;
++            }
+         } else if (src_rc == -1) {
+             MFU_LOG(MFU_LOG_ERR, "Failed to parse DAOS source path: daos://<pool>/<cont>[/<path>]");
+-            mfu_free(&src_path);
+             rc = 1;
+             goto out;
+         }
+@@ -261,20 +421,36 @@ static int daos_set_paths(
+ 
      if (!prefix_on_dst) {
          size_t dst_len = strlen(argpaths[1]);
-         char* dst_path = strndup(argpaths[1], dst_len);
+-        char* dst_path = strndup(argpaths[1], dst_len);
 -        int dst_rc = daos_parse_path(dst_path, dst_len, &da->dst_pool_uuid, &da->dst_cont_uuid);
++        dst_path = strndup(argpaths[1], dst_len);
++        if (dst_path == NULL) {
++            MFU_LOG(MFU_LOG_ERR, "Unable to allocate space for destination path.");
++            rc = 1;
++            goto out;
++        }
 +        int dst_rc = daos_parse_path(dst_path, dst_len,
-+                                     &da->dst_pool_uuid, &da->dst_cont_uuid,
-+                                     daos_no_prefix);
++                                     &da->dst_pool_uuid, &da->dst_cont_uuid);
          if (dst_rc == 0) {
              argpaths[1] = da->dst_path = strdup(dst_path);
-             mfu_free(&dst_path);
+-            mfu_free(&dst_path);
++            if (argpaths[1] == NULL) {
++                MFU_LOG(MFU_LOG_ERR, "Unable to allocate space for destination path.");
++                rc = 1;
++                goto out;
++            }
++            /* Generate a new container uuid if only a pool was given. */
++            if (!daos_uuid_valid(da->dst_cont_uuid)) {
++                uuid_generate(da->dst_cont_uuid);
++            }
          } else if (dst_rc == -1) {
--            MFU_LOG(MFU_LOG_ERR, "Failed to parse DAOS destination path: daos://<pool>/<cont>[/<path>]");
-+            /* The destination has a daos: prefix, so try to parse just the pool uuid. */
-+            char* saveptr;
-+            char* t = strtok_r(dst_path, "/", &saveptr);
-+            if (t == NULL) {
-+                MFU_LOG(MFU_LOG_ERR, "Failed to parse DAOS destination path: daos://<pool>/<cont>[/<path>]");
-+                rc = 1;
-+                goto dst_out;
-+            }
-+            /* Skip over the daos: prefix */
-+            t = strtok_r(NULL, "/", &saveptr);
-+            if (t == NULL) {
-+                /* No pool provided, so use the source pool uuid */
-+                if (!daos_uuid_valid(da->src_pool_uuid)) {
-+                    MFU_LOG(MFU_LOG_ERR, "Destination pool and/or container expected.");
-+                    rc = 1;
-+                    goto dst_out;
-+                }
-+                uuid_copy(da->dst_pool_uuid, da->src_pool_uuid);
-+            } else {
-+                /* Make sure the provided pool uuid is valid */
-+                dst_rc = uuid_parse(t, da->dst_pool_uuid);
-+                if (dst_rc != 0) {
-+                    MFU_LOG(MFU_LOG_ERR, "Failed to parse destination pool UUID");
-+                    rc = 1;
-+                    goto dst_out;
-+                }
-+            }
-+            /* The pool uuid should have been last */
-+            t = strtok_r(NULL, "/", &saveptr);
-+            if (t != NULL) {
-+                MFU_LOG(MFU_LOG_ERR, "Failed to parse DAOS destination path: daos://<pool>/<cont>[/<path>]");
-+                rc = 1;
-+                goto dst_out;
-+            }
-+            /* Generate a new container uuid */
-+            uuid_generate(da->dst_cont_uuid);
-+            argpaths[1] = da->dst_path = strndup("/", 1);
-+
-+            rc = 0;
-+
-+dst_out:
-             mfu_free(&dst_path);
--            rc = 1;
+             MFU_LOG(MFU_LOG_ERR, "Failed to parse DAOS destination path: daos://<pool>/<cont>[/<path>]");
+-            mfu_free(&dst_path);
+             rc = 1;
              goto out;
          }
      }
-@@ -311,7 +488,7 @@ static int daos_get_cont_type(
+ 
+ out:
++    mfu_free(&prefix_path);
++    mfu_free(&src_path);
++    mfu_free(&dst_path);
+     return rc;
+ }
+ 
+@@ -311,7 +487,7 @@ static int daos_get_cont_type(
   */
  static int daos_set_api_cont_type(
      mfu_file_t* mfu_file,
@@ -587,7 +646,7 @@ index c9ebc02..beb2db4 100644
      daos_api_t api)
  {
      /* If explicitly using DAOS, just set the type to DAOS */
-@@ -320,15 +497,6 @@ static int daos_set_api_cont_type(
+@@ -320,15 +496,6 @@ static int daos_set_api_cont_type(
          return 0;
      }
  
@@ -603,7 +662,7 @@ index c9ebc02..beb2db4 100644
      if (cont_type == DAOS_PROP_CO_LAYOUT_POSIX) {
          mfu_file->type = DFS;
      } else {
-@@ -348,7 +516,7 @@ static int daos_set_api_cont_type(
+@@ -348,7 +515,7 @@ static int daos_set_api_cont_type(
   * Set the mfu_file types to either DAOS or DFS,
   * and make sure they are compatible.
   */
@@ -612,7 +671,7 @@ index c9ebc02..beb2db4 100644
      mfu_file_t* mfu_src_file,
      mfu_file_t* mfu_dst_file,
      daos_args_t* da,
-@@ -362,20 +530,11 @@ static int daos_set_api(
+@@ -362,20 +529,11 @@ static int daos_set_api(
  
      int rc;
  
@@ -638,7 +697,15 @@ index c9ebc02..beb2db4 100644
          }
      }
  
-@@ -439,7 +598,7 @@ static int daos_any_error(int rank, bool local_daos_error, int flag_daos_args)
+@@ -413,7 +571,6 @@ static int daos_set_api(
+         }
+         mfu_src_file->type = DAOS;
+     }
+-
+     return 0;
+ }
+ 
+@@ -439,7 +596,7 @@ static int daos_any_error(int rank, bool local_daos_error, int flag_daos_args)
  }
  
  /* Distribute process 0's pool or container handle to others. */
@@ -647,7 +714,7 @@ index c9ebc02..beb2db4 100644
    int rank,              /* root rank for broadcast */
    daos_handle_t* handle, /* handle value to be broadcasted */
    daos_handle_t* poh,    /* daos pool for global2local conversion of container handle */
-@@ -503,15 +662,25 @@ static void daos_bcast_handle(
+@@ -503,15 +660,25 @@ static void daos_bcast_handle(
  }
  
  /* connect to DAOS pool, and then open container */
@@ -675,7 +742,7 @@ index c9ebc02..beb2db4 100644
      /* assume failure until otherwise */
      int valid = 0;
      int rc;
-@@ -540,29 +709,44 @@ static int daos_connect(
+@@ -540,29 +707,44 @@ static int daos_connect(
          daos_cont_info_t co_info = {0};
          rc = daos_cont_open(*poh, cont_uuid, DAOS_COO_RW, coh, &co_info, NULL);
          if (rc != 0) {
@@ -726,7 +793,7 @@ index c9ebc02..beb2db4 100644
  bcast:
      /* broadcast valid from rank 0 */
      MPI_Bcast(&valid, 1, MPI_INT, 0, MPI_COMM_WORLD);
-@@ -580,12 +764,11 @@ bcast:
+@@ -580,12 +762,11 @@ bcast:
  
      /* broadcast container handle from rank 0 */
      daos_bcast_handle(rank, coh, poh, CONT_HANDLE);
@@ -740,7 +807,7 @@ index c9ebc02..beb2db4 100644
    mfu_file_t* mfu_file,
    daos_handle_t* poh,
    daos_handle_t* coh)
-@@ -603,7 +786,7 @@ static int daos_mount(
+@@ -603,7 +784,7 @@ static int daos_mount(
  
  /* Unmount DAOS dfs.
   * Cleanup up hash */
@@ -749,7 +816,7 @@ index c9ebc02..beb2db4 100644
    mfu_file_t* mfu_file)
  {
      /* Unmount dfs */
-@@ -612,10 +795,27 @@ static int daos_umount(
+@@ -612,10 +793,27 @@ static int daos_umount(
          MFU_LOG(MFU_LOG_ERR, "Failed to unmount DFS namespace");
          rc = -1;
      }
@@ -777,7 +844,7 @@ index c9ebc02..beb2db4 100644
      }
  
      return rc;
-@@ -646,7 +846,15 @@ daos_args_t* daos_args_new(void)
+@@ -646,7 +844,15 @@ daos_args_t* daos_args_new(void)
      /* By default, try to automatically determine the API */
      da->api = DAOS_API_AUTO;
  
@@ -794,6 +861,15 @@ index c9ebc02..beb2db4 100644
  
      return da;
  }
+@@ -674,6 +880,8 @@ int daos_parse_api_str(
+         *api = DAOS_API_DFS;
+     } else if (strcasecmp(api_str, "DAOS") == 0) {
+         *api = DAOS_API_DAOS;
++    } else if (strcasecmp(api_str, "HDF5") == 0) {
++        *api = DAOS_API_HDF5;
+     } else {
+         rc = 1;
+     }
 @@ -757,6 +965,9 @@ int daos_setup(
          return 1;
      }
@@ -846,7 +922,7 @@ index c9ebc02..beb2db4 100644
 +        if (tmp_rc != 0) {
 +            local_daos_error = true;
 +            goto out;
-         }
++        }
 +        /* Sanity check before we create a new container */
 +        if (da->src_cont_type != DAOS_PROP_CO_LAYOUT_POSIX) {
 +            if (strcmp(da->src_path, "/") != 0) {
@@ -856,15 +932,15 @@ index c9ebc02..beb2db4 100644
 +                local_daos_error = true;
 +                goto out;
 +            }
-+        }
-+    }
-+
+         }
+     }
+ 
 +    /* If we're using the DAOS API, the destination container cannot
 +     * exist already, unless overriden by allow_exist_dst_cont. */
 +    if (mfu_src_file->type != POSIX && mfu_src_file->type != DFS && !da->allow_exist_dst_cont) {
 +        require_new_cont = true;
-     }
- 
++    }
++
      /* If the source and destination are in the same pool,
       * then open the container in that pool.
       * Otherwise, connect to the second pool and open the container */
@@ -1091,7 +1167,7 @@ index c9ebc02..beb2db4 100644
 +    daos_iod_t *iod,
 +    bool compare_dst,
 +    bool write_dst,
-+    mfu_daos_copy_stats_t* stats)
++    mfu_daos_stats_t* stats)
  {
 -    /* if iod_type is single value just fetch iod size from source
 -     * and update in destination object */
@@ -1140,8 +1216,7 @@ index c9ebc02..beb2db4 100644
 +    if (src_sgl.sg_nr_out != 1) {
 +        MFU_LOG(MFU_LOG_ERR, "Failed to fetch single recx.");
 +        goto out_err;
-     }
--    return rc;
++    }
 +
 +    /* Conditionally compare the destination before writing */
 +    if (compare_dst) {
@@ -1201,9 +1276,15 @@ index c9ebc02..beb2db4 100644
 +        for (uint32_t i = 0; i < number; i++) {
 +            mfu_free(&buf[i]);
 +        }
-+    }
-+}
-+
+     }
+-    return rc;
+ }
+ 
+-static int daos_copy_recx_array(daos_key_t *dkey,
+-                           daos_key_t *akey,
+-                           daos_handle_t *src_oh,
+-                           daos_handle_t *dst_oh,
+-                           daos_iod_t *iod)
 +/* Create a buffer based on recxs and set iov for each index */
 +static int alloc_iov_buf(
 +    uint32_t        number, /* number of recxs, iovs, and buffer */
@@ -1212,7 +1293,8 @@ index c9ebc02..beb2db4 100644
 +    d_iov_t*        iov,    /* array of iovs */
 +    char**          buf,    /* pointer to static buffer */
 +    uint64_t*       buf_len)/* pointer to static buffer lengths */
-+{
+ {
+-    daos_anchor_t recx_anchor = {0}; 
 +    for (uint32_t i = 0; i < number; i++) {
 +        buf_len[i] = recxs[i].rx_nr * size;
 +        buf[i] = calloc(buf_len[i], sizeof(void*));
@@ -1234,13 +1316,8 @@ index c9ebc02..beb2db4 100644
 +        sum += buf[i];
 +    }
 +    return sum;
- }
- 
--static int daos_copy_recx_array(daos_key_t *dkey,
--                           daos_key_t *akey,
--                           daos_handle_t *src_oh,
--                           daos_handle_t *dst_oh,
--                           daos_iod_t *iod)
++}
++
 +/* Copy all array recx from a src obj to dst obj for a given dkey/akey.
 + * returns -1 on error, 0 if same, 1 if different */
 +static int mfu_daos_obj_sync_recx_array(
@@ -1251,9 +1328,8 @@ index c9ebc02..beb2db4 100644
 +    daos_iod_t *iod,
 +    bool compare_dst,
 +    bool write_dst,
-+    mfu_daos_copy_stats_t* stats)
- {
--    daos_anchor_t recx_anchor = {0}; 
++    mfu_daos_stats_t* stats)
++{
 +    bool        all_dst_equal = true;   /* equal until found otherwise */
 +    uint32_t    max_number = 5;         /* max recxs per fetch */
 +    char*       src_buf[max_number];    /* src buffer data */
@@ -1436,7 +1512,7 @@ index c9ebc02..beb2db4 100644
 +  daos_handle_t* dst_oh,
 +  bool compare_dst,
 +  bool write_dst,
-+  mfu_daos_copy_stats_t* stats)
++  mfu_daos_stats_t* stats)
  {
 +    /* Assume src and dst are equal until found otherwise */
 +    bool all_dst_equal = true;
@@ -1605,7 +1681,7 @@ index c9ebc02..beb2db4 100644
 +    daos_obj_id_t oid,
 +    bool compare_dst,             /* Whether to compare the src and dst before writing */
 +    bool write_dst,               /* Whether to write to the dst */
-+    mfu_daos_copy_stats_t* stats)
++    mfu_daos_stats_t* stats)
 +{
 +    int rc = 0;
 +
@@ -1659,7 +1735,7 @@ index c9ebc02..beb2db4 100644
 +  daos_handle_t dst_coh,
 +  bool compare_dst,
 +  bool write_dst,
-+  mfu_daos_copy_stats_t* stats)
++  mfu_daos_stats_t* stats)
  {
      int rc = 0;
  
@@ -1741,17 +1817,16 @@ index c9ebc02..beb2db4 100644
 -    rc = daos_cont_create_snap_opt(da->src_coh, &da->epc, NULL,
 -    				   DAOS_SNAP_OPT_CR | DAOS_SNAP_OPT_OIT,
 -				   NULL);
-+    /* open object iterator table */
-+    rc = daos_oit_open(coh, epoch, &toh, NULL);
-     if (rc != 0) {
+-    if (rc != 0) {
 -        MFU_LOG(MFU_LOG_ERR, "DAOS failed to create snapshot: ", MFU_ERRF,
 -                MFU_ERRP(-MFU_ERR_DAOS));
 -        return 1;
 -    }
 -
--    /* open object iterator table */
+     /* open object iterator table */
 -    rc = daos_oit_open(da->src_coh, da->epc, &toh, NULL);
--    if (rc != 0) {
++    rc = daos_oit_open(coh, epoch, &toh, NULL);
+     if (rc != 0) {
 -        MFU_LOG(MFU_LOG_ERR, "DAOS failed to open oit: ", MFU_ERRF,
 -                MFU_ERRP(-MFU_ERR_DAOS));
 +        MFU_LOG(MFU_LOG_ERR, "DAOS failed to open oit "DF_RC, DP_RC(rc));
@@ -1826,7 +1901,7 @@ index c9ebc02..beb2db4 100644
      mfu_flist flist)
  {
      /* assume we'll succeed */
-@@ -1277,39 +1830,2940 @@ int mfu_flist_walk_daos(
+@@ -1277,39 +1830,3124 @@ int mfu_flist_walk_daos(
  
      /* have rank 0 do the work of listing the objects */
      if (rank == 0) {
@@ -1883,9 +1958,9 @@ index c9ebc02..beb2db4 100644
 +    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 +
 +    /* Initialize some stats */
-+    mfu_daos_copy_stats_t stats;
-+    mfu_daos_copy_stats_init(&stats);
-+    mfu_daos_copy_stats_start(&stats);
++    mfu_daos_stats_t stats;
++    mfu_daos_stats_init(&stats);
++    mfu_daos_stats_start(&stats);
 +
 +    /* evenly spread the objects across all ranks */
 +    mfu_flist newflist = mfu_flist_spread(flist);
@@ -1912,14 +1987,10 @@ index c9ebc02..beb2db4 100644
 +    }
 +
 +    /* Record end time */
-+    mfu_daos_copy_stats_end(&stats);
++    mfu_daos_stats_end(&stats);
 +
 +    /* Sum and print the stats */
-+    mfu_daos_copy_stats_t stats_sum;
-+    mfu_daos_copy_stats_sum(&stats, &stats_sum);
-+    if (rank == 0) {
-+        mfu_daos_copy_stats_print(&stats_sum);
-+    }
++    mfu_daos_stats_print_sum(rank, &stats, true, true, true, true);
 +
 +    mfu_flist_free(&newflist);
 +
@@ -1965,12 +2036,12 @@ index c9ebc02..beb2db4 100644
 +static int serialize_recx_single(struct hdf5_args *hdf5, 
 +                                 daos_key_t *dkey,
 +                                 daos_handle_t *oh,
-+                                 daos_iod_t *iod)
++                                 daos_iod_t *iod,
++                                 mfu_daos_stats_t* stats)
 +{
 +    /* if iod_type is single value just fetch iod size from source
 +     * and update in destination object */
 +    int         buf_len = (int)(*iod).iod_size;
-+    //void        *buf[buf_len * 2];
 +    void        *buf;
 +    d_sg_list_t sgl;
 +    d_iov_t     iov;
@@ -1997,6 +2068,8 @@ index c9ebc02..beb2db4 100644
 +        goto out;
 +    }
 +
++    stats->bytes_read += buf_len;
++
 +    /* write single val record to dataset */
 +    err = H5Dwrite(hdf5->single_dset, hdf5->single_dtype, H5S_ALL,
 +                   hdf5->single_dspace, H5P_DEFAULT, sgl.sg_iovs[0].iov_buf);
@@ -2015,7 +2088,8 @@ index c9ebc02..beb2db4 100644
 +                                char *rec_name,
 +                                uint64_t *ak_index,
 +                                daos_handle_t *oh,
-+                                daos_iod_t *iod)
++                                daos_iod_t *iod,
++                                mfu_daos_stats_t* stats)
 +{
 +    int                 rc = 0;
 +    int                 i = 0;
@@ -2137,6 +2211,8 @@ index c9ebc02..beb2db4 100644
 +                rc = 1;
 +                goto out;
 +            }
++
++            stats->bytes_read += buf_len;
 +
 +            /* write data to record dset */
 +            hdf5->mem_dims[0] = recxs[i].rx_nr;
@@ -2303,7 +2379,10 @@ index c9ebc02..beb2db4 100644
 +    hdf5->single_dims[0] = 1;
 +    hdf5->rx_dims[0] = 0;
 +    hdf5->rx_max_dims[0] = H5S_UNLIMITED;
-+    hdf5->rx_chunk_dims[0] = 131072;
++
++    /* TODO consider other chunk sizes or possibly use different
++     * chunk sizes for different dkeys/akeys. */
++    hdf5->rx_chunk_dims[0] = 1024;
 +
 +    hdf5->plist = H5Pcreate(H5P_DATASET_CREATE);
 +    if (hdf5->plist < 0) {
@@ -2352,8 +2431,8 @@ index c9ebc02..beb2db4 100644
 +                           daos_key_t diov,
 +                           uint64_t *dk_index,
 +                           uint64_t *ak_index,
-+                           uint64_t *total_akeys,
-+                           daos_handle_t *oh)
++                           daos_handle_t *oh,
++                           mfu_daos_stats_t*stats)
 +{
 +    int             rc = 0;
 +    herr_t          err = 0;
@@ -2399,7 +2478,7 @@ index c9ebc02..beb2db4 100644
 +        if (akey_number == 0)
 +            continue;
 +
-+        size = (akey_number + *total_akeys) * sizeof(akey_t);
++        size = (akey_number + stats->total_akeys) * sizeof(akey_t);
 +        *hdf5->ak = realloc(*hdf5->ak, size);
 +        if (*hdf5->ak == NULL) {
 +            rc = ENOMEM;
@@ -2459,7 +2538,7 @@ index c9ebc02..beb2db4 100644
 +            }
 +            if ((int)iod.iod_size == 0) {
 +                rc = serialize_recx_array(hdf5, &diov, &aiov, rec_name,
-+                                          ak_index, oh, &iod);
++                                          ak_index, oh, &iod, stats);
 +                if (rc != 0) {
 +                    MFU_LOG(MFU_LOG_ERR, "failed to serialize recx array: %d",
 +                            rc);
@@ -2485,7 +2564,7 @@ index c9ebc02..beb2db4 100644
 +                    goto out;
 +                }
 +                rc = serialize_recx_single(hdf5, &diov, oh,
-+                                           &iod);
++                                           &iod, stats);
 +                if (rc != 0) {
 +                    MFU_LOG(MFU_LOG_ERR, "failed to serialize recx single: %d",
 +                            rc);
@@ -2508,7 +2587,7 @@ index c9ebc02..beb2db4 100644
 +            akey_ptr += akey_kds[j].kd_key_len;
 +            (*ak_index)++;
 +        }
-+        *total_akeys = (*total_akeys) + akey_number;
++        stats->total_akeys += akey_number;
 +    }
 +out:
 +    return rc;
@@ -2517,10 +2596,9 @@ index c9ebc02..beb2db4 100644
 +static int serialize_dkeys(struct hdf5_args *hdf5,
 +                           uint64_t *dk_index,
 +                           uint64_t *ak_index,
-+                           uint64_t *total_dkeys,
-+                           uint64_t *total_akeys,
 +                           daos_handle_t *oh,
-+                           int *oid_index)
++                           int *oid_index,
++                           mfu_daos_stats_t* stats)
 +{
 +    int             rc = 0;
 +    herr_t          err = 0;
@@ -2550,11 +2628,11 @@ index c9ebc02..beb2db4 100644
 +        memset(dkey, 0, sizeof(dkey));
 +        memset(dkey_enum_buf, 0, sizeof(dkey_enum_buf));
 +        dkey_number = ENUM_DESC_NR;
- 
++
 +        dkey_sgl.sg_nr     = 1;
 +        dkey_sgl.sg_nr_out = 0;
 +        dkey_sgl.sg_iovs   = &dkey_iov;
-+
+ 
 +        d_iov_set(&dkey_iov, dkey_enum_buf, ENUM_DESC_BUF);
 +
 +        /* get dkeys */
@@ -2569,7 +2647,7 @@ index c9ebc02..beb2db4 100644
 +        if (dkey_number == 0)
 +            continue;
 +        *hdf5->dk = realloc(*hdf5->dk,
-+                            (dkey_number + *total_dkeys) * sizeof(dkey_t));
++                            (dkey_number + stats->total_dkeys) * sizeof(dkey_t));
 +        if (*hdf5->dk == NULL) {
 +            rc = ENOMEM;
 +            goto out;
@@ -2592,7 +2670,7 @@ index c9ebc02..beb2db4 100644
 +                   (uint64_t)dkey_kds[i].kd_key_len);
 +            dkey_val->len = (uint64_t)dkey_kds[i].kd_key_len; 
 +            rc = serialize_akeys(hdf5, diov, dk_index, ak_index,
-+                                 total_akeys, oh); 
++                                 oh, stats); 
 +            if (rc != 0) {
 +                MFU_LOG(MFU_LOG_ERR, "failed to list akeys: %d", rc);
 +                rc = 1;
@@ -2601,7 +2679,7 @@ index c9ebc02..beb2db4 100644
 +            dkey_ptr += dkey_kds[i].kd_key_len;
 +            (*dk_index)++;
 +        }
-+        *total_dkeys = (*total_dkeys) + dkey_number;
++        stats->total_dkeys += dkey_number;
 +    }
 +    err = H5Sclose(hdf5->rx_dspace);
 +    if (err < 0) {
@@ -3477,13 +3555,12 @@ index c9ebc02..beb2db4 100644
 +
 +int daos_cont_serialize_hdlr(int rank, struct hdf5_args *hdf5, char *output_dir,
 +                             uint64_t *files_written, daos_args_t *da,
-+                             mfu_flist flist, uint64_t num_oids)
++                             mfu_flist flist, uint64_t num_oids,
++                             mfu_daos_stats_t* stats)
 +{
 +    int             rc = 0;
 +    int             i = 0;
 +    int             path_len = 0;
-+    uint64_t        total_dkeys = 0;
-+    uint64_t        total_akeys = 0;
 +    uint64_t        dk_index = 0;
 +    uint64_t        ak_index = 0;
 +    daos_handle_t   toh;
@@ -3565,12 +3642,11 @@ index c9ebc02..beb2db4 100644
 +        (*hdf5->oid)[i].oid_low = oid.lo;
 +        rc = daos_obj_open(da->src_coh, oid, 0, &oh, NULL);
 +        if (rc != 0) {
-+            MFU_LOG(MFU_LOG_ERR, "failed to open object: %d", rc);
++            MFU_LOG(MFU_LOG_ERR, "failed to open object: "DF_RC, DP_RC(rc));
 +            goto out;
 +        }
 +        rc = serialize_dkeys(hdf5, &dk_index, &ak_index,
-+                             &total_dkeys, &total_akeys,
-+                             &oh, &i);
++                             &oh, &i, stats);
 +        if (rc != 0) {
 +            MFU_LOG(MFU_LOG_ERR, "failed to serialize keys: %d", rc);
 +            goto out;
@@ -3578,9 +3654,12 @@ index c9ebc02..beb2db4 100644
 +        /* close source and destination object */
 +        rc = daos_obj_close(oh, NULL);
 +        if (rc != 0) {
-+            MFU_LOG(MFU_LOG_ERR, "failed to close object: %d", rc);
++            MFU_LOG(MFU_LOG_ERR, "failed to close object: "DF_RC, DP_RC(rc));
 +            goto out;
 +        }
++
++        /* Increment as we go */
++        stats->total_oids++;
 +    }
 +
 +    /* write container version as attribute */
@@ -3618,7 +3697,7 @@ index c9ebc02..beb2db4 100644
 +        rc = 1;
 +        goto out;
 +    }
-+    hdf5->dkey_dims[0] = total_dkeys;     
++    hdf5->dkey_dims[0] = stats->total_dkeys;     
 +    hdf5->dkey_dspace = H5Screate_simple(1, hdf5->dkey_dims, NULL);
 +    if (hdf5->dkey_dspace < 0) {
 +        MFU_LOG(MFU_LOG_ERR, "failed to create dkey dspace");
@@ -3634,7 +3713,7 @@ index c9ebc02..beb2db4 100644
 +        rc = 1;
 +        goto out;
 +    }
-+    hdf5->akey_dims[0] = total_akeys;     
++    hdf5->akey_dims[0] = stats->total_akeys;     
 +    hdf5->akey_dspace = H5Screate_simple(1, hdf5->akey_dims, NULL);
 +    if (hdf5->akey_dspace < 0) {
 +        MFU_LOG(MFU_LOG_ERR, "failed to create akey dspace");
@@ -3673,6 +3752,7 @@ index c9ebc02..beb2db4 100644
 +        rc = 1;
 +        goto out;
 +    }
++
 +out:
 +    if (hdf5->oid_dset > 0)
 +        H5Dclose(hdf5->oid_dset);
@@ -3832,7 +3912,8 @@ index c9ebc02..beb2db4 100644
 +                                 daos_key_t diov,
 +                                 int num_attrs,
 +                                 uint64_t ak_off,
-+                                 int k)
++                                 int k,
++                                 mfu_daos_stats_t* stats)
 +{
 +    int             rc = 0;
 +    hid_t           status = 0;
@@ -3988,7 +4069,8 @@ index c9ebc02..beb2db4 100644
 +        sgl.sg_nr     = 1;
 +        sgl.sg_iovs   = &iov;
 +
-+        d_iov_set(&iov, recx_data, recx_len * rx_dtype_size); 
++        uint64_t buf_size = recx_len * rx_dtype_size;
++        d_iov_set(&iov, recx_data, buf_size); 
 +
 +        /* update fetched recx values and place in destination object */
 +        rc = daos_obj_update(*oh, DAOS_TX_NONE, 0, &diov, 1, &iod,
@@ -3997,6 +4079,9 @@ index c9ebc02..beb2db4 100644
 +            MFU_LOG(MFU_LOG_ERR, "failed to update object: %d", rc);
 +            goto out;
 +        }
++
++        stats->bytes_written += buf_size;
++
 +        H5Aclose(aid);
 +        mfu_free(&rx_range);
 +        mfu_free(&recx_data);
@@ -4009,7 +4094,8 @@ index c9ebc02..beb2db4 100644
 +static int cont_deserialize_keys(struct hdf5_args *hdf5,
 +                                 uint64_t *total_dkeys_this_oid,
 +                                 uint64_t *dk_off,
-+                                 daos_handle_t *oh)
++                                 daos_handle_t *oh,
++                                 mfu_daos_stats_t* stats)
 +{
 +    int             rc = 0;
 +    hid_t           status = 0;
@@ -4103,7 +4189,7 @@ index c9ebc02..beb2db4 100644
 +            }
 +            if (num_attrs > 0) {
 +                rc = cont_deserialize_recx(hdf5, oh, diov,
-+                                           num_attrs, ak_off, k);
++                                           num_attrs, ak_off, k, stats);
 +                if (rc != 0) {
 +                    MFU_LOG(MFU_LOG_ERR, "failed to deserialize recx");
 +                    rc = 1;
@@ -4155,13 +4241,18 @@ index c9ebc02..beb2db4 100644
 +                    goto out;
 +                }
 +
++                stats->bytes_written += single_tsize;
++
 +                mfu_free(&single_data);
 +            }
-+            H5Pclose(hdf5->plist);  
-+            H5Tclose(hdf5->rx_dtype);   
-+            H5Sclose(hdf5->rx_dspace);  
-+            H5Dclose(hdf5->rx_dset);    
++            H5Pclose(hdf5->plist);
++            H5Tclose(hdf5->rx_dtype);
++            H5Sclose(hdf5->rx_dspace);
++            H5Dclose(hdf5->rx_dset);
++
++            stats->total_akeys++;
 +        }
++        stats->total_dkeys++;
 +    }
 +out:
 +    mfu_free(&single_data);
@@ -4644,7 +4735,7 @@ index c9ebc02..beb2db4 100644
 +    return rc;
 +}
 +
-+int daos_cont_deserialize_hdlr(int rank, daos_args_t *da, const char *h5filename)
++int daos_cont_deserialize_hdlr(int rank, daos_args_t *da, const char *h5filename, mfu_daos_stats_t* stats)
 +{
 +    int                     rc = 0;
 +    int                     i = 0;
@@ -4724,7 +4815,7 @@ index c9ebc02..beb2db4 100644
 +        oid.hi = hdf5.oid_data[i].oid_hi;
 +        rc = daos_obj_open(da->src_coh, oid, 0, &oh, NULL);
 +        if (rc != 0) {
-+            MFU_LOG(MFU_LOG_ERR, "failed to open object: %d", rc);
++            MFU_LOG(MFU_LOG_ERR, "failed to open object: "DF_RC, DP_RC(rc));
 +            goto out;
 +        }
 +        dk_off = hdf5.oid_data[i].dkey_offset;
@@ -4736,16 +4827,19 @@ index c9ebc02..beb2db4 100644
 +        } else if (i == ((int)hdf5.oid_dims[0] - 1)){
 +            total_dkeys_this_oid = (int)hdf5.dkey_dims[0] - (dk_off);
 +        } 
-+        rc = cont_deserialize_keys(&hdf5, &total_dkeys_this_oid, &dk_off, &oh);
++        rc = cont_deserialize_keys(&hdf5, &total_dkeys_this_oid, &dk_off, &oh, stats);
 +        if (rc != 0) {
 +            MFU_LOG(MFU_LOG_ERR, "failed to deserialize keys: %d", rc);
 +            goto out;
 +        }
 +        rc = daos_obj_close(oh, NULL);
 +        if (rc != 0) {
-+            MFU_LOG(MFU_LOG_ERR, "failed to close object: %d", rc);
++            MFU_LOG(MFU_LOG_ERR, "failed to close object: "DF_RC, DP_RC(rc));
 +            goto out;
 +        }
++
++        /* Increment as we go */
++        stats->total_oids++;
 +    }
 +out:
 +    if (hdf5.oid_dset > 0) {
@@ -4780,12 +4874,177 @@ index c9ebc02..beb2db4 100644
 +    }
 +    return rc;
 +}
++
++int mfu_daos_hdf5_copy(char **argpaths,
++                       daos_args_t *daos_args)
++{
++    int                 rc = 0;
++    int                 size;
++    char                src_path[FILENAME_LEN];
++    char                src_pool_str[UUID_LEN];
++    char                src_cont_str[UUID_LEN];
++    char                dst_path[FILENAME_LEN];
++    char                dst_pool_str[UUID_LEN];
++    char                dst_cont_str[UUID_LEN];
++    struct duns_attr_t  src_dattr = {0};
++    struct duns_attr_t  dst_dattr = {0};
++    bool                src_daos = false;
++    bool                dst_daos = false;
++    int                 len = 0;
++
++    MPI_Comm_size(MPI_COMM_WORLD, &size);
++    if (size > 1) {
++        MFU_LOG(MFU_LOG_ERR, "dcp uses h5repack to copy DAOS HDF5 containers "
++                "to and from a POSIX filesystem. Only one process "
++                "is currently supported. Restart program using only "
++                "one MPI process "
++                MFU_ERRF, MFU_ERRP(-MFU_ERR_INVAL_ARG));
++                rc = 1;
++                return rc;
++    }
++
++    /* check for DAOS path and set VOL Name accordingly */
++    rc = duns_resolve_path(argpaths[0], &src_dattr);
++    if (rc == 0) {
++        src_daos = true;
++        uuid_copy(daos_args->src_pool_uuid, src_dattr.da_puuid);
++        uuid_copy(daos_args->src_cont_uuid, src_dattr.da_cuuid);
++
++        /* get pool and containter as strings for path */
++        uuid_unparse(daos_args->src_pool_uuid, src_pool_str);
++        uuid_unparse(daos_args->src_cont_uuid, src_cont_str);
++
++        /* build src path for h5repack */
++        len = snprintf(src_path, FILENAME_LEN, "daos://%s/%s",
++                       src_pool_str, src_cont_str);
++        if (len > FILENAME_LEN) {
++            MFU_LOG(MFU_LOG_ERR, "source path exceeds max length "
++                    MFU_ERRF, MFU_ERRP(-MFU_ERR_DCP));
++        }
++    } else {
++        /* source path is POSIX */
++        rc = 0;
++    }
++
++    rc = duns_resolve_path(argpaths[1], &dst_dattr);
++    if (rc == 0) {
++        dst_daos = true;
++        uuid_copy(daos_args->dst_pool_uuid, dst_dattr.da_puuid);
++        uuid_copy(daos_args->dst_cont_uuid, dst_dattr.da_cuuid);
++        if (!daos_uuid_valid(daos_args->dst_cont_uuid)) {
++            uuid_generate(daos_args->dst_cont_uuid);
++        }
++
++        /* get pool and containter as strings for path */
++        uuid_unparse(daos_args->dst_pool_uuid, dst_pool_str);
++        uuid_unparse(daos_args->dst_cont_uuid, dst_cont_str);
++
++        /* build dst path for h5repack */
++        len = snprintf(dst_path, FILENAME_LEN, "daos://%s/%s",
++                       dst_pool_str, dst_cont_str);
++        if (len > FILENAME_LEN) {
++            MFU_LOG(MFU_LOG_ERR, "destination path exceeds max length "
++                    MFU_ERRF, MFU_ERRP(-MFU_ERR_DCP));
++        }
++    } else {
++        /* destination path is POSIX */
++        rc = 0;
++    }
++
++    pid_t child;
++    int child_status;
++    pid_t child_pid;
++    char *args[4];
++    args[0] = "h5repack";
++    args[1] = NULL;
++    args[2] = NULL;
++    args[3] = NULL;
++    args[4] = NULL;
++
++    if (src_daos && dst_daos) {
++        /* this must be a DAOS->DAOS copy */
++        args[1] = strdup(src_path);
++        args[2] = strdup(dst_path);
++        args[3] = NULL;
++    } else if (src_daos && !dst_daos) {
++        args[1] = strdup("--dst-vol-name=native");
++        args[2] = strdup(src_path);
++        args[3] = strdup(argpaths[1]);
++        args[4] = NULL; 
++    } else if (!src_daos && dst_daos) {
++        args[1] = strdup("--src-vol-name=native");
++        args[2] = strdup(argpaths[0]);
++        args[3] = strdup(dst_path);
++        args[4] = NULL; 
++    } else {
++        MFU_LOG(MFU_LOG_ERR, "Invalid Format " MFU_ERRF,
++                MFU_ERRP(-MFU_ERR_INVAL_ARG));
++        rc = 1;
++        return rc;
++    }
++
++    /* Child process */
++    if ((child = fork()) == 0) {
++
++        /* start h5repack */
++        execvp(args[0], args);
++
++        /* if child process reaches this point then execvp must have failed */
++        MFU_LOG(MFU_LOG_ERR, "execvp on h5repack failed: "
++                MFU_ERRF, MFU_ERRP(-MFU_ERR_DCP));
++        mfu_free(&args[1]);
++        mfu_free(&args[2]);
++        mfu_free(&args[3]);
++        mfu_free(&args[4]);
++        rc = 1;
++        return rc;
++    /* Parent process */
++    } else {
++        if (child == (pid_t)(-1)) {
++            MFU_LOG(MFU_LOG_ERR, "fork failed: "
++                    MFU_ERRF, MFU_ERRP(-MFU_ERR_DCP));
++            mfu_free(&args[1]);
++            mfu_free(&args[2]);
++            mfu_free(&args[3]);
++            mfu_free(&args[4]);
++            rc = 1;
++            return rc;
++        } else {
++            /* parent will wait for child to complete */
++            child_pid = wait(&child_status);
++        }
++    }
++
++    /* if child status is 0, then copy was successful */
++    if (child_status != 0) {
++        MFU_LOG(MFU_LOG_ERR, "errors occurred while copying to/from container: "
++                MFU_ERRF, MFU_ERRP(-MFU_ERR_DCP));
++        mfu_free(&args[1]);
++        mfu_free(&args[2]);
++        mfu_free(&args[3]);
++        mfu_free(&args[4]);
++        rc = 1;
++        return rc;
++    } else {
++        if (dst_daos) {
++            MFU_LOG(MFU_LOG_INFO, "Successfully copied to %s", dst_path);
++        } else {
++            MFU_LOG(MFU_LOG_INFO, "Successfully copied to %s", argpaths[1]);
++        }
++    }
++
++    mfu_free(&args[1]);
++    mfu_free(&args[2]);
++    mfu_free(&args[3]);
++    mfu_free(&args[4]);
++    return rc;
++}
 +#endif
 diff --git a/src/common/mfu_daos.h b/src/common/mfu_daos.h
-index 454ee04..72a2093 100644
+index 454ee04..a8f1aef 100644
 --- a/src/common/mfu_daos.h
 +++ b/src/common/mfu_daos.h
-@@ -1,12 +1,18 @@
+@@ -1,12 +1,19 @@
  #include "mfu.h"
  
  #include <daos.h>
@@ -4802,10 +5061,18 @@ index 454ee04..72a2093 100644
 +#define OID_ARR_SIZE        50
 +#define ATTR_NAME_LEN       64
 +#define FILENAME_LEN        1024 
++#define UUID_LEN            128
  
  enum handleType {
      POOL_HANDLE,
-@@ -22,21 +28,113 @@ typedef enum {
+@@ -17,26 +24,166 @@ enum handleType {
+ typedef enum {
+     DAOS_API_AUTO,
+     DAOS_API_DFS,
+-    DAOS_API_DAOS
++    DAOS_API_DAOS,
++    DAOS_API_HDF5
+ } daos_api_t;
  
  /* struct for holding DAOS arguments */
  typedef struct {
@@ -4841,6 +5108,50 @@ index 454ee04..72a2093 100644
 +    enum daos_cont_props dst_cont_type; /* type of the destination container */
  } daos_args_t;
  
++/* struct for holding statistics */
++typedef struct mfu_daos_stats {
++    uint64_t total_oids;    /* sum of object ids */
++    uint64_t total_dkeys;   /* sum of dkeys */
++    uint64_t total_akeys;   /* sum of akeys */
++    uint64_t bytes_read;    /* sum of bytes read (src and dst) */
++    uint64_t bytes_written; /* sum of bytes written */
++    time_t   time_started;  /* time when started */
++    time_t   time_ended;    /* time when ended */
++    double   wtime_started; /* relative time when started */
++    double   wtime_ended;   /* relative time when ended */
++} mfu_daos_stats_t;
++
++/* initialize the mfu_daos_stats_t */
++void mfu_daos_stats_init(mfu_daos_stats_t* stats);
++
++/* set the stats start time */
++void mfu_daos_stats_start(mfu_daos_stats_t* stats);
++
++/* set the stats end time */
++void mfu_daos_stats_end(mfu_daos_stats_t* stats);
++
++/* sum the stats into another stats struct */
++void mfu_daos_stats_sum(mfu_daos_stats_t* stats, mfu_daos_stats_t* stats_sum);
++
++/* print the stats */
++void mfu_daos_stats_print(
++    mfu_daos_stats_t* stats,
++    bool print_read,
++    bool print_write,
++    bool print_read_rate,
++    bool print_write_rate
++);
++
++/* sum and printthe stats */
++void mfu_daos_stats_print_sum(
++    int rank,
++    mfu_daos_stats_t* stats,
++    bool print_read,
++    bool print_write,
++    bool print_read_rate,
++    bool print_write_rate
++);
++
 +#ifdef HDF5_SUPPORT
 +/* for user attr dataset */
 +typedef struct {
@@ -4929,10 +5240,13 @@ index 454ee04..72a2093 100644
 +};
 +#endif
 +
++/* Check whether a uuid is valid */
++bool daos_uuid_valid(const uuid_t uuid);
++
  /* Return a newly allocated daos_args_t structure.
   * Set default values on its fields. */
  daos_args_t* daos_args_new(void);
-@@ -67,6 +165,79 @@ int daos_setup(
+@@ -67,6 +214,80 @@ int daos_setup(
    mfu_file_t* mfu_dst_file
  );
  
@@ -4943,8 +5257,7 @@ index 454ee04..72a2093 100644
 +    char *path,
 +    size_t path_len,
 +    uuid_t *p_uuid,
-+    uuid_t *c_uuid,
-+    bool daos_no_prefix
++    uuid_t *c_uuid
 +);
 +
 +/* connect to DAOS pool,
@@ -4979,7 +5292,8 @@ index 454ee04..72a2093 100644
 +    uint64_t *files_written,
 +    daos_args_t *da,
 +    mfu_flist flist,
-+    uint64_t num_oids
++    uint64_t num_oids,
++    mfu_daos_stats_t* stats
 +);
 +
 +/* serialize a container to
@@ -4987,7 +5301,8 @@ index 454ee04..72a2093 100644
 +int daos_cont_deserialize_hdlr(
 +    int rank,
 +    daos_args_t *da,
-+    const char *h5filename
++    const char *h5filename,
++    mfu_daos_stats_t* stats
 +);
 +
 +/* connect to pool, read cont properties because
@@ -5012,7 +5327,7 @@ index 454ee04..72a2093 100644
  /* Unmount DFS.
   * Disconnect from pool/cont.
   * Cleanup DAOS-related vars, handles. 
-@@ -77,15 +248,20 @@ int daos_cleanup(
+@@ -77,15 +298,25 @@ int daos_cleanup(
    mfu_file_t* mfu_dst_file
  );
  
@@ -5039,6 +5354,11 @@ index 454ee04..72a2093 100644
 +    bool compare_dst,   /* whether to compare the dst before writing */
 +    bool write_dst      /* whether to actually write to the dst */
  );
++
++/* check if source or destination is HDF5 container, and
++ * if so, then launch/run h5repack */
++int mfu_daos_hdf5_copy(char **argpaths,
++                       daos_args_t *daos_args);
 diff --git a/src/common/mfu_flist.c b/src/common/mfu_flist.c
 index 772fdc2..5b2c104 100644
 --- a/src/common/mfu_flist.c
@@ -5233,10 +5553,10 @@ index 0000000..84e5cf1
 +MFU_ADD_TOOL(daos-deserialize)
 diff --git a/src/daos-deserialize/daos-deserialize.c b/src/daos-deserialize/daos-deserialize.c
 new file mode 100644
-index 0000000..9cba335
+index 0000000..533b3e1
 --- /dev/null
 +++ b/src/daos-deserialize/daos-deserialize.c
-@@ -0,0 +1,408 @@
+@@ -0,0 +1,420 @@
 +#include <stdio.h>
 +#include <getopt.h>
 +#include <string.h>
@@ -5491,6 +5811,11 @@ index 0000000..9cba335
 +        return 1;
 +    }
 +
++    /* Initialize some stats */
++    mfu_daos_stats_t stats;
++    mfu_daos_stats_init(&stats);
++    mfu_daos_stats_start(&stats);
++
 +    /* TODO: I think maybe this can be adjusted to use
 +     * libcircle in the case that a user specifies
 +     * a directory, it could only add regular files
@@ -5598,12 +5923,18 @@ index 0000000..9cba335
 +        const char *path = mfu_flist_file_get_name(newflist, i);
 +
 +        /* deserialize this hdf5 file to a DAOS container */
-+        tmp_rc = daos_cont_deserialize_hdlr(rank, daos_args, path);
++        tmp_rc = daos_cont_deserialize_hdlr(rank, daos_args, path, &stats);
 +        if (tmp_rc != 0) {
 +            MFU_LOG(MFU_LOG_ERR, "Failed to deserialize container (%d)", rc);
 +            rc = 1;
 +        }
 +    }
++
++    /* Record end time */
++    mfu_daos_stats_end(&stats);
++
++    /* Sum and print the stats */
++    mfu_daos_stats_print_sum(rank, &stats, false, true, false, false);
 +
 +    mfu_flist_free(&newflist);
 +
@@ -5630,9 +5961,10 @@ index 0000000..9cba335
 +                "serializing: " MFU_ERRF, MFU_ERRP(MFU_ERR_DAOS));
 +    }
 +
-+    rc = daos_fini();
-+    if (rc != 0) {
++    tmp_rc = daos_fini();
++    if (tmp_rc != 0) {
 +        MFU_LOG(MFU_LOG_ERR, "Failed to finalize DAOS "DF_RC, DP_RC(rc));
++        rc = 1;
 +    }
 +
 +    mfu_finalize();
@@ -5654,10 +5986,10 @@ index 0000000..3f9c9f9
 +MFU_ADD_TOOL(daos-serialize)
 diff --git a/src/daos-serialize/daos-serialize.c b/src/daos-serialize/daos-serialize.c
 new file mode 100644
-index 0000000..48d33d1
+index 0000000..f588984
 --- /dev/null
 +++ b/src/daos-serialize/daos-serialize.c
-@@ -0,0 +1,281 @@
+@@ -0,0 +1,287 @@
 +#include <stdio.h>
 +#include <getopt.h>
 +#include <string.h>
@@ -5679,10 +6011,10 @@ index 0000000..48d33d1
 +void print_usage(void)
 +{
 +    printf("\n");
-+    printf("Usage: daos-serialize [options] /<pool>/<cont>\n");
++    printf("Usage: daos-serialize [options] daos://<pool>/<cont>\n");
 +    printf("\n");
 +    printf("DAOS paths can be specified as:\n");
-+    printf("       /<pool>/<cont> | <UNS path>\n");
++    printf("       daos://<pool>/<cont> | <UNS path>\n");
 +    printf("\n");
 +    printf("Options:\n");
 +    printf("  -o  --output-path        - path to output serialized hdf5 files\n");
@@ -5800,16 +6132,10 @@ index 0000000..48d33d1
 +
 +    int len = strlen(argpaths[0]); 
 +
-+    /* default to no daos prefix, but allow someone to use one */
-+    bool daos_no_prefix = true;
-+    if (strncmp(argpaths[0], "daos://", 7) == 0) {
-+        daos_no_prefix = false; 
-+    }
-+
 +    int tmp_rc;
 +    tmp_rc = daos_parse_path(argpaths[0], len, &daos_args->src_pool_uuid,
-+                         &daos_args->src_cont_uuid, daos_no_prefix);
-+    if (tmp_rc != 0 || daos_args->src_pool_uuid == NULL || daos_args->src_cont_uuid == NULL) {
++                         &daos_args->src_cont_uuid);
++    if (tmp_rc != 0 || !daos_uuid_valid(daos_args->src_pool_uuid) || !daos_uuid_valid(daos_args->src_cont_uuid)) {
 +        MFU_LOG(MFU_LOG_ERR, "Failed to resolve DAOS path");
 +         rc = 1;
 +    }
@@ -5820,6 +6146,11 @@ index 0000000..48d33d1
 +    if (tmp_rc != 0) {
 +        rc = 1;
 +    }
++
++    /* Initialize some stats */
++    mfu_daos_stats_t stats;
++    mfu_daos_stats_init(&stats);
++    mfu_daos_stats_start(&stats);
 +
 +    /* take a snapshot and walk container to get list of objects,
 +     * returns epoch number of snapshot */
@@ -5860,7 +6191,7 @@ index 0000000..48d33d1
 +    /* don't bother running if this rank doesn't have any oids */
 +    if (size > 0) {
 +        tmp_rc = daos_cont_serialize_hdlr(rank, &hdf5, output_path, &files_written,
-+                                          daos_args, newflist, size);
++                                          daos_args, newflist, size, &stats);
 +        if (tmp_rc != 0) {
 +            MFU_LOG(MFU_LOG_ERR, "Failed to serialize container (%d)", rc);
 +            rc = 1;
@@ -5880,6 +6211,12 @@ index 0000000..48d33d1
 +            rc = 1;
 +        }
 +    }
++
++    /* Record end time */
++    mfu_daos_stats_end(&stats);
++
++    /* Sum and print the stats */
++    mfu_daos_stats_print_sum(rank, &stats, true, false, false, false);
 +
 +    /* destroy snapshot after copy */
 +    /* TODO consider moving this into mfu_flist_copy_daos */
@@ -5924,9 +6261,10 @@ index 0000000..48d33d1
 +                "serializing: " MFU_ERRF, MFU_ERRP(MFU_ERR_DAOS));
 +    }
 +
-+    rc = daos_fini();
++    tmp_rc = daos_fini();
 +    if (rc != 0) {
 +        MFU_LOG(MFU_LOG_ERR, "Failed to finalize DAOS "DF_RC, DP_RC(rc));
++        rc = 1;
 +    }
 +
 +    mfu_finalize();
@@ -5940,18 +6278,36 @@ index 0000000..48d33d1
 +    return 0;
 +}
 diff --git a/src/dcp/dcp.c b/src/dcp/dcp.c
-index 813a667..cba5b14 100644
+index 813a667..bbe5ddc 100644
 --- a/src/dcp/dcp.c
 +++ b/src/dcp/dcp.c
-@@ -360,6 +360,7 @@ int main(int argc, char** argv)
+@@ -358,13 +358,21 @@ int main(int argc, char** argv)
+ 
+ #ifdef DAOS_SUPPORT
      /* Set up DAOS arguments, containers, dfs, etc. */
-     rc = daos_setup(rank, argpaths, daos_args, mfu_src_file, mfu_dst_file);
-     if (rc != 0) {
-+        daos_cleanup(daos_args, mfu_src_file, mfu_dst_file);
+-    rc = daos_setup(rank, argpaths, daos_args, mfu_src_file, mfu_dst_file);
+-    if (rc != 0) {
++    if (daos_args->api != DAOS_API_HDF5) {
++        rc = daos_setup(rank, argpaths, daos_args, mfu_src_file, mfu_dst_file);
++    }
++
++    /* if hdf5 API is specified, then h5repack is used */
++    if (daos_args->api == DAOS_API_HDF5) {
++        rc = mfu_daos_hdf5_copy(argpaths, daos_args);
++        if (rc != 0) {
++            rc = 1;
++        }
          mfu_finalize();
          MPI_Finalize();
-         return 1;
-@@ -376,16 +377,13 @@ int main(int argc, char** argv)
+-        return 1;
++        return rc;
+     }
+-    
++
+     /* TODO add support for this */
+     if (inputname && mfu_src_file->type == DFS) {
+         MFU_LOG(MFU_LOG_ERR, "--input is not supported with DAOS"
+@@ -376,16 +384,13 @@ int main(int argc, char** argv)
      }
  #endif
  
@@ -5969,7 +6325,16 @@ index 813a667..cba5b14 100644
  
          /* last item in the list is the destination path */
          mfu_param_path* destpath = &paths[numpaths - 1];
-@@ -451,36 +449,25 @@ int main(int argc, char** argv)
+@@ -417,7 +422,7 @@ int main(int argc, char** argv)
+             mfu_param_path_free_all(numpaths, paths);
+             mfu_free(&paths);
+ #ifdef DAOS_SUPPORT
+-	    daos_cleanup(daos_args, mfu_src_file, mfu_dst_file);
++            daos_cleanup(daos_args, mfu_src_file, mfu_dst_file);
+ #endif
+             mfu_finalize();
+             MPI_Finalize();
+@@ -451,36 +456,25 @@ int main(int argc, char** argv)
              rc = 1;
          }
  
@@ -6010,7 +6375,7 @@ index 813a667..cba5b14 100644
          if (tmp_rc != 0) {
              rc = 1;
          }
-@@ -489,30 +476,18 @@ int main(int argc, char** argv)
+@@ -489,30 +483,18 @@ int main(int argc, char** argv)
          if (rc == 0 && rank == 0) {
              MFU_LOG(MFU_LOG_INFO, "Successfully copied to DAOS Destination Container.");
          }
