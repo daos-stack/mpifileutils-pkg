@@ -44,7 +44,7 @@
 
 Name:		mpifileutils
 Version:	0.11
-Release:	2%{?git_short:.g%{git_short}}%{?dist}
+Release:	3%{?git_short:.g%{git_short}}%{?dist}
 Summary:	File utilities designed for scalability and performance.
 
 Group:		System Environment/Libraries
@@ -206,6 +206,9 @@ done
 %endif
 
 %changelog
+* Tue Apr 06 2021 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11-3
+- Update to patch 5525560
+
 * Fri Mar 12 2021 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11-2
 - Update to patch b0d402d
 - Added libuuid-devel dependency
