@@ -44,7 +44,7 @@
 
 Name:		mpifileutils
 Version:	0.11
-Release:	3%{?git_short:.g%{git_short}}%{?dist}
+Release:	4%{?git_short:.g%{git_short}}%{?dist}
 Summary:	File utilities designed for scalability and performance.
 
 Group:		System Environment/Libraries
@@ -148,12 +148,6 @@ for mpi in %{?mpi_list}; do
   %cmake ../ -DENABLE_DAOS=ON                                                       \
              -DENABLE_LIBARCHIVE=OFF                                                \
              -DENABLE_HDF5=ON                                                       \
-             -DDTCMP_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}          \
-             -DDTCMP_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libdtcmp.so        \
-             -DLibCircle_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}      \
-             -DLibCircle_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libcircle.so   \
-             -DHDF5_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}           \
-             -DHDF5_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libhdf5.so \
              -DWITH_CART_PREFIX=/usr                                                \
              -DWITH_DAOS_PREFIX=/usr                                                \
              -DCMAKE_INSTALL_INCLUDEDIR=%{mpi_includedir}/$mpi%{mpi_include_ext}    \
@@ -206,6 +200,9 @@ done
 %endif
 
 %changelog
+* Wed Apr 21 2021 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11-4
+- dummy test
+
 * Tue Apr 06 2021 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11-3
 - Update to patch 5525560
 

@@ -1,7 +1,7 @@
 NAME      := mpifileutils
 SRC_EXT   := gz
 REPO_NAME := mpifileutils-pkg
-GIT_SHORT := 5525560
+GIT_SHORT := 8e325c0
 
 BUILD_DEFINES := --define "git_short $(GIT_SHORT)"
 

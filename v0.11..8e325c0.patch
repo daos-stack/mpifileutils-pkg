@@ -1,0 +1,62 @@
+diff --git a/cmake/FindDTCMP.cmake b/cmake/FindDTCMP.cmake
+index 177a53f..60d0b6e 100644
+--- a/cmake/FindDTCMP.cmake
++++ b/cmake/FindDTCMP.cmake
+@@ -11,11 +11,13 @@ FIND_PATH(WITH_DTCMP_PREFIX
+ FIND_LIBRARY(DTCMP_LIBRARIES
+     NAMES dtcmp
+     HINTS ${WITH_DTCMP_PREFIX}/lib
++	      $ENV{MPI_LIB}
+ )
+ 
+ FIND_PATH(DTCMP_INCLUDE_DIRS
+     NAMES dtcmp.h
+     HINTS ${WITH_DTCMP_PREFIX}/include
++	      $ENV{MPI_INCLUDE}
+ )
+ 
+ INCLUDE(FindPackageHandleStandardArgs)
+diff --git a/cmake/FindHDF5.cmake b/cmake/FindHDF5.cmake
+index ee9e0a1..2b00038 100644
+--- a/cmake/FindHDF5.cmake
++++ b/cmake/FindHDF5.cmake
+@@ -11,16 +11,19 @@ FIND_PATH(WITH_HDF5_PREFIX
+ FIND_LIBRARY(HDF5_LIBRARIES
+     NAMES hdf5 
+     HINTS ${WITH_HDF5_PREFIX}/lib
++	      $ENV{MPI_LIB}
+ )
+ 
+ FIND_PATH(HDF5_INCLUDE_DIRS
+     NAMES hdf5.h
+     HINTS ${WITH_HDF5_PREFIX}/include
++	      $ENV{MPI_INCLUDE}
+ )
+ 
+ FIND_PATH(HDF5_BIN_DIR
+     NAMES h5cc h5pcc
+     HINTS ${WITH_HDF5_PREFIX}/bin
++	      $ENV{MPI_BIN}
+ )
+ 
+ INCLUDE(FindPackageHandleStandardArgs)
+diff --git a/cmake/FindLibCircle.cmake b/cmake/FindLibCircle.cmake
+index 5a12877..2bbc88b 100644
+--- a/cmake/FindLibCircle.cmake
++++ b/cmake/FindLibCircle.cmake
+@@ -10,12 +10,14 @@ FIND_PATH(WITH_LibCircle_PREFIX
+ 
+ FIND_LIBRARY(LibCircle_LIBRARIES
+     NAMES circle
+-    HINTS ${WITH_LibCircle_PREFIX}/lib
++	HINTS ${WITH_LibCircle_PREFIX}/lib
++	      $ENV{MPI_LIB}
+ )
+ 
+ FIND_PATH(LibCircle_INCLUDE_DIRS
+     NAMES libcircle.h
+     HINTS ${WITH_LibCircle_PREFIX}/include
++	      $ENV{MPI_INCLUDE}
+ )
+ 
+ INCLUDE(FindPackageHandleStandardArgs)
