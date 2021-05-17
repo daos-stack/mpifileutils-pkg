@@ -1,7 +1,11 @@
-%global daos_major 1
 %global with_mpich 1
+%if (0%{?rhel} >= 8)
+%global with_openmpi 1
+%global with_openmpi3 0
+%else
 %global with_openmpi 0
 %global with_openmpi3 1
+%endif
 
 %if (0%{?suse_version} >= 1500)
 %global module_load() if [ "%{1}" == "openmpi3" ]; then MODULEPATH=/usr/share/modules module load gnu-openmpi; else MODULEPATH=/usr/share/modules module load gnu-%{1}; fi
@@ -44,7 +48,7 @@
 
 Name:		mpifileutils
 Version:	0.11
-Release:	4%{?git_short:.g%{git_short}}%{?dist}
+Release:	5%{?git_short:.g%{git_short}}%{?dist}
 Summary:	File utilities designed for scalability and performance.
 
 Group:		System Environment/Libraries
@@ -72,6 +76,26 @@ BuildRequires: libuuid-devel
 %description
 File utilities designed for scalability and performance.
 
+%if %{with_openmpi}
+%package openmpi
+Summary:	File utilities designed for scalability and performance.
+BuildRequires: openmpi-devel
+BuildRequires: dtcmp-openmpi-devel
+BuildRequires: libcircle-openmpi-devel
+BuildRequires: hdf5-vol-daos-openmpi-devel
+
+%description openmpi
+File utilities designed for scalability and performance.
+
+
+%package openmpi-devel
+Summary:	File utilities designed for scalability and performance.
+Requires: %{name}-openmpi%{_isa} = %version-%release
+
+%description openmpi-devel
+Development files for %{name}-openmpi.
+%endif
+
 %if %{with_openmpi3}
 %package openmpi3
 Summary:	File utilities designed for scalability and performance.
@@ -79,7 +103,6 @@ BuildRequires: openmpi3-devel
 BuildRequires: dtcmp-openmpi3-devel
 BuildRequires: libcircle-openmpi3-devel
 BuildRequires: hdf5-vol-daos-openmpi3-devel
-Provides: %{name}-openmpi3-daos-%{daos_major}
 
 %description openmpi3
 File utilities designed for scalability and performance.
@@ -111,7 +134,6 @@ BuildRequires: mpich-devel
 BuildRequires: dtcmp-mpich-devel
 BuildRequires: libcircle-mpich-devel
 BuildRequires: hdf5-vol-daos-mpich-devel
-Provides: %{name}-mpich-daos-%{daos_major}
 
 %description mpich
 File utilities designed for scalability and performance.
@@ -145,19 +167,21 @@ for mpi in %{?mpi_list}; do
   mkdir $mpi
   pushd $mpi
   %module_load $mpi
-  %cmake ../ -DENABLE_DAOS=ON                                                       \
-             -DENABLE_LIBARCHIVE=OFF                                                \
-             -DENABLE_HDF5=ON                                                       \
-             -DDTCMP_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}          \
-             -DDTCMP_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libdtcmp.so        \
-             -DLibCircle_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}      \
-             -DLibCircle_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libcircle.so   \
-             -DHDF5_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}           \
-             -DHDF5_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libhdf5.so \
-             -DWITH_CART_PREFIX=/usr                                                \
-             -DWITH_DAOS_PREFIX=/usr                                                \
-             -DCMAKE_INSTALL_INCLUDEDIR=%{mpi_includedir}/$mpi%{mpi_include_ext}    \
-             -DCMAKE_INSTALL_PREFIX=%{mpi_libdir}/$mpi                              \
+  %cmake ../ -DCMAKE_C_FLAGS="${RPM_OPT_FLAGS}"                                   \
+             -DCMAKE_CXX_FLAGS="${RPM_OPT_FLAGS}"                                 \
+             -DENABLE_DAOS=ON                                                     \
+             -DENABLE_LIBARCHIVE=OFF                                              \
+             -DENABLE_HDF5=ON                                                     \
+             -DDTCMP_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}        \
+             -DDTCMP_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libdtcmp.so      \
+             -DLibCircle_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}    \
+             -DLibCircle_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libcircle.so \
+             -DHDF5_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}         \
+             -DHDF5_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libhdf5.so        \
+             -DWITH_CART_PREFIX=/usr                                              \
+             -DWITH_DAOS_PREFIX=/usr                                              \
+             -DCMAKE_INSTALL_INCLUDEDIR=%{mpi_includedir}/$mpi%{mpi_include_ext}  \
+             -DCMAKE_INSTALL_PREFIX=%{mpi_libdir}/$mpi                            \
              -DCMAKE_INSTALL_LIBDIR=%{mpi_lib_ext}
 
   make
@@ -172,6 +196,19 @@ for mpi in %{?mpi_list}; do
   make install -C $mpi DESTDIR=%{buildroot}
   module purge
 done
+
+%if %{with_openmpi}
+%files openmpi
+%defattr(-,root,root,-)
+%{mpi_libdir}/openmpi/bin/*
+%{mpi_libdir}/openmpi/share/man/*
+%{mpi_libdir}/openmpi/%{mpi_lib_ext}/libmfu.so.*
+
+%files openmpi-devel
+%{mpi_includedir}/openmpi%{mpi_include_ext}/*
+%{mpi_libdir}/openmpi/%{mpi_lib_ext}/lib*.so
+%{mpi_libdir}/openmpi/%{mpi_lib_ext}/lib*.a
+%endif
 
 %if %{with_openmpi3}
 %files openmpi3
@@ -206,6 +243,9 @@ done
 %endif
 
 %changelog
+* Mon May 17 2021 Brian J. Murrell <brian.murrell@intel.com> - 0.11-5
+- Package for openmpi on EL8
+
 * Mon May 03 2021 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11-4
 - Update to patch bdf06d4
 
