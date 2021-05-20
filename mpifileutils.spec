@@ -44,7 +44,7 @@
 
 Name:		mpifileutils
 Version:	0.11
-Release:	4%{?git_short:.g%{git_short}}%{?dist}
+Release:	5%{?git_short:.g%{git_short}}%{?dist}
 Summary:	File utilities designed for scalability and performance.
 
 Group:		System Environment/Libraries
@@ -206,6 +206,9 @@ done
 %endif
 
 %changelog
+* Mon Jun 14 2021 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11-5
+- Update to patch 3746c05
+
 * Mon May 03 2021 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11-4
 - Update to patch bdf06d4
 
