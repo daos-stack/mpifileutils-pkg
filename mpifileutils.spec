@@ -72,14 +72,10 @@ BuildRequires: openssl-devel
 %endif
 BuildRequires: gcc-c++
 BuildRequires: libuuid-devel
-BuildRequires: daos-devel%{?_isa}
-BuildRequires: daos-client%{?_isa}
-BuildRequires: libcart
+
 
 %if (0%{?suse_version} >= 1500)
-BuildRequires: libfabric1
-%else
-BuildRequires: libfabric
+BuildRequires: libfabric1 >= 1.12.0
 %endif
 
 %description
