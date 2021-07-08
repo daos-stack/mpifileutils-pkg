@@ -73,6 +73,10 @@ BuildRequires: openssl-devel
 BuildRequires: gcc-c++
 BuildRequires: libuuid-devel
 
+
+# Testing this
+BuildRequires: libfabric
+
 %description
 File utilities designed for scalability and performance.
 
