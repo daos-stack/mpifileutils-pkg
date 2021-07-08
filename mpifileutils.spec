@@ -73,9 +73,6 @@ BuildRequires: openssl-devel
 BuildRequires: gcc-c++
 BuildRequires: libuuid-devel
 
-# testing these
-Requires: libfabric
-
 %description
 File utilities designed for scalability and performance.
 
@@ -170,7 +167,7 @@ for mpi in %{?mpi_list}; do
   mkdir $mpi
   pushd $mpi
   %module_load $mpi
-  %cmake ../ -DCMAKE_C_FLAGS="${RPM_OPT_FLAGS}"                                   \
+  CXX=mpic++ CC=mpicc FC=mpifort %cmake ../ -DCMAKE_C_FLAGS="${RPM_OPT_FLAGS}"                                   \
              -DCMAKE_CXX_FLAGS="${RPM_OPT_FLAGS}"                                 \
              -DENABLE_DAOS=ON                                                     \
              -DENABLE_LIBARCHIVE=OFF                                              \
