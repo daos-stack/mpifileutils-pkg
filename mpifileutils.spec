@@ -72,12 +72,13 @@ BuildRequires: openssl-devel
 %endif
 BuildRequires: gcc-c++
 BuildRequires: libuuid-devel
+BuildRequires: daos-devel
 
-%if (0%{?suse_version} >= 1500)
-BuildRequires: libfabric1
-%else
-BuildRequires: libfabric
-%endif
+#%if (0%{?suse_version} >= 1500)
+#BuildRequires: libfabric1
+#%else
+#BuildRequires: libfabric
+#%endif
 
 %description
 File utilities designed for scalability and performance.
