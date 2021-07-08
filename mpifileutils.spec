@@ -76,6 +76,7 @@ BuildRequires: libuuid-devel
 # testing these
 BuildRequires: autoconf
 BuildRequires: automake
+BuildRequires: libfabric
 
 %description
 File utilities designed for scalability and performance.
