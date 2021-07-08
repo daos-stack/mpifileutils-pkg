@@ -72,7 +72,12 @@ BuildRequires: openssl-devel
 %endif
 BuildRequires: gcc-c++
 BuildRequires: libuuid-devel
+
+%if (0%{?suse_version} >= 1500)
 BuildRequires: libfabric1
+%else
+BuildRequires: libfabric
+%endif
 
 %description
 File utilities designed for scalability and performance.
@@ -246,7 +251,7 @@ done
 %changelog
 * Wed Jul 07 2021 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11-7
 - Update to patch 1544365
-- Add libfabric1 dependency
+- Add libfabric dependency
 
 * Wed Jun 16 2021 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11-6
 - Update to patch 3746c05
