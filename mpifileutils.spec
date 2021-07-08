@@ -74,9 +74,7 @@ BuildRequires: gcc-c++
 BuildRequires: libuuid-devel
 
 # testing these
-BuildRequires: autoconf
-BuildRequires: automake
-BuildRequires: libfabric
+Requires: libfabric
 
 %description
 File utilities designed for scalability and performance.
