@@ -75,7 +75,7 @@ BuildRequires: libuuid-devel
 
 
 # Testing this
-BuildRequires: libfabric
+BuildRequires: libfabric1
 
 %description
 File utilities designed for scalability and performance.
