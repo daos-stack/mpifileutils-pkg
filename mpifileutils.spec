@@ -48,7 +48,7 @@
 
 Name:		mpifileutils
 Version:	0.11
-Release:	7%{?git_short:.g%{git_short}}%{?dist}
+Release:	8%{?git_short:.g%{git_short}}%{?dist}
 Summary:	File utilities designed for scalability and performance.
 
 Group:		System Environment/Libraries
@@ -248,6 +248,9 @@ done
 %endif
 
 %changelog
+* Fri Jul 09 2021 Danielle M. Sikich <danielle.sikich@intel.com> - 0.11-8
+- Update to patch b1d9591 
+
 * Wed Jul 07 2021 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11-7
 - Update to patch 1544365
 - Add libfabric dependency

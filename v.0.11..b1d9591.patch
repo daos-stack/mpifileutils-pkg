@@ -1,0 +1,91 @@
+diff --git a/src/common/mfu_daos.c b/src/common/mfu_daos.c
+index 4dc27a3..2b3a2e3 100644
+--- a/src/common/mfu_daos.c
++++ b/src/common/mfu_daos.c
+@@ -2692,7 +2692,7 @@ static int serialize_recx_array(struct hdf5_args *hdf5,
+             continue;
+         for (i = 0; i < number; i++) {
+             buf_len = recxs[i].rx_nr * size;
+-            buf = MFU_CALLOC(1, buf_len);
++            buf = MFU_CALLOC(buf_len, 1);
+ 
+             memset(&sgl, 0, sizeof(sgl));
+             memset(&iov, 0, sizeof(iov));
+@@ -2797,9 +2797,8 @@ static int serialize_recx_array(struct hdf5_args *hdf5,
+             }
+             /* created attribute in HDF5 file with encoded
+              * dataspace for this record extent */
+-            memset(attr_name, 0, ATTR_NAME_LEN);
+-            path_len = snprintf(number_str, ATTR_NAME_LEN, "%d",
+-                                (int)(*ak_index));
++            path_len = snprintf(number_str, ATTR_NAME_LEN, "%lu",
++                                (*ak_index));
+             if (path_len >= ATTR_NAME_LEN) {
+                 MFU_LOG(MFU_LOG_ERR, "number_str is too long");
+                 rc = 1;
+@@ -3932,7 +3931,6 @@ int daos_cont_serialize_hdlr(int rank, struct hdf5_args *hdf5, char *output_dir,
+     herr_t          err = 0;
+     char            *filename = NULL;
+     char            cont_str[FILENAME_LEN];
+-    char            rank_str[FILENAME_LEN];
+     daos_ofeat_t    ofeat;
+     bool            is_kv_flat = false;
+     int             size = 0;
+diff --git a/src/daos-serialize/daos-serialize.c b/src/daos-serialize/daos-serialize.c
+index eca9302..577555e 100644
+--- a/src/daos-serialize/daos-serialize.c
++++ b/src/daos-serialize/daos-serialize.c
+@@ -127,6 +127,8 @@ int main(int argc, char** argv)
+     /* create an empty file list */
+     mfu_flist flist = mfu_flist_new();
+ 
++    printf("daos-serialize: calling daos_init\n");
++    fflush(stdout);
+     rc = daos_init();
+     if (rc != 0) {
+         MFU_LOG(MFU_LOG_ERR, "Failed to initialize daos");
+@@ -140,6 +142,8 @@ int main(int argc, char** argv)
+ 
+     int len = strlen(argpaths[0]); 
+ 
++    printf("daos-serialize: calling daos_parse_path\n");
++    fflush(stdout);
+     int tmp_rc;
+     tmp_rc = daos_parse_path(argpaths[0], len, &daos_args->src_pool_uuid,
+                          &daos_args->src_cont_uuid);
+@@ -148,6 +152,8 @@ int main(int argc, char** argv)
+          rc = 1;
+     }
+     
++    printf("daos-serialize: calling daos_connect\n");
++    fflush(stdout);
+     tmp_rc = daos_connect(rank, daos_args, daos_args->src_pool_uuid,
+                           daos_args->src_cont_uuid, &daos_args->src_poh,
+                           &daos_args->src_coh, true, false, false, false, NULL);
+@@ -162,6 +168,8 @@ int main(int argc, char** argv)
+ 
+     /* take a snapshot and walk container to get list of objects,
+      * returns epoch number of snapshot */
++    printf("daos-serialize: calling mfu_daos_flist_walk\n");
++    fflush(stdout);
+     tmp_rc = mfu_daos_flist_walk(daos_args, daos_args->src_coh, &daos_args->src_epc, flist);
+     if (tmp_rc != 0) {
+         rc = 1;
+@@ -169,6 +177,8 @@ int main(int argc, char** argv)
+ 
+     /* all objects are on rank 0 at this point,
+      * evenly spread them among the ranks */
++    printf("daos-serialize: calling mfu_flist_spread\n");
++    fflush(stdout);
+     mfu_flist newflist = mfu_flist_spread(flist);
+ 
+     /* get size of local list for each rank */
+@@ -196,6 +206,8 @@ int main(int argc, char** argv)
+         }
+     }
+ 
++    printf("daos-serialize: calling daos_cont_serialize_hdlr\n");
++    fflush(stdout);
+     /* don't bother running if this rank doesn't have any oids */
+     if (size > 0) {
+         tmp_rc = daos_cont_serialize_hdlr(rank, &hdf5, output_path, &files_written,
