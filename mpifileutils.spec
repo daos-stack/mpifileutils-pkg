@@ -48,11 +48,7 @@
 
 Name:		mpifileutils
 Version:	0.11
-<<<<<<< HEAD
 Release:	7%{?git_short:.g%{git_short}}%{?dist}
-=======
-Release:	9%{?git_short:.g%{git_short}}%{?dist}
->>>>>>> 788ee62b4bfcc371ea84097a15c029baa2d7bef5
 Summary:	File utilities designed for scalability and performance.
 
 Group:		System Environment/Libraries
