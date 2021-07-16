@@ -504,7 +504,7 @@ index 2f83d2d..775c70f 100644
    ADD_SUBDIRECTORY(dgrep)
    ADD_SUBDIRECTORY(dparallel)
 diff --git a/src/common/mfu_daos.c b/src/common/mfu_daos.c
-index c9ebc02..2b3a2e3 100644
+index c9ebc02..595bfa8 100644
 --- a/src/common/mfu_daos.c
 +++ b/src/common/mfu_daos.c
 @@ -7,6 +7,7 @@
@@ -2881,7 +2881,7 @@ index c9ebc02..2b3a2e3 100644
      mfu_flist flist)
  {
      /* assume we'll succeed */
-@@ -1277,39 +2380,3195 @@ int mfu_flist_walk_daos(
+@@ -1277,39 +2380,3194 @@ int mfu_flist_walk_daos(
  
      /* have rank 0 do the work of listing the objects */
      if (rank == 0) {
@@ -5539,8 +5539,7 @@ index c9ebc02..2b3a2e3 100644
 +        goto out;
 +    }
 +
-+    rc = daos_cont_open_by_label(poh, label_entry->dpe_str, DAOS_COO_RW,
-+                                 &coh, &cont_info, NULL);
++    rc = daos_cont_open(poh, label_entry->dpe_str, DAOS_COO_RW, &coh, &cont_info, NULL);
 +    if (rc == -DER_NONEXIST) {
 +        /* doesn't exist so ok to deserialize this container label */
 +        deserialize_label = true;
