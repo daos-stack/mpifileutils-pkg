@@ -393,7 +393,7 @@ endif
 test:
 	# Test the rpmbuild by installing the built RPM
 	$(call install_repos,$(REPO_NAME)@$(BRANCH_NAME):$(BUILD_NUMBER))
-	dnf -y install $(TEST_PACKAGES)
+	yum -y install $(TEST_PACKAGES)
 
 show_spec:
 	@echo '$(SPEC)'
