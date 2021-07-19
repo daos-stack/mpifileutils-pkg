@@ -251,9 +251,6 @@ done
 * Fri Jul 16 2021 Danielle M. Sikich <danielle.sikich@intel.com> - 0.11-8
 - Update to patch 67f44ad
 
-* Tue Jul 13 2021 Danielle M. Sikich <danielle.sikich@intel.com> - 0.11-7
-- Update to patch 8a22a2d
-
 * Wed Jun 16 2021 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11-6
 - Update to patch 3746c05
 
