@@ -48,7 +48,7 @@
 
 Name:		mpifileutils
 Version:	0.11
-Release:	6%{?git_short:.g%{git_short}}%{?dist}
+Release:	7%{?git_short:.g%{git_short}}%{?dist}
 Summary:	File utilities designed for scalability and performance.
 
 Group:		System Environment/Libraries
@@ -72,6 +72,11 @@ BuildRequires: openssl-devel
 %endif
 BuildRequires: gcc-c++
 BuildRequires: libuuid-devel
+
+
+%if (0%{?suse_version} >= 1500)
+BuildRequires: libfabric1 >= 1.12.0
+%endif
 
 %description
 File utilities designed for scalability and performance.
@@ -243,6 +248,9 @@ done
 %endif
 
 %changelog
+* Fri Jul 16 2021 Danielle M. Sikich <danielle.sikich@intel.com> - 0.11-7
+- Update to patch 67f44ad
+
 * Wed Jun 16 2021 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11-6
 - Update to patch 3746c05
 
