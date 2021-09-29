@@ -504,7 +504,7 @@ index 2f83d2d..775c70f 100644
    ADD_SUBDIRECTORY(dgrep)
    ADD_SUBDIRECTORY(dparallel)
 diff --git a/src/common/mfu_daos.c b/src/common/mfu_daos.c
-index c9ebc02..bb02477 100644
+index c9ebc02..866afb6 100644
 --- a/src/common/mfu_daos.c
 +++ b/src/common/mfu_daos.c
 @@ -7,6 +7,7 @@
@@ -703,35 +703,59 @@ index c9ebc02..bb02477 100644
  
 -    bool have_src_path  = src_path != NULL;
 -    bool have_dst_path  = dst_path != NULL;
+-    bool have_src_pool  = daos_uuid_valid(da->src_pool_uuid);
+-    bool have_src_cont  = daos_uuid_valid(da->src_cont_uuid);
+-    bool have_dst_pool  = daos_uuid_valid(da->dst_pool_uuid);
+-    bool have_dst_cont  = daos_uuid_valid(da->dst_cont_uuid);
+-    bool have_prefix    = da->dfs_prefix != NULL;
 +    bool have_src_path  = (src_path != NULL);
 +    bool have_dst_path  = (dst_path != NULL);
-     bool have_src_pool  = daos_uuid_valid(da->src_pool_uuid);
-     bool have_src_cont  = daos_uuid_valid(da->src_cont_uuid);
-     bool have_dst_pool  = daos_uuid_valid(da->dst_pool_uuid);
-     bool have_dst_cont  = daos_uuid_valid(da->dst_cont_uuid);
--    bool have_prefix    = da->dfs_prefix != NULL;
++    bool have_src_pool  = strlen(da->src_pool) ? true : false;
++    bool have_src_cont  = strlen(da->src_cont) ? true : false;
++    bool have_dst_pool  = strlen(da->dst_pool) ? true : false;
++    bool have_dst_cont  = strlen(da->dst_cont) ? true : false;
 +    bool have_prefix    = (da->dfs_prefix != NULL);
  
      /* Determine whether any DAOS arguments are supplied. 
       * If not, then there is nothing to check. */
-@@ -58,14 +220,8 @@ static int daos_check_args(
+@@ -56,15 +218,31 @@ static int daos_check_args(
+         return 0;
+     }
      
++    /* if passed in values for src/dst are both uuids ignore the case when comparing */
++
      /* Determine whether the source and destination
       * use the same pool and container */
--    bool same_pool = false;
--    bool same_cont = false;
++    int rc1, rc2;
+     bool same_pool = false;
++    uuid_t src_pool;
++    uuid_t dst_pool;
++    rc1 = uuid_parse(da->src_pool, src_pool); 
++    rc2 = uuid_parse(da->dst_pool, dst_pool); 
++    if (rc1 == 0 && rc2 == 0) {
++        same_pool = (strcasecmp(da->src_pool, da->dst_pool) == 0);
++    } else {
++        same_pool = (strcmp(da->src_pool, da->dst_pool) == 0);
++    }
++
+     bool same_cont = false;
 -    if (uuid_compare(da->src_pool_uuid, da->dst_pool_uuid) == 0) {
 -        same_pool = true;
 -        if (uuid_compare(da->src_cont_uuid, da->dst_cont_uuid) == 0) {
 -            same_cont = true;
 -        }
--    }
-+    bool same_pool = (uuid_compare(da->src_pool_uuid, da->dst_pool_uuid) == 0);
-+    bool same_cont = same_pool && (uuid_compare(da->src_cont_uuid, da->dst_cont_uuid) == 0);
++    uuid_t src_cont;
++    uuid_t dst_cont;
++    rc1 = uuid_parse(da->src_cont, src_cont); 
++    rc2 = uuid_parse(da->dst_cont, dst_cont); 
++    if (rc1 == 0 && rc2 == 0) {
++        same_cont = same_pool && (strcasecmp(da->src_cont, da->dst_cont) == 0);
++    } else {
++        same_cont = same_pool && (strcmp(da->src_cont, da->dst_cont) == 0);
+     }
  
      /* Determine whether the source and destination paths are the same.
-      * Assume NULL == NULL. */
-@@ -129,7 +285,7 @@ static bool daos_check_prefix(
+@@ -129,20 +307,21 @@ static bool daos_check_prefix(
   * Returns 1 if a daos path was not parsed.
   * Returns -1 for actual errors.
   */
@@ -739,8 +763,11 @@ index c9ebc02..bb02477 100644
 +int daos_parse_path(
      char* path,
      size_t path_len,
-     uuid_t* p_uuid,
-@@ -138,6 +294,7 @@ static int daos_parse_path(
+-    uuid_t* p_uuid,
+-    uuid_t* c_uuid)
++    char (*pool_str)[],
++    char (*cont_str)[])
+ {
      struct duns_attr_t  dattr = {0};
      int                 rc;
  
@@ -748,12 +775,21 @@ index c9ebc02..bb02477 100644
      rc = duns_resolve_path(path, &dattr);
      if (rc == 0) {
          /* daos:// or UNS path */
-@@ -167,11 +324,16 @@ static int daos_parse_path(
+-        uuid_copy(*p_uuid, dattr.da_puuid);
+-        uuid_copy(*c_uuid, dattr.da_cuuid);
++        snprintf(*pool_str, DAOS_PROP_LABEL_MAX_LEN + 1, "%s", dattr.da_pool);
++        snprintf(*cont_str, DAOS_PROP_LABEL_MAX_LEN + 1, "%s", dattr.da_cont);
+         if (dattr.da_rel_path == NULL) {
+             strncpy(path, "/", path_len);
+         } else {
+@@ -167,37 +346,43 @@ static int daos_parse_path(
  static int daos_set_paths(
    int rank,
    char** argpaths,
+-  daos_args_t* da)
 +  int numpaths,
-   daos_args_t* da)
++  daos_args_t* da,
++  bool *dst_cont_passed)
  {
      int     rc = 0;
 +    bool    have_dst = (numpaths > 1);
@@ -765,8 +801,15 @@ index c9ebc02..bb02477 100644
  
      /* find out if a dfs_prefix is being used,
       * if so, then that means that the container
-@@ -183,7 +345,7 @@ static int daos_set_paths(
-         int     prefix_rc;
+      * is not being copied from the root of the
+      * UNS path  */
+     if (da->dfs_prefix != NULL) {
+-        uuid_t  prefix_p_uuid;
+-        uuid_t  prefix_c_uuid;
+-        int     prefix_rc;
++        char prefix_pool[DAOS_PROP_LABEL_MAX_LEN + 1];
++        char prefix_cont[DAOS_PROP_LABEL_MAX_LEN + 1];
++        int prefix_rc;
  
          size_t prefix_len = strlen(da->dfs_prefix);
 -        char* prefix_path = strndup(da->dfs_prefix, prefix_len);
@@ -774,21 +817,26 @@ index c9ebc02..bb02477 100644
          if (prefix_path == NULL) {
              MFU_LOG(MFU_LOG_ERR, "Unable to allocate space for DAOS prefix.");
              rc = 1;
-@@ -194,10 +356,10 @@ static int daos_set_paths(
-         uuid_clear(prefix_c_uuid);
+             goto out;
+         }
+ 
+-        uuid_clear(prefix_p_uuid);
+-        uuid_clear(prefix_c_uuid);
++        memset(prefix_pool, '\0', DAOS_PROP_LABEL_MAX_LEN + 1);
++        memset(prefix_cont, '\0', DAOS_PROP_LABEL_MAX_LEN + 1);
  
          /* Get the pool/container uuids from the prefix */
 -        prefix_rc = daos_parse_path(prefix_path, prefix_len, &prefix_p_uuid, &prefix_c_uuid);
 -        if (prefix_rc != 0 || prefix_p_uuid == NULL || prefix_c_uuid == NULL) {
 +        prefix_rc = daos_parse_path(prefix_path, prefix_len,
-+                                    &prefix_p_uuid, &prefix_c_uuid);
-+        if (prefix_rc != 0 || !daos_uuid_valid(prefix_p_uuid) || !daos_uuid_valid(prefix_c_uuid)) {
++                                    &prefix_pool, &prefix_cont);
++        if (prefix_rc != 0) {
              MFU_LOG(MFU_LOG_ERR, "Failed to resolve DAOS Prefix UNS path");
 -            mfu_free(&prefix_path);
              rc = 1;
              goto out;
          }
-@@ -205,7 +367,6 @@ static int daos_set_paths(
+@@ -205,7 +390,6 @@ static int daos_set_paths(
          /* In case the user tries to give a sub path in the UNS path */
          if (strcmp(prefix_path, "/") != 0) {
              MFU_LOG(MFU_LOG_ERR, "DAOS prefix must be a UNS path");
@@ -796,7 +844,14 @@ index c9ebc02..bb02477 100644
              rc = 1;
              goto out;
          }
-@@ -218,17 +379,18 @@ static int daos_set_paths(
+@@ -213,22 +397,23 @@ static int daos_set_paths(
+         /* Check if the prefix matches the source */
+         prefix_on_src = daos_check_prefix(argpaths[0], da->dfs_prefix, &da->src_path);
+         if (prefix_on_src) {
+-            uuid_copy(da->src_pool_uuid, prefix_p_uuid);
+-            uuid_copy(da->src_cont_uuid, prefix_c_uuid);
++            snprintf(da->src_pool, DAOS_PROP_LABEL_MAX_LEN + 1, "%s", prefix_pool);
++            snprintf(da->src_cont, DAOS_PROP_LABEL_MAX_LEN + 1, "%s", prefix_cont);
              argpaths[0] = da->src_path;
          }
  
@@ -810,8 +865,8 @@ index c9ebc02..bb02477 100644
 +            /* Check if the prefix matches the destination */
 +            prefix_on_dst = daos_check_prefix(argpaths[1], da->dfs_prefix, &da->dst_path);
 +            if (prefix_on_dst) {
-+                uuid_copy(da->dst_pool_uuid, prefix_p_uuid);
-+                uuid_copy(da->dst_cont_uuid, prefix_c_uuid);
++                snprintf(da->dst_pool, DAOS_PROP_LABEL_MAX_LEN + 1, "%s", prefix_pool);
++                snprintf(da->dst_cont, DAOS_PROP_LABEL_MAX_LEN + 1, "%s", prefix_cont);
 +                argpaths[1] = da->dst_path;
 +            }
          }
@@ -822,7 +877,7 @@ index c9ebc02..bb02477 100644
              rc = 1;
              goto out;
          }
-@@ -241,40 +403,65 @@ static int daos_set_paths(
+@@ -241,40 +426,67 @@ static int daos_set_paths(
       */
      if (!prefix_on_src) {
          size_t src_len = strlen(argpaths[0]);
@@ -834,10 +889,9 @@ index c9ebc02..bb02477 100644
              goto out;
          }
 -        int src_rc = daos_parse_path(src_path, src_len, &da->src_pool_uuid, &da->src_cont_uuid);
-+        int src_rc = daos_parse_path(src_path, src_len,
-+                                     &da->src_pool_uuid, &da->src_cont_uuid);
++        int src_rc = daos_parse_path(src_path, src_len, &da->src_pool, &da->src_cont);
          if (src_rc == 0) {
-+            if (!daos_uuid_valid(da->src_cont_uuid)) {
++            if (strlen(da->src_cont) == 0) {
 +                MFU_LOG(MFU_LOG_ERR, "Source pool requires a source container.");
 +                rc = 1;
 +                goto out;
@@ -856,7 +910,7 @@ index c9ebc02..bb02477 100644
              goto out;
          }
      }
- 
+-
 -    if (!prefix_on_dst) {
 +    if (have_dst && !prefix_on_dst) {
          size_t dst_len = strlen(argpaths[1]);
@@ -868,8 +922,7 @@ index c9ebc02..bb02477 100644
 +            rc = 1;
 +            goto out;
 +        }
-+        int dst_rc = daos_parse_path(dst_path, dst_len,
-+                                     &da->dst_pool_uuid, &da->dst_cont_uuid);
++        int dst_rc = daos_parse_path(dst_path, dst_len, &da->dst_pool, &da->dst_cont);
          if (dst_rc == 0) {
              argpaths[1] = da->dst_path = strdup(dst_path);
 -            mfu_free(&dst_path);
@@ -877,10 +930,6 @@ index c9ebc02..bb02477 100644
 +                MFU_LOG(MFU_LOG_ERR, "Unable to allocate space for destination path.");
 +                rc = 1;
 +                goto out;
-+            }
-+            /* Generate a new container uuid if only a pool was given. */
-+            if (!daos_uuid_valid(da->dst_cont_uuid)) {
-+                uuid_generate(da->dst_cont_uuid);
 +            }
          } else if (dst_rc == -1) {
              MFU_LOG(MFU_LOG_ERR, "Failed to parse DAOS destination path: daos://<pool>/<cont>[/<path>]");
@@ -890,6 +939,15 @@ index c9ebc02..bb02477 100644
          }
      }
  
++    if (have_dst) {
++        int dst_cont_len = strlen(da->dst_cont);
++        *dst_cont_passed = dst_cont_len > 0 ? true : false;
++        /* Generate a new container uuid if only a pool was given. */
++        if (!*dst_cont_passed) {
++            uuid_generate(da->dst_cont_uuid);
++        }
++    }
++
  out:
 +    mfu_free(&prefix_path);
 +    mfu_free(&src_path);
@@ -897,7 +955,7 @@ index c9ebc02..bb02477 100644
      return rc;
  }
  
-@@ -305,13 +492,49 @@ static int daos_get_cont_type(
+@@ -305,13 +517,49 @@ static int daos_get_cont_type(
      return 0;
  }
  
@@ -948,7 +1006,7 @@ index c9ebc02..bb02477 100644
      daos_api_t api)
  {
      /* If explicitly using DAOS, just set the type to DAOS */
-@@ -320,15 +543,6 @@ static int daos_set_api_cont_type(
+@@ -320,15 +568,6 @@ static int daos_set_api_cont_type(
          return 0;
      }
  
@@ -964,7 +1022,7 @@ index c9ebc02..bb02477 100644
      if (cont_type == DAOS_PROP_CO_LAYOUT_POSIX) {
          mfu_file->type = DFS;
      } else {
-@@ -348,12 +562,14 @@ static int daos_set_api_cont_type(
+@@ -348,44 +587,37 @@ static int daos_set_api_cont_type(
   * Set the mfu_file types to either DAOS or DFS,
   * and make sure they are compatible.
   */
@@ -978,9 +1036,14 @@ index c9ebc02..bb02477 100644
 +    bool have_dst = (mfu_dst_file != NULL);
 +
      /* Check whether we have pool/cont uuids */
-     bool have_src_pool  = daos_uuid_valid(da->src_pool_uuid);
-     bool have_src_cont  = daos_uuid_valid(da->src_cont_uuid);
-@@ -362,30 +578,21 @@ static int daos_set_api(
+-    bool have_src_pool  = daos_uuid_valid(da->src_pool_uuid);
+-    bool have_src_cont  = daos_uuid_valid(da->src_cont_uuid);
+-    bool have_dst_pool  = daos_uuid_valid(da->dst_pool_uuid);
+-    bool have_dst_cont  = daos_uuid_valid(da->dst_cont_uuid);
++    bool have_src_pool  = strlen(da->src_pool) ? true : false;
++    bool have_src_cont  = strlen(da->src_cont) ? true : false;
++    bool have_dst_pool  = strlen(da->dst_pool) ? true : false;
++    bool have_dst_cont  = strlen(da->dst_cont) ? true : false;
  
      int rc;
  
@@ -1020,7 +1083,7 @@ index c9ebc02..bb02477 100644
  
      /* If either type is DAOS:
       * Both paths must be root.
-@@ -396,13 +603,15 @@ static int daos_set_api(
+@@ -396,13 +628,15 @@ static int daos_set_api(
              MFU_LOG(MFU_LOG_ERR, "Cannot use path with non-POSIX container.");
              return 1;
          }
@@ -1041,7 +1104,7 @@ index c9ebc02..bb02477 100644
          if (!dst_path_is_root || !src_path_is_root) {
              MFU_LOG(MFU_LOG_ERR, "Cannot use path with non-POSIX container.");
              return 1;
-@@ -413,7 +622,6 @@ static int daos_set_api(
+@@ -413,7 +647,6 @@ static int daos_set_api(
          }
          mfu_src_file->type = DAOS;
      }
@@ -1049,7 +1112,7 @@ index c9ebc02..bb02477 100644
      return 0;
  }
  
-@@ -438,8 +646,329 @@ static int daos_any_error(int rank, bool local_daos_error, int flag_daos_args)
+@@ -438,8 +671,329 @@ static int daos_any_error(int rank, bool local_daos_error, int flag_daos_args)
      return 0;
  }
  
@@ -1380,16 +1443,18 @@ index c9ebc02..bb02477 100644
    int rank,              /* root rank for broadcast */
    daos_handle_t* handle, /* handle value to be broadcasted */
    daos_handle_t* poh,    /* daos pool for global2local conversion of container handle */
-@@ -503,22 +1032,50 @@ static void daos_bcast_handle(
+@@ -503,34 +1057,61 @@ static void daos_bcast_handle(
  }
  
  /* connect to DAOS pool, and then open container */
 -static int daos_connect(
 +int daos_connect(
    int rank,
+-  uuid_t pool_uuid,
+-  uuid_t cont_uuid,
 +  daos_args_t* da,
-   uuid_t pool_uuid,
-   uuid_t cont_uuid,
++  char (*pool)[],
++  char (*cont)[],
    daos_handle_t* poh,
    daos_handle_t* coh,
 +  bool force_serialize,
@@ -1398,7 +1463,8 @@ index c9ebc02..bb02477 100644
 +  bool create_cont,
 +  bool require_new_cont,
 +  bool preserve,
-+  mfu_file_t* mfu_src_file)
++  mfu_file_t* mfu_src_file,
++  bool dst_cont_passed)
  {
 -    /* assume failure until otherwise */
 -    int valid = 0;
@@ -1436,8 +1502,14 @@ index c9ebc02..bb02477 100644
          /* Connect to DAOS pool */
          if (connect_pool) {
              daos_pool_info_t pool_info = {0};
-@@ -530,7 +1087,7 @@ static int daos_connect(
-                     poh, &pool_info, NULL);
+ #if DAOS_API_VERSION_MAJOR < 1
+-            rc = daos_pool_connect(pool_uuid, NULL, NULL, DAOS_PC_RW,
+-                    poh, &pool_info, NULL);
++            rc = daos_pool_connect(*pool, NULL, NULL, DAOS_PC_RW, poh, &pool_info, NULL);
+ #else
+-            rc = daos_pool_connect(pool_uuid, NULL, DAOS_PC_RW,
+-                    poh, &pool_info, NULL);
++            rc = daos_pool_connect(*pool, NULL, DAOS_PC_RW, poh, &pool_info, NULL);
  #endif
              if (rc != 0) {
 -                MFU_LOG(MFU_LOG_ERR, "Failed to connect to pool");
@@ -1445,9 +1517,20 @@ index c9ebc02..bb02477 100644
                  goto bcast;
              }
          }
-@@ -540,30 +1097,127 @@ static int daos_connect(
+@@ -538,32 +1119,174 @@ static int daos_connect(
+         /* Try to open the container
+          * If NOEXIST we create it */
          daos_cont_info_t co_info = {0};
-         rc = daos_cont_open(*poh, cont_uuid, DAOS_COO_RW, coh, &co_info, NULL);
+-        rc = daos_cont_open(*poh, cont_uuid, DAOS_COO_RW, coh, &co_info, NULL);
++        if (!dst_cont_passed && create_cont) {
++            /* Use uuid if container was created by mpifileutils.
++             * If nothing is passed in for destination a uuid is always generated
++             * unless user passed one in, because destination container labels are
++             * not generated */
++            rc = daos_cont_open(*poh, da->dst_cont_uuid, DAOS_COO_RW, coh, &co_info, NULL);
++        } else {
++            rc = daos_cont_open(*poh, *cont, DAOS_COO_RW, coh, &co_info, NULL);
++        }
          if (rc != 0) {
 -            if (!create_cont) {
 -                MFU_LOG(MFU_LOG_ERR, "Failed to open DFS container");
@@ -1475,6 +1558,20 @@ index c9ebc02..bb02477 100644
 +                }
 +            }
 +
++            /* if a destination container string was passed in we need to
++             * check if it is a uuid or cont label string. This is necessary
++             * because a user can generate a uuid then pass it as destination,
++             * which should use uuid to create/open the container */
++            bool is_uuid;
++            if (dst_cont_passed) {
++                rc = uuid_parse(*cont, da->dst_cont_uuid); 
++                if (rc == 0) {
++                    is_uuid = true;
++                } else {
++                    is_uuid = false;
++                }
++            }
++
 +            /* Create a new container. If we don't have a source container,
 +             * create a POSIX container. Otherwise, create a container of
 +             * the same type as the source. */
@@ -1494,31 +1591,59 @@ index c9ebc02..bb02477 100644
 +#endif
 +                dfs_attr_t attr = {0};
 +                attr.da_props = props;
-+                rc = dfs_cont_create(*poh, cont_uuid, &attr, NULL, NULL);
++                if (dst_cont_passed && !is_uuid) {
++                    rc = dfs_cont_create_with_label(*poh, *cont, &attr, &da->dst_cont_uuid, NULL, NULL);
++                } else {
++                    /* if nothing is passed in for destination a uuid is always
++                     * generated unless user passed one in, destination container
++                     * labels are not generated */
++                    rc = dfs_cont_create(*poh, da->dst_cont_uuid, &attr, NULL, NULL);
++                }
 +                if (rc != 0) {
 +                    MFU_LOG(MFU_LOG_ERR, "Failed to create container: (%d %s)", rc, strerror(rc));
 +                    goto bcast;
 +                }
 +            } else {
-+                rc = daos_cont_create(*poh, cont_uuid, props, NULL);
++                if (dst_cont_passed && !is_uuid) {
++                    rc = daos_cont_create_with_label(*poh, *cont, props, &da->dst_cont_uuid, NULL);
++                } else {
++                    rc = daos_cont_create(*poh, da->dst_cont_uuid, props, NULL);
++                }
 +                if (rc != 0) {
 +                    MFU_LOG(MFU_LOG_ERR, "Failed to create container: "DF_RC, DP_RC(rc));
 +                    goto bcast;
 +                }
++            }
++
++            if (dst_cont_passed && !is_uuid) {
++                MFU_LOG(MFU_LOG_INFO, "Successfully created container %s", *cont);
++            } else {
++                char uuid_str[130];
++                uuid_unparse_lower(da->dst_cont_uuid, uuid_str);
++                MFU_LOG(MFU_LOG_INFO, "Successfully created container %s", uuid_str);
              }
  
-+            char uuid_str[130];
-+            uuid_unparse_lower(cont_uuid, uuid_str);
-+            MFU_LOG(MFU_LOG_INFO, "Successfully created container %s", uuid_str);
-+
              /* try to open it again */
-             rc = daos_cont_open(*poh, cont_uuid, DAOS_COO_RW, coh, &co_info, NULL);
+-            rc = daos_cont_open(*poh, cont_uuid, DAOS_COO_RW, coh, &co_info, NULL);
++            if (dst_cont_passed) {
++                if (is_uuid) {
++                    rc = daos_cont_open(*poh, da->dst_cont_uuid, DAOS_COO_RW, coh, &co_info, NULL);
++                } else {
++                    rc = daos_cont_open(*poh, *cont, DAOS_COO_RW, coh, &co_info, NULL);
++                }
++            } else {
++                rc = daos_cont_open(*poh, da->dst_cont_uuid, DAOS_COO_RW, coh, &co_info, NULL);
++            }
              if (rc != 0) {
 -                MFU_LOG(MFU_LOG_ERR, "Failed to open DFS container");
 +                MFU_LOG(MFU_LOG_ERR, "Failed to open container: "DF_RC, DP_RC(rc));
                  goto bcast;
              }
-+
+-        }
+ 
+-        /* everything looks good so far */
+-        valid = 1;
+-    }
 +#ifdef HDF5_SUPPORT
 +            /* need to wait until destination container is valid to set user
 +             * attributes, preserve is only set true when destination is a DFS
@@ -1558,13 +1683,12 @@ index c9ebc02..bb02477 100644
 +        } else if (!status_healthy && !force_serialize) {
 +            MFU_LOG(MFU_LOG_ERR, "Container status is unhealthy, stopping\n");
 +            goto bcast;
-         }
- 
-         /* everything looks good so far */
-         valid = 1;
-     }
--
- bcast:
++        }
++
++        /* everything looks good so far */
++        valid = 1;
++    }
++bcast:
 +    if (rank == 0) {
 +        daos_prop_free(props);
 +        mfu_free(&roots);
@@ -1577,11 +1701,12 @@ index c9ebc02..bb02477 100644
 +        }
 +#endif
 +    }
-+
+ 
+-bcast:
      /* broadcast valid from rank 0 */
      MPI_Bcast(&valid, 1, MPI_INT, 0, MPI_COMM_WORLD);
  
-@@ -580,42 +1234,60 @@ bcast:
+@@ -580,42 +1303,60 @@ bcast:
  
      /* broadcast container handle from rank 0 */
      daos_bcast_handle(rank, coh, poh, CONT_HANDLE);
@@ -1657,8 +1782,22 @@ index c9ebc02..bb02477 100644
      }
  
      return rc;
-@@ -646,7 +1318,19 @@ daos_args_t* daos_args_new(void)
+@@ -637,16 +1378,28 @@ daos_args_t* daos_args_new(void)
+     da->src_path   = NULL;
+     da->dst_path   = NULL;
+ 
+-    /* initalize value of DAOS UUID's to NULL with uuid_clear */
+-    uuid_clear(da->src_pool_uuid);
+-    uuid_clear(da->dst_pool_uuid);
+-    uuid_clear(da->src_cont_uuid);
+-    uuid_clear(da->dst_cont_uuid);
++    memset(da->src_pool, '\0', DAOS_PROP_LABEL_MAX_LEN + 1);
++    memset(da->src_cont, '\0', DAOS_PROP_LABEL_MAX_LEN + 1);
++    memset(da->dst_pool, '\0', DAOS_PROP_LABEL_MAX_LEN + 1);
++    memset(da->dst_cont, '\0', DAOS_PROP_LABEL_MAX_LEN + 1);
+ 
      /* By default, try to automatically determine the API */
++    /* By default, try to automatically determine the API */
      da->api = DAOS_API_AUTO;
  
 -    da->epc = 0;
@@ -1678,7 +1817,7 @@ index c9ebc02..bb02477 100644
  
      return da;
  }
-@@ -658,6 +1342,7 @@ void daos_args_delete(daos_args_t** pda)
+@@ -658,6 +1411,7 @@ void daos_args_delete(daos_args_t** pda)
          mfu_free(&da->dfs_prefix);
          mfu_free(&da->src_path);
          mfu_free(&da->dst_path);
@@ -1686,7 +1825,7 @@ index c9ebc02..bb02477 100644
          mfu_free(pda);
      }
  }
-@@ -674,6 +1359,8 @@ int daos_parse_api_str(
+@@ -674,6 +1428,8 @@ int daos_parse_api_str(
          *api = DAOS_API_DFS;
      } else if (strcasecmp(api_str, "DAOS") == 0) {
          *api = DAOS_API_DAOS;
@@ -1695,7 +1834,7 @@ index c9ebc02..bb02477 100644
      } else {
          rc = 1;
      }
-@@ -693,14 +1380,109 @@ int daos_parse_epc_str(
+@@ -693,14 +1449,110 @@ int daos_parse_epc_str(
      return 0;
  }
  
@@ -1797,6 +1936,7 @@ index c9ebc02..bb02477 100644
      int tmp_rc;
 +    bool have_src = ((numpaths > 0) && (mfu_src_file != NULL));
 +    bool have_dst = ((numpaths > 1) && (mfu_dst_file != NULL));
++    bool dst_cont_passed = false;
 +
 +    /* Sanity check that we have paths */
 +    if (!have_src && !have_dst) {
@@ -1805,34 +1945,45 @@ index c9ebc02..bb02477 100644
  
      /* Each process keeps track of whether it had any DAOS errors.
       * If there weren't any daos args, then ignore daos_init errors.
-@@ -718,7 +1500,7 @@ int daos_setup(
+@@ -718,10 +1570,9 @@ int daos_setup(
  
      /* Do a preliminary check on the DAOS args */
      if (!local_daos_error) {
 -        tmp_rc = daos_check_args(rank, argpaths, da, &flag_daos_args);
 +        tmp_rc = daos_check_args(rank, argpaths, numpaths, da, &flag_daos_args);
          if (tmp_rc != 0) {
-             MFU_LOG(MFU_LOG_ERR, "Invalid DAOS args: "
-                     MFU_ERRF, MFU_ERRP(-MFU_ERR_DAOS_INVAL_ARG));
-@@ -731,7 +1513,7 @@ int daos_setup(
+-            MFU_LOG(MFU_LOG_ERR, "Invalid DAOS args: "
+-                    MFU_ERRF, MFU_ERRP(-MFU_ERR_DAOS_INVAL_ARG));
++            MFU_LOG(MFU_LOG_ERR, "Invalid DAOS args: " MFU_ERRF, MFU_ERRP(-MFU_ERR_DAOS_INVAL_ARG));
+             local_daos_error = true;
+         }
+     }
+@@ -731,20 +1582,18 @@ int daos_setup(
       * prefix since the path is mapped to the root
       * of the container in the DAOS DFS mount */
      if (!local_daos_error) {
 -        tmp_rc = daos_set_paths(rank, argpaths, da);
-+        tmp_rc = daos_set_paths(rank, argpaths, numpaths, da);
++        tmp_rc = daos_set_paths(rank, argpaths, numpaths, da, &dst_cont_passed);
          if (tmp_rc != 0) {
-             MFU_LOG(MFU_LOG_ERR, "Invalid DAOS args: "
-                     MFU_ERRF, MFU_ERRP(-MFU_ERR_DAOS_INVAL_ARG));
-@@ -741,7 +1523,7 @@ int daos_setup(
+-            MFU_LOG(MFU_LOG_ERR, "Invalid DAOS args: "
+-                    MFU_ERRF, MFU_ERRP(-MFU_ERR_DAOS_INVAL_ARG));
++            MFU_LOG(MFU_LOG_ERR, "Invalid DAOS args: " MFU_ERRF, MFU_ERRP(-MFU_ERR_DAOS_INVAL_ARG));
+             local_daos_error = true;
+         }
+     }
  
      /* Re-check the required DAOS arguments (if any) */
      if (!local_daos_error) {
 -        tmp_rc = daos_check_args(rank, argpaths, da, &flag_daos_args);
 +        tmp_rc = daos_check_args(rank, argpaths, numpaths, da, &flag_daos_args);
          if (tmp_rc != 0) {
-             MFU_LOG(MFU_LOG_ERR, "Invalid DAOS args: "
-                     MFU_ERRF, MFU_ERRP(-MFU_ERR_DAOS_INVAL_ARG));
-@@ -757,6 +1539,9 @@ int daos_setup(
+-            MFU_LOG(MFU_LOG_ERR, "Invalid DAOS args: "
+-                    MFU_ERRF, MFU_ERRP(-MFU_ERR_DAOS_INVAL_ARG));
++            MFU_LOG(MFU_LOG_ERR, "Invalid DAOS args: " MFU_ERRF, MFU_ERRP(-MFU_ERR_DAOS_INVAL_ARG));
+             local_daos_error = true;
+         }
+     }
+@@ -757,76 +1606,193 @@ int daos_setup(
          return 1;
      }
  
@@ -1840,17 +1991,24 @@ index c9ebc02..bb02477 100644
 +    local_daos_error = false;
 +
      /* Check whether we have pool/cont uuids */
-     bool have_src_pool  = daos_uuid_valid(da->src_pool_uuid);
-     bool have_src_cont  = daos_uuid_valid(da->src_cont_uuid);
-@@ -766,67 +1551,181 @@ int daos_setup(
-     /* Check if containers are in the same pool */
-     bool same_pool = (uuid_compare(da->src_pool_uuid, da->dst_pool_uuid) == 0);
+-    bool have_src_pool  = daos_uuid_valid(da->src_pool_uuid);
+-    bool have_src_cont  = daos_uuid_valid(da->src_cont_uuid);
+-    bool have_dst_pool  = daos_uuid_valid(da->dst_pool_uuid);
+-    bool have_dst_cont  = daos_uuid_valid(da->dst_cont_uuid);
++    bool have_src_pool  = strlen(da->src_pool) > 0 ? true : false;
++    bool have_src_cont  = strlen(da->src_cont) > 0 ? true : false;
++    bool have_dst_pool  = strlen(da->dst_pool) > 0 ? true : false;
++    bool have_dst_cont  = strlen(da->dst_cont) > 0 ? true : false;
  
+     /* Check if containers are in the same pool */
+-    bool same_pool = (uuid_compare(da->src_pool_uuid, da->dst_pool_uuid) == 0);
++    bool same_pool = (strcmp(da->src_pool, da->dst_pool) == 0);
++
 +    bool connect_pool = true;
 +    bool create_cont = false;
 +    bool require_new_cont = false;
 +    bool preserve = false;
-+
+ 
      /* connect to DAOS source pool if uuid is valid */
 -    if (!local_daos_error && have_src_pool && have_src_cont) {
 -        /* Open pool connection, but do not create container if non-existent */
@@ -1865,10 +2023,10 @@ index c9ebc02..bb02477 100644
 +            local_daos_error = true;
 +            goto out;
 +        }
-+        tmp_rc = daos_connect(rank, da, da->src_pool_uuid, da->src_cont_uuid,
++        tmp_rc = daos_connect(rank, da, &da->src_pool, &da->src_cont,
 +                              &da->src_poh, &da->src_coh, false,
 +                              connect_pool, create_cont, require_new_cont,
-+                              preserve, mfu_src_file);
++                              preserve, mfu_src_file, dst_cont_passed);
          if (tmp_rc != 0) {
              /* tmp_rc from daos_connect is collective */
              local_daos_error = true;
@@ -1946,19 +2104,19 @@ index c9ebc02..bb02477 100644
 -            tmp_rc = daos_connect(rank, da->dst_pool_uuid,
 -                    da->dst_cont_uuid, &da->src_poh, &da->dst_coh, false, true);
 +            connect_pool = false;
-+            tmp_rc = daos_connect(rank, da, da->dst_pool_uuid, da->dst_cont_uuid,
++            tmp_rc = daos_connect(rank, da, &da->dst_pool, &da->dst_cont,
 +                                  &da->src_poh, &da->dst_coh, false,
 +                                  connect_pool, create_cont, require_new_cont,
-+                                  preserve, mfu_src_file);
++                                  preserve, mfu_src_file, dst_cont_passed);
          } else {
 -            /* Open pool connection, and create container if non-existent */
 -            tmp_rc = daos_connect(rank, da->dst_pool_uuid,
 -                    da->dst_cont_uuid, &da->dst_poh, &da->dst_coh, true, true);
 +            connect_pool = true;
-+            tmp_rc = daos_connect(rank, da, da->dst_pool_uuid, da->dst_cont_uuid,
++            tmp_rc = daos_connect(rank, da, &da->dst_pool, &da->dst_cont,
 +                                  &da->dst_poh, &da->dst_coh, false,
 +                                  connect_pool, create_cont, require_new_cont,
-+                                  preserve, mfu_src_file);
++                                  preserve, mfu_src_file, dst_cont_passed);
          }
          if (tmp_rc != 0) {
              /* tmp_rc from daos_connect is collective */
@@ -2052,7 +2210,7 @@ index c9ebc02..bb02477 100644
          return 1;
      }
  
-@@ -843,70 +1742,92 @@ int daos_cleanup(
+@@ -843,70 +1809,92 @@ int daos_cleanup(
      int rc = 0;
      int tmp_rc;
  
@@ -2069,7 +2227,7 @@ index c9ebc02..bb02477 100644
 -    if (mfu_src_file->type == DFS) {
 -        tmp_rc = daos_umount(mfu_src_file);
 -        MPI_Barrier(MPI_COMM_WORLD);
-+    bool same_pool = (uuid_compare(da->src_pool_uuid, da->dst_pool_uuid) == 0);
++    bool same_pool = (strcmp(da->src_pool, da->dst_pool) == 0);
 +
 +    /* Destroy source snapshot */
 +    if (rank == 0 && da->src_epc != 0) {
@@ -2171,7 +2329,7 @@ index c9ebc02..bb02477 100644
      /* Finalize DAOS */
      tmp_rc = daos_fini();
      if (tmp_rc != 0) {
-@@ -919,118 +1840,301 @@ int daos_cleanup(
+@@ -919,118 +1907,301 @@ int daos_cleanup(
      return rc;
  }
  
@@ -2549,7 +2707,7 @@ index c9ebc02..bb02477 100644
          daos_key_desc_t dkey_kds[ENUM_DESC_NR]       = {0};
          uint32_t        dkey_number                  = ENUM_DESC_NR;
          char            dkey_enum_buf[ENUM_DESC_BUF] = {0};
-@@ -1046,9 +2150,8 @@ static int daos_copy_list_keys(daos_handle_t *src_oh,
+@@ -1046,9 +2217,8 @@ static int daos_copy_list_keys(daos_handle_t *src_oh,
          rc = daos_obj_list_dkey(*src_oh, DAOS_TX_NONE, &dkey_number, dkey_kds,
                                  &dkey_sgl, &dkey_anchor, NULL);
          if (rc != 0) {
@@ -2561,7 +2719,7 @@ index c9ebc02..bb02477 100644
          }
  
          /* if no dkeys were returned move on */
-@@ -1058,20 +2161,20 @@ static int daos_copy_list_keys(daos_handle_t *src_oh,
+@@ -1058,20 +2228,20 @@ static int daos_copy_list_keys(daos_handle_t *src_oh,
          char* dkey_ptr;
          int   i;
  
@@ -2586,7 +2744,7 @@ index c9ebc02..bb02477 100644
                  daos_key_desc_t akey_kds[ENUM_DESC_NR]       = {0};
                  uint32_t        akey_number                  = ENUM_DESC_NR;
                  char            akey_enum_buf[ENUM_DESC_BUF] = {0};
-@@ -1087,9 +2190,8 @@ static int daos_copy_list_keys(daos_handle_t *src_oh,
+@@ -1087,9 +2257,8 @@ static int daos_copy_list_keys(daos_handle_t *src_oh,
                  rc = daos_obj_list_akey(*src_oh, DAOS_TX_NONE, &diov, &akey_number, akey_kds,
                                          &akey_sgl, &akey_anchor, NULL);
                  if (rc != 0) {
@@ -2598,7 +2756,7 @@ index c9ebc02..bb02477 100644
                  }
  
                  /* if no akeys returned move on */
-@@ -1099,12 +2201,12 @@ static int daos_copy_list_keys(daos_handle_t *src_oh,
+@@ -1099,12 +2268,12 @@ static int daos_copy_list_keys(daos_handle_t *src_oh,
                  int j;
                  char* akey_ptr;
  
@@ -2616,7 +2774,7 @@ index c9ebc02..bb02477 100644
                      d_iov_set(&aiov, (void*)akey, akey_kds[j].kd_key_len);
  
                      /* set iod values */
-@@ -1112,47 +2214,125 @@ static int daos_copy_list_keys(daos_handle_t *src_oh,
+@@ -1112,124 +2281,173 @@ static int daos_copy_list_keys(daos_handle_t *src_oh,
                      iod.iod_type  = DAOS_IOD_SINGLE;
                      iod.iod_size  = DAOS_REC_ANY;
                      iod.iod_recxs = NULL;
@@ -2704,9 +2862,10 @@ index c9ebc02..bb02477 100644
 +    bool compare_dst,             /* Whether to compare the src and dst before writing */
 +    bool write_dst,               /* Whether to write to the dst */
 +    mfu_daos_stats_t* stats)
-+{
-+    int rc = 0;
-+
+ {
+     int rc = 0;
+ 
+-    flist_t* flist = (flist_t*) bflist;
 +    /* open handle of object in src container */
 +    daos_handle_t src_oh;
 +    rc = daos_obj_open(src_coh, oid, DAOS_OO_RO, &src_oh, NULL);
@@ -2715,7 +2874,21 @@ index c9ebc02..bb02477 100644
 +                MFU_ERRP(-MFU_ERR_DAOS));
 +        goto out_err;
 +    }
-+
+ 
+-    uint64_t i;
+-    const elem_t* p = flist->list_head;
+-    for (i = 0; i < flist->list_count; i++) {
+-        /* open DAOS object based on oid[i] to get obj handle */
+-        daos_handle_t oh;
+-        daos_obj_id_t oid;
+-        oid.lo = p->obj_id_lo;	
+-        oid.hi = p->obj_id_hi;	
+-        rc = daos_obj_open(da->src_coh, oid, 0, &oh, NULL);
+-        if (rc != 0) {
+-            MFU_LOG(MFU_LOG_ERR, "DAOS object open returned with errors: ", MFU_ERRF,
+-	            MFU_ERRP(-MFU_ERR_DAOS));
+-	    return 1;
+-        }
 +    /* open handle of object in dst container */
 +    daos_handle_t dst_oh;
 +    rc = daos_obj_open(dst_coh, oid, DAOS_OO_EXCL, &dst_oh, NULL);
@@ -2735,7 +2908,25 @@ index c9ebc02..bb02477 100644
 +        daos_obj_close(dst_oh, NULL);
 +        goto out_err;
 +    }
-+
+ 
+-        /* open handle of object in dst container */
+-        daos_handle_t dst_oh;
+-        rc = daos_obj_open(da->dst_coh, oid, 0, &dst_oh, NULL);
+-        if (rc != 0) {
+-            MFU_LOG(MFU_LOG_ERR, "DAOS object open returned with errors: ", MFU_ERRF,
+-	            MFU_ERRP(-MFU_ERR_DAOS));
+-            /* make sure to close the source if opening dst fails */
+-            daos_obj_close(oh, NULL);
+-	    return 1;
+-        }
+-        rc = daos_copy_list_keys(&oh, &dst_oh);
+-        if (rc != 0) {
+-            MFU_LOG(MFU_LOG_ERR, "DAOS copy list keys returned with errors: ", MFU_ERRF,
+-                    MFU_ERRP(-MFU_ERR_DAOS));
+-            /* cleanup object handles on failure */
+-            daos_obj_close(oh, NULL);
+-            daos_obj_close(dst_oh, NULL);
+-	    return 1;
 +    stats->total_oids++;
 +
 +    /* close source and destination object */
@@ -2758,43 +2949,15 @@ index c9ebc02..bb02477 100644
 +  bool compare_dst,
 +  bool write_dst,
 +  mfu_daos_stats_t* stats)
- {
-     int rc = 0;
- 
-@@ -1161,75 +2341,46 @@ static int daos_obj_copy(
-     uint64_t i;
-     const elem_t* p = flist->list_head;
-     for (i = 0; i < flist->list_count; i++) {
--        /* open DAOS object based on oid[i] to get obj handle */
--        daos_handle_t oh;
-         daos_obj_id_t oid;
--        oid.lo = p->obj_id_lo;	
--        oid.hi = p->obj_id_hi;	
--        rc = daos_obj_open(da->src_coh, oid, 0, &oh, NULL);
--        if (rc != 0) {
--            MFU_LOG(MFU_LOG_ERR, "DAOS object open returned with errors: ", MFU_ERRF,
--	            MFU_ERRP(-MFU_ERR_DAOS));
--	    return 1;
--        }
--
--        /* open handle of object in dst container */
--        daos_handle_t dst_oh;
--        rc = daos_obj_open(da->dst_coh, oid, 0, &dst_oh, NULL);
--        if (rc != 0) {
--            MFU_LOG(MFU_LOG_ERR, "DAOS object open returned with errors: ", MFU_ERRF,
--	            MFU_ERRP(-MFU_ERR_DAOS));
--            /* make sure to close the source if opening dst fails */
--            daos_obj_close(oh, NULL);
--	    return 1;
--        }
--        rc = daos_copy_list_keys(&oh, &dst_oh);
--        if (rc != 0) {
--            MFU_LOG(MFU_LOG_ERR, "DAOS copy list keys returned with errors: ", MFU_ERRF,
--                    MFU_ERRP(-MFU_ERR_DAOS));
--            /* cleanup object handles on failure */
--            daos_obj_close(oh, NULL);
--            daos_obj_close(dst_oh, NULL);
--	    return 1;
++{
++    int rc = 0;
++
++    flist_t* flist = (flist_t*) bflist;
++
++    uint64_t i;
++    const elem_t* p = flist->list_head;
++    for (i = 0; i < flist->list_count; i++) {
++        daos_obj_id_t oid;
 +        oid.lo = p->obj_id_lo;
 +        oid.hi = p->obj_id_hi;
 +
@@ -2858,7 +3021,7 @@ index c9ebc02..bb02477 100644
      memset(&anchor, 0, sizeof(anchor));
      flist_t* flist = (flist_t*) bflist;
  
-@@ -1238,34 +2389,51 @@ static int daos_obj_list_oids(daos_args_t* da, mfu_flist bflist) {
+@@ -1238,34 +2456,51 @@ static int daos_obj_list_oids(daos_args_t* da, mfu_flist bflist) {
          oids_nr = OID_ARR_SIZE;
          rc = daos_oit_list(toh, oids, &oids_nr, &anchor, NULL);
          if (rc != 0) {
@@ -2923,7 +3086,7 @@ index c9ebc02..bb02477 100644
      mfu_flist flist)
  {
      /* assume we'll succeed */
-@@ -1277,39 +2445,3384 @@ int mfu_flist_walk_daos(
+@@ -1277,39 +2512,3390 @@ int mfu_flist_walk_daos(
  
      /* have rank 0 do the work of listing the objects */
      if (rank == 0) {
@@ -2932,16 +3095,16 @@ index c9ebc02..bb02477 100644
 +        rc = daos_cont_create_snap_opt(coh, epoch, NULL,
 +                                       DAOS_SNAP_OPT_CR | DAOS_SNAP_OPT_OIT,
 +                                       NULL);
-+        if (rc != 0) {
+         if (rc != 0) {
+-            MFU_LOG(MFU_LOG_ERR, "DAOS failed to list oids: ",
+-                MFU_ERRF, MFU_ERRP(-MFU_ERR_DAOS));
 +            MFU_LOG(MFU_LOG_ERR, "DAOS failed to create snapshot "DF_RC, DP_RC(rc));
 +            rc = -1;
 +            goto out_broadcast;
 +        }
 +
 +        rc = mfu_daos_obj_list_oids(da, flist, coh, *epoch);
-         if (rc != 0) {
--            MFU_LOG(MFU_LOG_ERR, "DAOS failed to list oids: ",
--                MFU_ERRF, MFU_ERRP(-MFU_ERR_DAOS));
++        if (rc != 0) {
 +            rc = -1;
 +            goto out_broadcast;
          }
@@ -3487,7 +3650,7 @@ index c9ebc02..bb02477 100644
 +        H5Tclose(hdf5->dkey_vtype);
 +        H5Tclose(hdf5->akey_memtype);
 +        H5Tclose(hdf5->akey_vtype);
-+    }
+     }
 +    return rc;
 +}
 +
@@ -3568,7 +3731,7 @@ index c9ebc02..bb02477 100644
 +                   (uint64_t)akey_kds[j].kd_key_len);
 +            akey_val->len = (uint64_t)akey_kds[j].kd_key_len; 
 +            (*hdf5->ak)[*ak_index].rec_dset_id = *ak_index;
-+
+ 
 +            /* set iod values */
 +            iod.iod_nr   = 1;
 +            iod.iod_type = DAOS_IOD_SINGLE;
@@ -3628,8 +3791,8 @@ index c9ebc02..bb02477 100644
 +        stats->total_akeys += akey_number;
 +    }
 +out:
-+    return rc;
-+}
+     return rc;
+ }
 +
 +static int serialize_dkeys(struct hdf5_args *hdf5,
 +                           uint64_t *dk_index,
@@ -3662,7 +3825,7 @@ index c9ebc02..bb02477 100644
 +        MFU_LOG(MFU_LOG_ERR, "failed to initialize recx data: %d", rc);
 +        rc = 1;
 +        goto out;
-     }
++    }
 +    (*hdf5->oid)[*oid_index].dkey_offset = *dk_index;
 +    while (!daos_anchor_is_eof(&dkey_anchor)) {
 +        memset(dkey_kds, 0, sizeof(dkey_kds));
@@ -3732,7 +3895,7 @@ index c9ebc02..bb02477 100644
 +                    rc = 1;
 +                    goto out;
 +                }
- 
++
 +                /* daos_kv_get takes a char *key */
 +                char key_val[ENUM_LARGE_KEY_BUF];
 +                path_len = snprintf(key_val, ENUM_LARGE_KEY_BUF, "%s", dkey_val->p);
@@ -3769,8 +3932,8 @@ index c9ebc02..bb02477 100644
 +        goto out;
 +    }
 +out:
-     return rc;
- }
++    return rc;
++}
 +
 +static int init_hdf5_file(struct hdf5_args *hdf5, char *filename) {
 +    int rc = 0;
@@ -4589,7 +4752,7 @@ index c9ebc02..bb02477 100644
 +    /* init HDF5 args */
 +    init_hdf5_args(hdf5);
 +
-+    uuid_unparse(da->src_cont_uuid, cont_str);
++    uuid_unparse(da->src_cont, cont_str);
 +
 +    size = asprintf(&filename, "%s/%s%s%s%d%s", output_dir, cont_str, "_", "rank", rank, ".h5");
 +    if (size == -1) {
@@ -5940,22 +6103,23 @@ index c9ebc02..bb02477 100644
 + * and then broadcast handles to all ranks */
 +int daos_cont_deserialize_connect(daos_args_t *daos_args,
 +                                  struct hdf5_args *hdf5,
-+                                  daos_cont_layout_t *cont_type)
++                                  daos_cont_layout_t *cont_type,
++                                  char *label)
 +{
 +    int                         rc = 0;
 +    daos_prop_t                 *prop = NULL;
 +    struct daos_prop_co_roots   roots = {0};
 +
 +    /* generate container UUID */
-+    uuid_generate(daos_args->src_cont_uuid);
++    uuid_generate(daos_args->dst_cont_uuid);
 +
 +    daos_pool_info_t pool_info = {0};
 +    daos_cont_info_t co_info = {0};
 +#if DAOS_API_VERSION_MAJOR < 1
-+    rc = daos_pool_connect(daos_args->src_pool_uuid, NULL, NULL, DAOS_PC_RW,
++    rc = daos_pool_connect(daos_args->src_pool, NULL, NULL, DAOS_PC_RW,
 +                           &daos_args->src_poh, &pool_info, NULL);
 +#else
-+    rc = daos_pool_connect(daos_args->src_pool_uuid, NULL, DAOS_PC_RW,
++    rc = daos_pool_connect(daos_args->src_pool, NULL, DAOS_PC_RW,
 +                           &daos_args->src_poh, &pool_info, NULL);
 +#endif
 +    if (rc != 0) {
@@ -5972,17 +6136,26 @@ index c9ebc02..bb02477 100644
 +        goto out;
 +    }
 +
-+    rc = daos_cont_create(daos_args->src_poh, daos_args->src_cont_uuid, prop, NULL);
++    if (label != NULL) {
++        rc = daos_cont_create_with_label(daos_args->src_poh, label, prop, &daos_args->dst_cont_uuid, NULL);
++    } else {
++        rc = daos_cont_create(daos_args->src_poh, daos_args->dst_cont_uuid, prop, NULL);
++    }
 +    if (rc != 0) {
 +        MFU_LOG(MFU_LOG_ERR, "failed to create container: "DF_RC, DP_RC(rc));
 +        goto out;
 +    }
-+
 +    char cont_str[130];
-+    uuid_unparse(daos_args->src_cont_uuid, cont_str);
-+    fprintf(stdout, "Successfully created container %s\n", cont_str);
-+    rc = daos_cont_open(daos_args->src_poh, daos_args->src_cont_uuid,
-+                        DAOS_COO_RW, &daos_args->src_coh, &co_info, NULL);
++    if (label != NULL) {
++        MFU_LOG(MFU_LOG_INFO, "Successfully created container %s", label);
++        rc = daos_cont_open(daos_args->src_poh, label, DAOS_COO_RW,
++                            &daos_args->src_coh, &co_info, NULL);
++    } else {
++        uuid_unparse(daos_args->dst_cont_uuid, cont_str);
++        MFU_LOG(MFU_LOG_INFO, "Successfully created container %s", cont_str);
++        rc = daos_cont_open(daos_args->src_poh, daos_args->dst_cont_uuid,
++                            DAOS_COO_RW, &daos_args->src_coh, &co_info, NULL);
++    }
 +    if (rc != 0) {
 +        MFU_LOG(MFU_LOG_ERR, "failed to open container: "DF_RC, DP_RC(rc));
 +        goto out;
@@ -6163,10 +6336,7 @@ index c9ebc02..bb02477 100644
 +    int                 rc = 0;
 +    int                 size;
 +    char                src_path[FILENAME_LEN];
-+    char                src_pool_str[UUID_LEN];
-+    char                src_cont_str[UUID_LEN];
 +    char                dst_path[FILENAME_LEN];
-+    char                dst_pool_str[UUID_LEN];
 +    char                dst_cont_str[UUID_LEN];
 +    struct duns_attr_t  src_dattr = {0};
 +    struct duns_attr_t  dst_dattr = {0};
@@ -6189,16 +6359,12 @@ index c9ebc02..bb02477 100644
 +    rc = duns_resolve_path(argpaths[0], &src_dattr);
 +    if (rc == 0) {
 +        src_daos = true;
-+        uuid_copy(daos_args->src_pool_uuid, src_dattr.da_puuid);
-+        uuid_copy(daos_args->src_cont_uuid, src_dattr.da_cuuid);
-+
-+        /* get pool and containter as strings for path */
-+        uuid_unparse(daos_args->src_pool_uuid, src_pool_str);
-+        uuid_unparse(daos_args->src_cont_uuid, src_cont_str);
++        snprintf(daos_args->src_pool, DAOS_PROP_LABEL_MAX_LEN + 1, "%s", src_dattr.da_pool);
++        snprintf(daos_args->src_cont, DAOS_PROP_LABEL_MAX_LEN + 1, "%s", src_dattr.da_cont);
 +
 +        /* build src path for h5repack */
 +        len = snprintf(src_path, FILENAME_LEN, "daos://%s/%s",
-+                       src_pool_str, src_cont_str);
++                       daos_args->src_pool, daos_args->src_cont);
 +        if (len > FILENAME_LEN) {
 +            MFU_LOG(MFU_LOG_ERR, "source path exceeds max length "
 +                    MFU_ERRF, MFU_ERRP(-MFU_ERR_DCP));
@@ -6211,19 +6377,22 @@ index c9ebc02..bb02477 100644
 +    rc = duns_resolve_path(argpaths[1], &dst_dattr);
 +    if (rc == 0) {
 +        dst_daos = true;
-+        uuid_copy(daos_args->dst_pool_uuid, dst_dattr.da_puuid);
-+        uuid_copy(daos_args->dst_cont_uuid, dst_dattr.da_cuuid);
-+        if (!daos_uuid_valid(daos_args->dst_cont_uuid)) {
++        snprintf(daos_args->dst_pool, DAOS_PROP_LABEL_MAX_LEN + 1, "%s", dst_dattr.da_pool);
++        snprintf(daos_args->dst_cont, DAOS_PROP_LABEL_MAX_LEN + 1, "%s", dst_dattr.da_cont);
++        bool dst_cont_passed = strlen(daos_args->dst_cont) > 0 ? true : false;
++        if (!dst_cont_passed) {
 +            uuid_generate(daos_args->dst_cont_uuid);
++            uuid_unparse(daos_args->dst_cont_uuid, dst_cont_str);
 +        }
 +
-+        /* get pool and containter as strings for path */
-+        uuid_unparse(daos_args->dst_pool_uuid, dst_pool_str);
-+        uuid_unparse(daos_args->dst_cont_uuid, dst_cont_str);
-+
 +        /* build dst path for h5repack */
-+        len = snprintf(dst_path, FILENAME_LEN, "daos://%s/%s",
-+                       dst_pool_str, dst_cont_str);
++        if (dst_cont_passed) {
++            len = snprintf(dst_path, FILENAME_LEN, "daos://%s/%s",
++                           daos_args->dst_pool, daos_args->dst_cont);
++        } else {
++            len = snprintf(dst_path, FILENAME_LEN, "daos://%s/%s",
++                           daos_args->dst_pool, dst_cont_str);
++        }
 +        if (len > FILENAME_LEN) {
 +            MFU_LOG(MFU_LOG_ERR, "destination path exceeds max length "
 +                    MFU_ERRF, MFU_ERRP(-MFU_ERR_DCP));
@@ -6323,7 +6492,7 @@ index c9ebc02..bb02477 100644
 +}
 +#endif
 diff --git a/src/common/mfu_daos.h b/src/common/mfu_daos.h
-index 454ee04..0c8538e 100644
+index 454ee04..86624c0 100644
 --- a/src/common/mfu_daos.h
 +++ b/src/common/mfu_daos.h
 @@ -1,12 +1,19 @@
@@ -6347,7 +6516,7 @@ index 454ee04..0c8538e 100644
  
  enum handleType {
      POOL_HANDLE,
-@@ -17,26 +24,238 @@ enum handleType {
+@@ -17,26 +24,241 @@ enum handleType {
  typedef enum {
      DAOS_API_AUTO,
      DAOS_API_DFS,
@@ -6375,9 +6544,11 @@ index 454ee04..0c8538e 100644
 +    daos_handle_t dst_poh;  /* destination pool handle */
 +    daos_handle_t src_coh;  /* source container handle */
 +    daos_handle_t dst_coh;  /* destination container handle */
-+    uuid_t src_pool_uuid;   /* source pool UUID */
-+    uuid_t dst_pool_uuid;   /* destination pool UUID */
-+    uuid_t src_cont_uuid;   /* source container UUID */
++    char src_pool[DAOS_PROP_LABEL_MAX_LEN + 1];
++    char src_cont[DAOS_PROP_LABEL_MAX_LEN + 1];
++    char dst_pool[DAOS_PROP_LABEL_MAX_LEN + 1];
++    char dst_cont[DAOS_PROP_LABEL_MAX_LEN + 1];
++    /* if destination container is not created new UUID is generated */
 +    uuid_t dst_cont_uuid;   /* destination container UUID */
 +    char* dfs_prefix;       /* prefix for UNS */
 +    char* src_path;         /* allocated src path */
@@ -6560,7 +6731,8 @@ index 454ee04..0c8538e 100644
 +int daos_cont_deserialize_connect(
 +    daos_args_t *daos_args,
 +    struct hdf5_args *hdf5,
-+    daos_cont_layout_t *cont_type
++    daos_cont_layout_t *cont_type,
++    char *label
 +);
 +
 +/* serialize the number of hdf5 files generated by
@@ -6600,7 +6772,7 @@ index 454ee04..0c8538e 100644
  /* Return a newly allocated daos_args_t structure.
   * Set default values on its fields. */
  daos_args_t* daos_args_new(void);
-@@ -62,11 +281,48 @@ int daos_parse_epc_str(
+@@ -62,11 +284,49 @@ int daos_parse_epc_str(
  int daos_setup(
    int rank,
    char** argpaths,
@@ -6616,8 +6788,8 @@ index 454ee04..0c8538e 100644
 +int daos_parse_path(
 +    char *path,
 +    size_t path_len,
-+    uuid_t *p_uuid,
-+    uuid_t *c_uuid
++    char (*pool_str)[],
++    char (*cont_str)[]
 +);
 +
 +/* connect to DAOS pool,
@@ -6625,8 +6797,8 @@ index 454ee04..0c8538e 100644
 +int daos_connect(
 +  int rank,
 +  daos_args_t* da,
-+  uuid_t pool_uuid,
-+  uuid_t cont_uuid,
++  char (*pool)[],
++  char (*cont)[],
 +  daos_handle_t* poh,
 +  daos_handle_t* coh,
 +  bool force_serialize,
@@ -6634,7 +6806,8 @@ index 454ee04..0c8538e 100644
 +  bool create_cont,
 +  bool require_new_cont,
 +  bool preserve,
-+  mfu_file_t* mfu_src_file
++  mfu_file_t* mfu_src_file,
++  bool dst_cont_passed
 +);
 +
 +/* broadcast a pool or cont handle
@@ -6649,7 +6822,7 @@ index 454ee04..0c8538e 100644
  /* Unmount DFS.
   * Disconnect from pool/cont.
   * Cleanup DAOS-related vars, handles. 
-@@ -77,15 +333,20 @@ int daos_cleanup(
+@@ -77,15 +337,20 @@ int daos_cleanup(
    mfu_file_t* mfu_dst_file
  );
  
@@ -6775,7 +6948,7 @@ index 0cebf3f..dd02888 100644
  void mfu_flist_file_set_name(mfu_flist flist, uint64_t index, const char* name);
  void mfu_flist_file_set_type(mfu_flist flist, uint64_t index, mfu_filetype type);
 diff --git a/src/common/mfu_flist_copy.c b/src/common/mfu_flist_copy.c
-index 8a36bc9..69865b6 100644
+index 8a36bc9..7368a68 100644
 --- a/src/common/mfu_flist_copy.c
 +++ b/src/common/mfu_flist_copy.c
 @@ -1036,7 +1036,7 @@ static int mfu_create_directories(
@@ -6804,6 +6977,24 @@ index 8a36bc9..69865b6 100644
  
      /* bail early if there is no work to do */
      if (mkdir_total_count == 0) {
+@@ -1342,14 +1342,14 @@ static void create_progress_fn(const uint64_t* vals, int count, int complete, in
+ 
+     /* compute percentage of items created */
+     double percent = 0.0;
+-    if (mkdir_total_count > 0) {
+-        percent = (double)items * 100.0 / (double)mkdir_total_count;
++    if (mknod_total_count > 0) {
++        percent = (double)items * 100.0 / (double)mknod_total_count;
+     }
+ 
+     /* estimate seconds remaining */
+     double secs_remaining = -1.0;
+     if (item_rate > 0.0) {
+-        secs_remaining = (double)(mkdir_total_count - items) / item_rate;
++        secs_remaining = (double)(mknod_total_count - items) / item_rate;
+     }
+ 
+     if (complete < ranks) {
 @@ -1489,7 +1489,7 @@ static int mfu_create_hardlinks(
  
      /* first, count number of items to create in the list of the current process */
@@ -6958,7 +7149,7 @@ index fd30da2..2d7c701 100644
          }
      }
 diff --git a/src/common/mfu_io.c b/src/common/mfu_io.c
-index cd86d5d..a258ae9 100644
+index cd86d5d..f924ec4 100644
 --- a/src/common/mfu_io.c
 +++ b/src/common/mfu_io.c
 @@ -14,248 +14,14 @@
@@ -7254,8 +7445,9 @@ index cd86d5d..a258ae9 100644
      if (dirfd != AT_FDCWD) {
 -        errno = ENOTSUP;
 -        return -1;
--    }
--
++        return mfu_errno2rc(ENOTSUP);
+     }
+ 
 -    /* Only real user and group IDs supported at this time */
 -    if (flags & AT_EACCESS) {
 -        errno = ENOTSUP;
@@ -7307,9 +7499,8 @@ index cd86d5d..a258ae9 100644
 -                rc = -1;
 -            }
 -        }
-+        return mfu_errno2rc(ENOTSUP);
-     }
- 
+-    }
+-
 -    mfu_free(&name);
 -    mfu_free(&dir_name);
 -
@@ -7896,7 +8087,7 @@ index cd86d5d..a258ae9 100644
  #endif
  }
  
-@@ -1517,32 +838,17 @@ ssize_t mfu_file_read(const char* file, void* buf, size_t size, mfu_file_t* mfu_
+@@ -1517,32 +838,18 @@ ssize_t mfu_file_read(const char* file, void* buf, size_t size, mfu_file_t* mfu_
  ssize_t daos_read(const char* file, void* buf, size_t size, mfu_file_t* mfu_file)
  {
  #ifdef DAOS_SUPPORT
@@ -7920,7 +8111,7 @@ index cd86d5d..a258ae9 100644
 +    int rc = dfs_sys_read(mfu_file->dfs_sys, mfu_file->obj, buf, mfu_file->offset, &got_size, NULL);
 +    if (rc != 0) {
          errno = rc;
--        return -1;
+         return -1;
 +    } else {
 +        /* update file pointer with number of bytes read */
 +        mfu_file->offset += (daos_off_t)got_size;
@@ -7936,7 +8127,7 @@ index cd86d5d..a258ae9 100644
  #endif
  }
  
-@@ -1635,32 +941,17 @@ ssize_t mfu_write(const char* file, int fd, const void* buf, size_t size)
+@@ -1635,32 +942,18 @@ ssize_t mfu_write(const char* file, int fd, const void* buf, size_t size)
  ssize_t daos_write(const char* file, const void* buf, size_t size, mfu_file_t* mfu_file)
  {
  #ifdef DAOS_SUPPORT
@@ -7960,7 +8151,7 @@ index cd86d5d..a258ae9 100644
 +    int rc = dfs_sys_write(mfu_file->dfs_sys, mfu_file->obj, buf, mfu_file->offset, &write_size, NULL);
 +    if (rc != 0) {
          errno = rc;
--        return -1;
+         return -1;
 +    } else {
 +        /* update file pointer with number of bytes written */
 +        mfu_file->offset += write_size;
@@ -7977,7 +8168,7 @@ index cd86d5d..a258ae9 100644
  #endif
  }
  
-@@ -1682,29 +973,14 @@ ssize_t mfu_file_pread(const char* file, void* buf, size_t size, off_t offset, m
+@@ -1682,29 +975,16 @@ ssize_t mfu_file_pread(const char* file, void* buf, size_t size, off_t offset, m
  ssize_t daos_pread(const char* file, void* buf, size_t size, off_t offset, mfu_file_t* mfu_file)
  {
  #ifdef DAOS_SUPPORT
@@ -8001,7 +8192,8 @@ index cd86d5d..a258ae9 100644
 +    int rc = dfs_sys_read(mfu_file->dfs_sys, mfu_file->obj, buf, offset, &got_size, NULL);
 +    if (rc != 0) {
          errno = rc;
--        return -1;
++        /* return -1 if dfs_sys_read encounters error */
+         return -1;
      }
 -
      return (ssize_t)got_size;
@@ -8011,7 +8203,7 @@ index cd86d5d..a258ae9 100644
  #endif
  }
  
-@@ -1781,29 +1057,14 @@ ssize_t mfu_pwrite(const char* file, int fd, const void* buf, size_t size, off_t
+@@ -1781,29 +1061,16 @@ ssize_t mfu_pwrite(const char* file, int fd, const void* buf, size_t size, off_t
  ssize_t daos_pwrite(const char* file, const void* buf, size_t size, off_t offset, mfu_file_t* mfu_file)
  {
  #ifdef DAOS_SUPPORT
@@ -8035,7 +8227,8 @@ index cd86d5d..a258ae9 100644
 +    int rc = dfs_sys_write(mfu_file->dfs_sys, mfu_file->obj, buf, offset, &write_size, NULL);
 +    if (rc != 0) {
          errno = rc;
--        return -1;
++        /* report -1 if dfs_sys_write encounters error */
+         return -1;
      }
 -
 -    return (ssize_t)size;
@@ -8046,7 +8239,7 @@ index cd86d5d..a258ae9 100644
  #endif
  }
  
-@@ -1846,74 +1107,20 @@ retry:
+@@ -1846,74 +1113,20 @@ retry:
  int daos_truncate(const char* file, off_t length, mfu_file_t* mfu_file)
  {
  #ifdef DAOS_SUPPORT
@@ -8127,7 +8320,7 @@ index cd86d5d..a258ae9 100644
  #endif
  }
  
-@@ -1967,42 +1174,13 @@ int mfu_file_unlink(const char* file, mfu_file_t* mfu_file)
+@@ -1967,42 +1180,13 @@ int mfu_file_unlink(const char* file, mfu_file_t* mfu_file)
      } 
  }
  
@@ -8173,7 +8366,7 @@ index cd86d5d..a258ae9 100644
  #endif
  }
  
-@@ -2067,37 +1245,10 @@ void mfu_getcwd(char* buf, size_t size)
+@@ -2067,37 +1251,10 @@ void mfu_getcwd(char* buf, size_t size)
  int daos_mkdir(const char* dir, mode_t mode, mfu_file_t* mfu_file)
  {
  #ifdef DAOS_SUPPORT
@@ -8214,7 +8407,7 @@ index cd86d5d..a258ae9 100644
  #endif
  }
  
-@@ -2174,148 +1325,26 @@ retry:
+@@ -2174,148 +1331,26 @@ retry:
  int daos_rmdir(const char* dir, mfu_file_t* mfu_file)
  {
  #ifdef DAOS_SUPPORT
@@ -8373,7 +8566,7 @@ index cd86d5d..a258ae9 100644
      return NULL;
  #endif
  }
-@@ -2357,21 +1386,13 @@ DIR* mfu_file_opendir(const char* dir, mfu_file_t* mfu_file)
+@@ -2357,21 +1392,13 @@ DIR* mfu_file_opendir(const char* dir, mfu_file_t* mfu_file)
  }
  
  /* close dir. This is not cached in mfu_file->dir_hash */
@@ -8399,7 +8592,7 @@ index cd86d5d..a258ae9 100644
  #endif
  }
  
-@@ -2410,36 +1431,18 @@ int mfu_file_closedir(DIR* dirp, mfu_file_t* mfu_file)
+@@ -2410,36 +1437,18 @@ int mfu_file_closedir(DIR* dirp, mfu_file_t* mfu_file)
      }
  }
  
@@ -8444,7 +8637,7 @@ index cd86d5d..a258ae9 100644
      return NULL;
  #endif
  }
-@@ -2506,65 +1509,18 @@ ssize_t mfu_llistxattr(const char* path, char* list, size_t size)
+@@ -2506,65 +1515,18 @@ ssize_t mfu_llistxattr(const char* path, char* list, size_t size)
  ssize_t daos_llistxattr(const char* path, char* list, size_t size, mfu_file_t* mfu_file)
  {
  #ifdef DAOS_SUPPORT
@@ -8516,7 +8709,7 @@ index cd86d5d..a258ae9 100644
  ssize_t mfu_file_listxattr(const char* path, char* list, size_t size, mfu_file_t* mfu_file)
  {
      if (mfu_file->type == POSIX) {
-@@ -2590,59 +1546,14 @@ ssize_t mfu_listxattr(const char* path, char* list, size_t size)
+@@ -2590,59 +1552,14 @@ ssize_t mfu_listxattr(const char* path, char* list, size_t size)
  ssize_t daos_listxattr(const char* path, char* list, size_t size, mfu_file_t* mfu_file)
  {
  #ifdef DAOS_SUPPORT
@@ -8581,7 +8774,7 @@ index cd86d5d..a258ae9 100644
  #endif
  }
  
-@@ -2670,60 +1581,14 @@ ssize_t mfu_lgetxattr(const char* path, const char* name, void* value, size_t si
+@@ -2670,60 +1587,14 @@ ssize_t mfu_lgetxattr(const char* path, const char* name, void* value, size_t si
  ssize_t daos_lgetxattr(const char* path, const char* name, void* value, size_t size, mfu_file_t* mfu_file)
  {
  #ifdef DAOS_SUPPORT
@@ -8647,7 +8840,7 @@ index cd86d5d..a258ae9 100644
  #endif
  }
  
-@@ -2751,59 +1616,14 @@ ssize_t mfu_getxattr(const char* path, const char* name, void* value, size_t siz
+@@ -2751,59 +1622,14 @@ ssize_t mfu_getxattr(const char* path, const char* name, void* value, size_t siz
  ssize_t daos_getxattr(const char* path, const char* name, void* value, size_t size, mfu_file_t* mfu_file)
  {
  #ifdef DAOS_SUPPORT
@@ -8712,7 +8905,7 @@ index cd86d5d..a258ae9 100644
  #endif
  }
  
-@@ -2833,54 +1653,9 @@ int daos_lsetxattr(const char* path, const char* name, const void* value, size_t
+@@ -2833,54 +1659,9 @@ int daos_lsetxattr(const char* path, const char* name, const void* value, size_t
                     mfu_file_t* mfu_file)
  {
  #ifdef DAOS_SUPPORT
@@ -8916,10 +9109,10 @@ index 0000000..84e5cf1
 +MFU_ADD_TOOL(daos-deserialize)
 diff --git a/src/daos-deserialize/daos-deserialize.c b/src/daos-deserialize/daos-deserialize.c
 new file mode 100644
-index 0000000..02c51f8
+index 0000000..974134d
 --- /dev/null
 +++ b/src/daos-deserialize/daos-deserialize.c
-@@ -0,0 +1,417 @@
+@@ -0,0 +1,425 @@
 +#include <stdio.h>
 +#include <getopt.h>
 +#include <string.h>
@@ -8945,6 +9138,7 @@ index 0000000..02c51f8
 +    printf("\n");
 +    printf("Options:\n");
 +    printf("  -p, --pool               - pool uuid for containers\n");
++    printf("  -l, --cont-label         - use a label name for deserialize container\n");
 +    printf("  -v, --verbose            - verbose output\n");
 +    printf("  -q, --quiet              - quiet output\n");
 +    printf("  -h, --help               - print usage\n");
@@ -9088,6 +9282,7 @@ index 0000000..02c51f8
 +    int option_index = 0;
 +    static struct option long_options[] = {
 +        {"pool"                 , required_argument , 0, 'p'},
++        {"cont-label"           , required_argument , 0, 'l'},
 +        {"verbose"              , no_argument       , 0, 'v'},
 +        {"quiet"                , no_argument       , 0, 'q'},
 +        {"help"                 , no_argument       , 0, 'h'},
@@ -9099,11 +9294,13 @@ index 0000000..02c51f8
 +
 +    /* DAOS vars */ 
 +    daos_args_t* daos_args = daos_args_new();    
++    /* option to deserialize container with label name */
++    char *cont_label = NULL;
 +
 +    int usage = 0;
 +    while(1) {
 +        int c = getopt_long(
-+                    argc, argv, "p:vqh",
++                    argc, argv, "p:l:vqh",
 +                    long_options, &option_index
 +                );
 +
@@ -9113,7 +9310,10 @@ index 0000000..02c51f8
 +
 +        switch(c) {
 +            case 'p':
-+                uuid_parse(optarg, daos_args->src_pool_uuid);
++                snprintf(daos_args->src_pool, DAOS_PROP_LABEL_MAX_LEN + 1, "%s", optarg);
++                break;
++            case 'l':
++                cont_label = MFU_STRDUP(optarg);
 +                break;
 +            case 'v':
 +                mfu_debug_level = MFU_LOG_VERBOSE;
@@ -9154,7 +9354,7 @@ index 0000000..02c51f8
 +    /* advance to next set of options */
 +    optind += numpaths;
 +
-+    if (numpaths < 1 || uuid_is_null(daos_args->src_pool_uuid)) {
++    if (numpaths < 1 || daos_args->src_pool ==  NULL) {
 +        MFU_LOG(MFU_LOG_ERR, "At least one file or directory and "
 +                "a pool UUID is required:"
 +                MFU_ERRF, MFU_ERRP(-MFU_ERR_INVAL_ARG));
@@ -9248,7 +9448,7 @@ index 0000000..02c51f8
 +            mfu_flist_file_set_cont(tmplist, idx, paths[i]);
 +        }
 +
-+        tmp_rc = daos_cont_deserialize_connect(daos_args, &hdf5, &cont_type);
++        tmp_rc = daos_cont_deserialize_connect(daos_args, &hdf5, &cont_type, cont_label);
 +        if (tmp_rc != 0) {
 +            MFU_LOG(MFU_LOG_ERR, "failed to connect to container\n");
 +            rc = 1;
@@ -9297,6 +9497,7 @@ index 0000000..02c51f8
 +    mfu_daos_stats_print_sum(rank, &stats, false, true, false, false);
 +
 +    mfu_flist_free(&newflist);
++    mfu_free(&cont_label);
 +
 +    /* don't close anything until all ranks are done using handles */
 +    MPI_Barrier(MPI_COMM_WORLD);
@@ -9663,10 +9864,10 @@ index 0000000..3f9c9f9
 +MFU_ADD_TOOL(daos-serialize)
 diff --git a/src/daos-serialize/daos-serialize.c b/src/daos-serialize/daos-serialize.c
 new file mode 100644
-index 0000000..3a5f463
+index 0000000..f70f2c7
 --- /dev/null
 +++ b/src/daos-serialize/daos-serialize.c
-@@ -0,0 +1,303 @@
+@@ -0,0 +1,302 @@
 +#include <stdio.h>
 +#include <getopt.h>
 +#include <string.h>
@@ -9816,17 +10017,16 @@ index 0000000..3a5f463
 +    int len = strlen(argpaths[0]); 
 +
 +    int tmp_rc;
-+    tmp_rc = daos_parse_path(argpaths[0], len, &daos_args->src_pool_uuid,
-+                         &daos_args->src_cont_uuid);
-+    if (tmp_rc != 0 || !daos_uuid_valid(daos_args->src_pool_uuid) || !daos_uuid_valid(daos_args->src_cont_uuid)) {
++    tmp_rc = daos_parse_path(argpaths[0], len, &daos_args->src_pool, &daos_args->src_cont);
++    if (tmp_rc != 0 || daos_args->src_cont == NULL) {
 +        MFU_LOG(MFU_LOG_ERR, "Failed to resolve DAOS path");
 +         rc = 1;
 +    }
 +    
-+    tmp_rc = daos_connect(rank, daos_args, daos_args->src_pool_uuid,
-+                          daos_args->src_cont_uuid, &daos_args->src_poh,
++    tmp_rc = daos_connect(rank, daos_args, &daos_args->src_pool,
++                          &daos_args->src_cont, &daos_args->src_poh,
 +                          &daos_args->src_coh, force_serialize, true,
-+                          false, false, false, NULL);
++                          false, false, false, NULL, true);
 +    if (tmp_rc != 0) {
 +        daos_fini();
 +        mfu_finalize();
