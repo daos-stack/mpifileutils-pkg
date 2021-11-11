@@ -48,7 +48,7 @@
 
 Name:		mpifileutils
 Version:	0.11
-Release:	9%{?git_short:.g%{git_short}}%{?dist}
+Release:	10%{?git_short:.g%{git_short}}%{?dist}
 Summary:	File utilities designed for scalability and performance.
 
 Group:		System Environment/Libraries
@@ -248,6 +248,9 @@ done
 %endif
 
 %changelog
+* Fri Nov 12 2021 Wang Shilong <shilong.wang@intel.com> - 0.11-10
+- Rebuilt for breaking DAOS API change
+
 * Wed Sep 29 2021 Danielle M. Sikich <danielle.sikich@intel.com> - 0.11-9
 - Update to patch bdc379b
 
