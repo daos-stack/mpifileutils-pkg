@@ -48,7 +48,7 @@
 
 Name:		mpifileutils
 Version:	0.11
-Release:	9%{?git_short:.g%{git_short}}%{?dist}
+Release:	10%{?git_short:.g%{git_short}}%{?dist}
 Summary:	File utilities designed for scalability and performance.
 
 Group:		System Environment/Libraries
@@ -58,6 +58,7 @@ Source:		https://github.com/hpc/%{name}/archive/v%{version}.tar.gz
 %if %{defined git_short}
 Patch1:		v%{version}..%{?git_short}.patch
 %endif
+Patch2:    https://github.com/daos-stack/%{name}/commit/03d25d95bc8785e0145763e03b45e0208a845a84.patch
 BuildRoot:	%_topdir/BUILDROOT
 %if (0%{?suse_version} >= 1500)
 BuildRequires: cmake >= 3.1
@@ -248,6 +249,10 @@ done
 %endif
 
 %changelog
+* Fri Nov 12 2021 Wang Shilong <shilong.wang@intel.com> - 0.11-10
+- Rebuilt for breaking DAOS API change
+- Add patch to work with libdaos.so.2
+
 * Wed Sep 29 2021 Danielle M. Sikich <danielle.sikich@intel.com> - 0.11-9
 - Update to patch bdc379b
 
