@@ -48,7 +48,7 @@
 
 Name:		mpifileutils
 Version:	0.11
-Release:	10%{?git_short:.g%{git_short}}%{?dist}
+Release:	11%{?git_short:.g%{git_short}}%{?dist}
 Summary:	File utilities designed for scalability and performance.
 
 Group:		System Environment/Libraries
@@ -184,7 +184,6 @@ for mpi in %{?mpi_list}; do
              -DLibCircle_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libcircle.so \
              -DHDF5_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}         \
              -DHDF5_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libhdf5.so        \
-             -DWITH_CART_PREFIX=/usr                                              \
              -DWITH_DAOS_PREFIX=/usr                                              \
              -DCMAKE_INSTALL_INCLUDEDIR=%{mpi_includedir}/$mpi%{mpi_include_ext}  \
              -DCMAKE_INSTALL_PREFIX=%{mpi_libdir}/$mpi                            \
@@ -249,6 +248,9 @@ done
 %endif
 
 %changelog
+* Mon Nov 29 2021 Danielle M. Sikich <danielle.sikich@intel.com> - 0.11-11
+- Update to patch 49b04c1
+
 * Fri Nov 12 2021 Wang Shilong <shilong.wang@intel.com> - 0.11-10
 - Rebuilt for breaking DAOS API change
 - Add patch to work with libdaos.so.2
