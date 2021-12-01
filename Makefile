@@ -2,8 +2,7 @@ NAME      := mpifileutils
 SRC_EXT   := gz
 REPO_NAME := mpifileutils-pkg
 PKG_GIT_COMMIT := 49b04c1
-
-BUILD_DEFINES := --define "git_short $(GIT_SHORT)"
+GITHUB_PROJECT := hpc/$(NAME)
 
 RPM_BUILD_OPTIONS := $(BUILD_DEFINES)
 
