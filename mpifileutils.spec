@@ -48,7 +48,7 @@
 
 Name:		mpifileutils
 Version:	0.11
-Release:	10%{?git_short:.g%{git_short}}%{?dist}
+Release:	11%{?git_short:.g%{git_short}}%{?dist}
 Summary:	File utilities designed for scalability and performance.
 
 Group:		System Environment/Libraries
@@ -58,13 +58,13 @@ Source:		https://github.com/hpc/%{name}/archive/v%{version}.tar.gz
 %if %{defined git_short}
 Patch1:		v%{version}..%{?git_short}.patch
 %endif
-Patch2:    https://github.com/daos-stack/%{name}/commit/03d25d95bc8785e0145763e03b45e0208a845a84.patch
 BuildRoot:	%_topdir/BUILDROOT
 %if (0%{?suse_version} >= 1500)
 BuildRequires: cmake >= 3.1
 BuildRequires: lua-lmod
 BuildRequires: libbz2-devel
 BuildRequires: libopenssl-devel
+BuildRequires: libfabric1 >= 1.12.0
 %else
 BuildRequires: cmake3 >= 3.1
 BuildRequires: Lmod
@@ -73,14 +73,11 @@ BuildRequires: openssl-devel
 %endif
 BuildRequires: gcc-c++
 BuildRequires: libuuid-devel
-
-
-%if (0%{?suse_version} >= 1500)
-BuildRequires: libfabric1 >= 1.12.0
-%endif
+BuildRequires: libattr-devel
 
 %description
 File utilities designed for scalability and performance.
+
 
 %if %{with_openmpi}
 %package openmpi
@@ -184,7 +181,6 @@ for mpi in %{?mpi_list}; do
              -DLibCircle_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libcircle.so \
              -DHDF5_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}         \
              -DHDF5_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libhdf5.so        \
-             -DWITH_CART_PREFIX=/usr                                              \
              -DWITH_DAOS_PREFIX=/usr                                              \
              -DCMAKE_INSTALL_INCLUDEDIR=%{mpi_includedir}/$mpi%{mpi_include_ext}  \
              -DCMAKE_INSTALL_PREFIX=%{mpi_libdir}/$mpi                            \
@@ -249,6 +245,12 @@ done
 %endif
 
 %changelog
+* Mon Jan 31 2022 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11-11
+- Update to patch 86fbacc
+- Remove patch2 in favor of upstream d5f41b3
+- Remove unused WITH_CART_PREFIX
+- Add libattr-devel dependency - now required for xattrs
+
 * Fri Nov 12 2021 Wang Shilong <shilong.wang@intel.com> - 0.11-10
 - Rebuilt for breaking DAOS API change
 - Add patch to work with libdaos.so.2

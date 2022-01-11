@@ -1,3 +1,105 @@
+diff --git a/.github/CONTRIBUTING.md b/.github/CONTRIBUTING.md
+deleted file mode 100644
+index d7c9a01..0000000
+--- a/.github/CONTRIBUTING.md
++++ /dev/null
+@@ -1,96 +0,0 @@
+-# Contributing to mpiFileUtils
+-
+-*Thank you for taking the time to contribute!*
+-
+-## Table of Contents
+-[Resources](#resources)
+-
+-[How To Contribute](#how-to-contribute)
+-  * [Reporting an Issue & Feature Suggestions](#reporting-an-issue--feature-suggestions)
+-  * [Pull Requests](#pull-requests)
+-  * [License](#license)
+-  * [Contributor's Declaration](#contributors-declaration)
+-
+-## Resources
+-[mpiFileUtils Google Group](https://groups.google.com/forum/#!forum/mpifileutils)
+-
+-## How To Contribute
+-
+-### Reporting an Issue & Feature Suggestions
+-You can find a list of all outstanding issues and feature requests on our Github
+-[issue tracker](https://github.com/hpc/mpifileutils/issues). Before creating a new
+-issue or feature suggestion, ensure that:
+-* The issue or feature request hasn't been addressed in a newer version of mpiFileUtils.
+-* That the issue or feature request doesn't already exist in the issue tracker.
+-
+-If the issue or feature request already exists, please provide additional
+-information if possible.
+-
+-When creating a new issue, please provide at least the following information:
+-* mpiFileUtils Version
+-* Linux Distribution & Version
+-* Steps to reproduce the problem
+-* Information from various system logs (i.e. call stacks, dmesg output)
+-
+-### Pull Requests
+-If you would like us to consider a change to mpiFileUtils, feel free to submit
+-a pull request. Your pull request must meet the following criteria before
+-it can be merged.
+-
+-* Your pull request must be based on the current master branch and
+-apply without conflicts.
+-* Please try to limit pull requests to a single commit which resolves
+-one issue.
+-* Make sure your commit messages have a `Signed-off-by` line. See
+-[Contributor's Declaration](#contributors-declaration) for more information.
+-* For large pull requests, consider structuring your changes as a stack of
+-logically independent patches which build on each other.  This makes large
+-changes easier to review and approve which speeds up the merging process.
+-* Try to keep pull requests simple. Simple code with comments is much easier
+-to review and approve.
+-* Test cases should be provided when appropriate.
+-* Your pull request must pass automated testing.
+-* All proposed changes must be approved by an mpiFileUtils project member.
+-
+-### License
+-mpiFileUtils is distributed under the New BSD License with a few additional notices.
+-Note that the phrase "above copyright notice" in the license text refers to the
+-current list of copyrights that appears in the
+-[license](https://github.com/hpc/mpifileutils/blob/master/LICENSE) file found in
+-the mpiFileUtils master branch.
+-
+-### Contributor's Declaration
+-mpiFileUtils has adopted the signed-off-by process as described in Section
+-11 of the Linux kernel document on
+-[Submitting Patches](https://www.kernel.org/doc/html/latest/process/submitting-patches.html).
+-Each proposed contribution to the mpiFileUtils code base must include the text
+-"Signed-off-by:" followed by the contributor's name and email address. This is
+-the developer's certification that they have the right to submit the patch for
+-inclusion into the code base and indicates agreement to the Developer's
+-Certificate of Origin:
+-
+-"By making a contribution to this project, I certify that:
+-1. The contribution was created in whole or in part by me and I have the right
+-to submit it under the open source license indicated in the file; or
+-2. The contribution is based upon previous work that, to the best of my knowledge,
+-is covered under an appropriate open source license and I have the right under
+-that license to submit that work with modifications, whether created in whole or
+-in part by me, under the same open source license (unless I am permitted to submit
+-under a different license), as indicated in the file; or
+-3. The contribution was provided directly to me by some other person who certified
+-(1), (2) or (3) and I have not modified it.
+-4. I understand and agree that this project and the contribution are public and
+-that a record of the contribution (including all personal information I submit
+-with it, including my sign-off) is maintained indefinitely and may be
+-redistributed consistent with this project or the open source license(s) involved."
+-
+-After reading and agreeing to the Contributor's Declaration, include your
+-Signed-off-by text like the following as the last line in your commit message:
+-
+-```
+-Signed-off-by: Random J Developer <random@developer.example.org>
+-```
+-
+-Proposed contributions failing to include a "Signed-off-by:" certification will
+-not be accepted into mpiFileUtils. The maintainers reserve the right to revert
+-any commit made without the required certification.
 diff --git a/.travis.yml b/.travis.yml
 index 605bf4d..8c1dc77 100644
 --- a/.travis.yml
@@ -10,15 +112,61 @@ index 605bf4d..8c1dc77 100644
  language: c
  
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 8cef16b..c22789b 100644
+index 8cef16b..4880124 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -92,6 +92,16 @@ IF(ENABLE_LIBARCHIVE)
+@@ -13,11 +13,20 @@ LIST(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+ # Configuration Options
+ 
+ OPTION(ENABLE_XATTRS "Enable code for extended attributes" ON)
++MESSAGE(STATUS "ENABLE_XATTRS: ${ENABLE_XATTRS}")
+ IF(ENABLE_XATTRS)
+   ADD_DEFINITIONS(-DDCOPY_USE_XATTRS)
++
++  FIND_PACKAGE(LibAttr REQUIRED)
++  IF(LibAttr_FOUND)
++    ADD_DEFINITIONS(-DHAVE_LIBATTR)
++    INCLUDE_DIRECTORIES(${LibAttr_INCLUDE_DIRS})
++    LIST(APPEND MFU_EXTERNAL_LIBS ${LibAttr_LIBRARIES})
++  ENDIF(LibAttr_FOUND)
+ ENDIF(ENABLE_XATTRS)
+ 
+ OPTION(ENABLE_LUSTRE "Enable optimization and features for Lustre" OFF)
++MESSAGE(STATUS "ENABLE_LUSTRE: ${ENABLE_LUSTRE}")
+ IF(ENABLE_LUSTRE)
+   ADD_DEFINITIONS(-DLUSTRE_SUPPORT)
+ 
+@@ -49,6 +58,7 @@ IF(ENABLE_LUSTRE)
+ ENDIF(ENABLE_LUSTRE)
+ 
+ OPTION(ENABLE_GPFS "Enable GFPS/Spectrum Scale support")
++MESSAGE(STATUS "ENABLE_GPFS: ${ENABLE_GPFS}")
+ IF(ENABLE_GPFS)
+   FIND_PACKAGE(GPFS REQUIRED)
+   INCLUDE_DIRECTORIES(${GPFS_INCLUDE_DIRS})
+@@ -57,6 +67,7 @@ IF(ENABLE_GPFS)
+ ENDIF(ENABLE_GPFS)
+ 
+ OPTION(ENABLE_EXPERIMENTAL "Build experimental tools" OFF)
++MESSAGE(STATUS "ENABLE_EXPERIMENTAL: ${ENABLE_EXPERIMENTAL}")
+ 
+ ## HEADERS
+ INCLUDE(CheckIncludeFile)
+@@ -81,6 +92,7 @@ LIST(APPEND MFU_EXTERNAL_LIBS ${DTCMP_LIBRARIES})
+ 
+ ## LIBARCHIVE
+ OPTION(ENABLE_LIBARCHIVE "Enable usage of libarchive and corresponding tools" ON)
++MESSAGE(STATUS "ENABLE_LIBARCHIVE: ${ENABLE_LIBARCHIVE}")
+ # TODO how would we pass a version from spack?
+ # libarchive 3.1.2 is available on some systems,
+ # but pick a newer libarchive to avoid bug with files starting with "._",
+@@ -92,17 +104,26 @@ IF(ENABLE_LIBARCHIVE)
    ADD_DEFINITIONS(-DLIBARCHIVE_SUPPORT)
  ENDIF(ENABLE_LIBARCHIVE)
  
 +## hdf5 
 +OPTION(ENABLE_HDF5 "Enable HDF5 library")
++MESSAGE(STATUS "ENABLE_HDF5: ${ENABLE_HDF5}")
 +IF(ENABLE_HDF5)
 +  FIND_PACKAGE(HDF5 REQUIRED)
 +  INCLUDE_DIRECTORIES(${HDF5_INCLUDE_DIRS})
@@ -28,35 +176,155 @@ index 8cef16b..c22789b 100644
 +ENDIF(ENABLE_HDF5)
 +
  OPTION(ENABLE_DAOS "Enable DAOS support")
++MESSAGE(STATUS "ENABLE_DAOS: ${ENABLE_DAOS}")
  IF(ENABLE_DAOS)
    SET(CMAKE_EXE_LINKER_FLAGS -luuid)
+-  FIND_PACKAGE(CART REQUIRED)
+-  INCLUDE_DIRECTORIES(${CART_INCLUDE_DIRS})
+-  message(${CART_INCLUDE_DIRS})
+-  LIST(APPEND MFU_EXTERNAL_LIBS ${CART_LIBRARIES})
+-  LIST(APPEND MFU_EXTERNAL_LIBS ${GURT_LIBRARIES})
+   FIND_PACKAGE(DAOS REQUIRED)
+   INCLUDE_DIRECTORIES(${DAOS_INCLUDE_DIRS})
+   LIST(APPEND MFU_EXTERNAL_LIBS ${DAOS_LIBRARIES})
++  LIST(APPEND MFU_EXTERNAL_LIBS ${GURT_LIBRARIES})
++  LIST(APPEND MFU_EXTERNAL_LIBS ${CART_LIBRARIES})
+   LIST(APPEND MFU_EXTERNAL_LIBS ${DUNS_LIBRARIES})
+   LIST(APPEND MFU_EXTERNAL_LIBS ${DFS_LIBRARIES})
+   LIST(APPEND MFU_EXTERNAL_LIBS ${DAOS_COMMON_LIBRARIES})
+@@ -169,7 +190,10 @@ ENDIF("${isSystemDir}" STREQUAL "-1")
+ 
+ # Subdirectories
+ INCLUDE(MFU_ADD_TOOL)
+-INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src/common)
++
++# use BEFORE to place build directory first when searching for header files
++# otherwise the build can use old header files from the install path instead
++INCLUDE_DIRECTORIES(BEFORE ${CMAKE_CURRENT_SOURCE_DIR}/src/common)
+ 
+ ADD_SUBDIRECTORY(src)
+ ADD_SUBDIRECTORY(test)
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+new file mode 100644
+index 0000000..d7c9a01
+--- /dev/null
++++ b/CONTRIBUTING.md
+@@ -0,0 +1,96 @@
++# Contributing to mpiFileUtils
++
++*Thank you for taking the time to contribute!*
++
++## Table of Contents
++[Resources](#resources)
++
++[How To Contribute](#how-to-contribute)
++  * [Reporting an Issue & Feature Suggestions](#reporting-an-issue--feature-suggestions)
++  * [Pull Requests](#pull-requests)
++  * [License](#license)
++  * [Contributor's Declaration](#contributors-declaration)
++
++## Resources
++[mpiFileUtils Google Group](https://groups.google.com/forum/#!forum/mpifileutils)
++
++## How To Contribute
++
++### Reporting an Issue & Feature Suggestions
++You can find a list of all outstanding issues and feature requests on our Github
++[issue tracker](https://github.com/hpc/mpifileutils/issues). Before creating a new
++issue or feature suggestion, ensure that:
++* The issue or feature request hasn't been addressed in a newer version of mpiFileUtils.
++* That the issue or feature request doesn't already exist in the issue tracker.
++
++If the issue or feature request already exists, please provide additional
++information if possible.
++
++When creating a new issue, please provide at least the following information:
++* mpiFileUtils Version
++* Linux Distribution & Version
++* Steps to reproduce the problem
++* Information from various system logs (i.e. call stacks, dmesg output)
++
++### Pull Requests
++If you would like us to consider a change to mpiFileUtils, feel free to submit
++a pull request. Your pull request must meet the following criteria before
++it can be merged.
++
++* Your pull request must be based on the current master branch and
++apply without conflicts.
++* Please try to limit pull requests to a single commit which resolves
++one issue.
++* Make sure your commit messages have a `Signed-off-by` line. See
++[Contributor's Declaration](#contributors-declaration) for more information.
++* For large pull requests, consider structuring your changes as a stack of
++logically independent patches which build on each other.  This makes large
++changes easier to review and approve which speeds up the merging process.
++* Try to keep pull requests simple. Simple code with comments is much easier
++to review and approve.
++* Test cases should be provided when appropriate.
++* Your pull request must pass automated testing.
++* All proposed changes must be approved by an mpiFileUtils project member.
++
++### License
++mpiFileUtils is distributed under the New BSD License with a few additional notices.
++Note that the phrase "above copyright notice" in the license text refers to the
++current list of copyrights that appears in the
++[license](https://github.com/hpc/mpifileutils/blob/master/LICENSE) file found in
++the mpiFileUtils master branch.
++
++### Contributor's Declaration
++mpiFileUtils has adopted the signed-off-by process as described in Section
++11 of the Linux kernel document on
++[Submitting Patches](https://www.kernel.org/doc/html/latest/process/submitting-patches.html).
++Each proposed contribution to the mpiFileUtils code base must include the text
++"Signed-off-by:" followed by the contributor's name and email address. This is
++the developer's certification that they have the right to submit the patch for
++inclusion into the code base and indicates agreement to the Developer's
++Certificate of Origin:
++
++"By making a contribution to this project, I certify that:
++1. The contribution was created in whole or in part by me and I have the right
++to submit it under the open source license indicated in the file; or
++2. The contribution is based upon previous work that, to the best of my knowledge,
++is covered under an appropriate open source license and I have the right under
++that license to submit that work with modifications, whether created in whole or
++in part by me, under the same open source license (unless I am permitted to submit
++under a different license), as indicated in the file; or
++3. The contribution was provided directly to me by some other person who certified
++(1), (2) or (3) and I have not modified it.
++4. I understand and agree that this project and the contribution are public and
++that a record of the contribution (including all personal information I submit
++with it, including my sign-off) is maintained indefinitely and may be
++redistributed consistent with this project or the open source license(s) involved."
++
++After reading and agreeing to the Contributor's Declaration, include your
++Signed-off-by text like the following as the last line in your commit message:
++
++```
++Signed-off-by: Random J Developer <random@developer.example.org>
++```
++
++Proposed contributions failing to include a "Signed-off-by:" certification will
++not be accepted into mpiFileUtils. The maintainers reserve the right to revert
++any commit made without the required certification.
 diff --git a/DAOS-Support.md b/DAOS-Support.md
-index 3e01829..05bd308 100644
+index 3e01829..7d3b722 100644
 --- a/DAOS-Support.md
 +++ b/DAOS-Support.md
-@@ -1,7 +1,13 @@
+@@ -1,46 +1,75 @@
  # DAOS Support
  
 -[DAOS](https://github.com/daos-stack/daos) is supported as a backend storage system in dcp, dsync, and dcmp. The build instructions for
 -enabling DAOS support can be found here:
-+[DAOS](https://github.com/daos-stack/daos) is supported as a backend storage system in
-+dcp, dsync, and dcmp. Custom serialization and deserialization for DAOS
-+containers to and from a POSIX filesystem is provided with daos-serialize and
-+daos-deserialize. A DAOS container and its associated
-+metadata can be serialized to an HDF5 file for storage on a POSIX filesystem using daos-serialize. The container data
-+can be later restored to DAOS via the use of daos-deserialize.
-+
-+The build instructions for enabling DAOS support can be found here:
- [Enable DAOS](https://mpifileutils.readthedocs.io/en/latest/build.html#build-everything-directly).
- The following are ways that DAOS can be used to move data both across DAOS as well as POSIX
- filesystems in dcp and dsync:
-@@ -10,25 +16,9 @@ filesystems in dcp and dsync:
- 2. POSIX -> DAOS
- 3. DAOS  -> DAOS
- 
+-[Enable DAOS](https://mpifileutils.readthedocs.io/en/latest/build.html#build-everything-directly).
+-The following are ways that DAOS can be used to move data both across DAOS as well as POSIX
+-filesystems in dcp and dsync:
+-
+-1. DAOS  -> POSIX
+-2. POSIX -> DAOS
+-3. DAOS  -> DAOS
+-
 -For dcp, the DAOS->DAOS case supports both POSIX and non-POSIX DAOS containers.
-+For the DAOS->DAOS case, both the DFS API and DAOS Object API are supported.
- 
+-
 -For dsync, the DAOS->DAOS case currently only supports POSIX containers.
 -
 -## DAOS Data Movement Use Cases
@@ -69,51 +337,228 @@ index 3e01829..05bd308 100644
 -
 -2. **DAOS Source**
 -    * Source container exists
--
+ 
 -3. **DAOS Source and Destination**
 -    * Copy across two different pools
 -    * Copy across containers in the same pool
 -    * Copying non-POSIX containers is only supported for the DAOS -> DAOS case in dcp
-+For daos-serialize and daos-deserialize, any type of DAOS container is supported.
++[DAOS](https://github.com/daos-stack/daos) is supported as a backend
++storage system in the mpiFileUtils commands dcp, dsync, and dcmp.
++The build instructions for enabling DAOS support in mpiFileUtils
++can be found here:
++[Enable DAOS](https://mpifileutils.readthedocs.io/en/latest/build.html#build-everything-directly).
  
- ## DAOS POSIX Data Movement Examples with dcp
+-## DAOS POSIX Data Movement Examples with dcp
++With dcp and dsync, the DAOS backend can be used to move data across
++two DAOS containers of the same type, as well as between a DAOS
++POSIX container and a (non-DAOS) POSIX filesystem like Lustre or GPFS:
++
++1. DAOS POSIX container -> POSIX FS
++2. POSIX FS -> DAOS POSIX container
++3. DAOS POSIX container  -> DAOS POSIX container
++4. DAOS non-POSIX container  -> DAOS non-POSIX container
++
++When the source or the destination is a (non-DAOS) POSIX filesystem,
++the DAOS File System (DFS) API will be used.
++When both the source and the destination are DAOS POSIX containers,
++both the DFS API and the DAOS Object API are supported to perform
++the copy/sync operations (by default, the DFS API will be used).
++When both the source and the destination are DAOS non-POSIX containers
++(of the same type),
++the DAOS Object API will be used to perform the copy/sync operations.
++
++When DAOS and HDF5 support is enabled, mpiFileUtils also provides the
++daos-serialize and daos-deserialize commands.
++These commands can be used to save the contents of a DAOS container
++and its associated metadata into a POSIX filesystem,
++and to restore that DAOS container with its associated metadata
++back into a DAOS storage system at a later time.
++This functionality is also known as "container parking",
++and it is supported for any type of DAOS container.
++The typical use case is the "archiving" of a DAOS container to a
++lower cost, higher capacity storage system
++to free up space in the DAOS storage system for other projects.
++This step is performed with the daos-serialze command.
++When the DAOS container needs to be accessed again, it can be re-established
++in the DAOS storage system by using the daos-deserialize command.
++The daos-serialize and daos-deserialize commands are MPI-parallel
++applications.
++They use HDF5 to write and read the DAOS container data and metadata
++as "opaque" HDF5 files, one HDF5 file per MPI rank.
++In order to use these commands, HDF5 needs to be installed and
++mpiFileUtils needs to be built with both DAOS support and HDF5 support.
++See the above build instructions for details.
++
++
++
++## Data Movement Examples with dcp, using the DFS API
  
-@@ -76,7 +66,7 @@ $ mpirun -np 3 dcp -v /tmp/$USER/conts/p1cont1 /tmp/$USER/conts/p1cont2
+ #### Example One
+ 
+-Show a copy from a regular /tmp source path to a DAOS container. 
+-A DAOS Unified Namespace path is used as the destination, which allows you to lookup
+-the pool and container UUID from the path. This feature can only be used if the 
+-container is created with a path.
++Perform a copy from a regular /tmp source path to a DAOS POSIX container.
++A DAOS Unified Namespace (DUNS) path is used as the destination,
++which enables the tool to look up the pool UUID and container UUID from
++the DUNS path. This feature can only be used if the
++container has been created with the ` --path=` option
++to store the container information as extended attributes in a DUNS path.
++
++Note: The DUNS path should be a directory in a globally accessible filesystem.
++All nodes in the MPI job that execute the dcp command will need to
++extract the DAOS pool and container information.
++If the path given to the `daos cont create` command is in a local
++ filesystem on the node that runs this daos command
++(like a node-local /tmp), that information will only be visible locally
++on that node and the DUNS lookup on other nodes will fail.
+ 
+ ```shell
+-$ mpirun -np 3 dcp -v /tmp/$USER/s /tmp/$USER/conts/p1cont1
++$ mpirun -np 3 dcp -v /tmp/$USER/s /lustrefs/$USER/conts/p1cont1
+ [2020-04-23T17:04:15]   Items: 6
+ [2020-04-23T17:04:15]   Directories: 3
+ [2020-04-23T17:04:15]   Files: 3
+@@ -49,10 +78,12 @@ $ mpirun -np 3 dcp -v /tmp/$USER/s /tmp/$USER/conts/p1cont1
+ 
+ #### Example Two
+ 
+-Show a copy where the pool and container UUID are passed in directly. This option
+-can be used if the type of container is POSIX, but the container was not created
+-with a path. The destination is the relative path within the DAOS container, which 
+-in this example is the root of the container. 
++Perform a copy from a POSIX filesystem to a DAOS POSIX container,
++where the destination pool and container UUIDs are passed in directly.
++This option can be used if the type of the DAOS container is POSIX,
++but the container was not created with a DUNS path.
++The destination is a relative path within the DAOS container, which
++in this example is the root of the container.
+ 
+ ```shell
+ $ mpirun -np 3 dcp -v /tmp/$USER/s daos://$pool/$cont
+@@ -61,13 +92,17 @@ $ mpirun -np 3 dcp -v /tmp/$USER/s daos://$pool/$cont
+ [2020-04-23T17:17:51]   Files: 3
+ [2020-04-23T17:17:51]   Links: 0
+ ```
++
+ #### Example Three
+ 
+-Show a copy from one DAOS container to another container that exists in the same
+-pool. A DAOS Unified Namespace path is used as the source and the destination.
++Perform a copy from one DAOS POSIX container to another DAOS POSIX container.
++The two containers can reside in the same pool, or in different pools.
++In this example, a DAOS Unified Namespace path is used as the source and
++as the destination.
++The complete source container will be copied to the destination.
+ 
+ ```shell
+-$ mpirun -np 3 dcp -v /tmp/$USER/conts/p1cont1 /tmp/$USER/conts/p1cont2
++$ mpirun -np 3 dcp -v /lustrefs/$USER/conts/p1cont1 /lustrefs/$USER/conts/p1cont2
+ [2020-04-23T17:04:15] Items: 6
+ [2020-04-23T17:04:15]   Directories: 3
+ [2020-04-23T17:04:15]   Files: 3
+@@ -76,9 +111,11 @@ $ mpirun -np 3 dcp -v /tmp/$USER/conts/p1cont1 /tmp/$USER/conts/p1cont2
  
  #### Example Four
  
 -This example passes in the pool and container UUID directly. The destination path
-+This example passes in the pool and container UUID directly. The source path
- is the relative path within the DAOS container, which in this case is a subset of 
- the DAOS container. 
+-is the relative path within the DAOS container, which in this case is a subset of 
+-the DAOS container. 
++Perform a copy from one DAOS POSIX container to another DAOS POSIX container.
++The two containers can reside in the same pool, or in different pools.
++This example passes in the pool and container UUIDs directly. The source path
++is a relative path within the DAOS container, which in this case is a subdirectory within
++the source DAOS container. Only this subdirectory tree will be copied to the destination.
  
-@@ -100,7 +90,7 @@ $ mpirun -np 3 dcp -v /tmp/$USER/conts/p1cont1 /tmp/$USER/d
+ ```shell
+ $ mpirun -np 3 dcp -v daos://$pool1/$cont1/s/biggerfile daos://$pool2/$cont2
+@@ -90,23 +127,26 @@ $ mpirun -np 3 dcp -v daos://$pool1/$cont1/s/biggerfile daos://$pool2/$cont2
+ 
+ #### Example Five
+ 
+-This example copies data from a DAOS container to /tmp, where a DAOS
+-Unified Namespace path is used as the source. 
++This example copies data from a DAOS POSIX container to /tmp,
++where a DAOS Unified Namespace path is used as the source.
+ 
+ ```shell
+-$ mpirun -np 3 dcp -v /tmp/$USER/conts/p1cont1 /tmp/$USER/d
++$ mpirun -np 3 dcp -v /lustrefs/$USER/conts/p1cont1 /tmp/$USER/d
+ [2020-04-23T17:17:51] Items: 6
+ [2020-04-23T17:17:51]   Directories: 3
  [2020-04-23T17:17:51]   Files: 3
  [2020-04-23T17:17:51]   Links: 0
  ```
 -## DAOS non-POSIX Data Movement Examples With dsync
-+## DAOS non-POSIX Data Movement Examples with dcp
  
- #### Example One 
+-#### Example One 
  
-@@ -126,8 +116,7 @@ $ mpirun -np 3 dcp -v daos://$pool1/$p1cont1 daos://$pool1/$p1cont2
- ## DAOS POSIX Data Movement Examples with dsync
+-Show the copy from one DAOS container to another, where both of the DAOS
+-containers are of the POSIX type, but a user would like to copy DAOS
+-containers at the object level.
++## Data Movement Examples with dcp, using the DAOS API
++
++#### Example One
++
++Perform a copy from one DAOS POSIX container to another DAOS POSIX container.
++The two containers can reside in the same pool, or in different pools.
++in this example, the user requests to copy the DAOS POSIX container
++using the DAOS object level API instead of the DFS API.
  
- The usage for dsync is similar to the usage for dcp. The source and destination
+ ```shell
+ $ mpirun -np 3 dcp -v --daos-api=DAOS daos://$pool1/$p1cont1 daos://$pool1/$p1cont2
+@@ -114,26 +154,29 @@ $ mpirun -np 3 dcp -v --daos-api=DAOS daos://$pool1/$p1cont1 daos://$pool1/$p1co
+ ```
+ #### Example Two
+ 
+-Show the copy from one DAOS container to another, where both of the DAOS
+-containers are not of the POSIX type. This run does not require passing
+-in the --daos-api=DAOS flag as it will detect the containers as non-POSIX.
++Perform a copy from one DAOS container to another DAOS container,
++where both DAOS containers are *not* of type POSIX.
++Both containers must be of the same type.
++This scenario does not need the `--daos-api=DAOS` option:
++It will be automatically detected that the DAOS containers are of a non-POSIX
++container type, and thus the DAOS object API has to be used.
+ 
+ ```shell
+ $ mpirun -np 3 dcp -v daos://$pool1/$p1cont1 daos://$pool1/$p1cont2
+ [2021-01-20T16:16:25] Successfully copied to DAOS Destination Container.
+ ```
+ 
+-## DAOS POSIX Data Movement Examples with dsync
+ 
+-The usage for dsync is similar to the usage for dcp. The source and destination
 -can be DAOS, POSIX, or UNS paths. However, dsync currently only supports
 -POSIX-type DAOS containers.
-+can be DAOS, POSIX, or UNS paths.
++## Data Movement Examples with dsync
++
++The usage for dsync is similar to the usage for dcp.
++The source and destination can be DAOS, POSIX, or DUNS paths.
  
  #### Example One
  
-@@ -143,6 +132,35 @@ $ mpirun -np 3 dsync -v daos://$pool1/$cont1/source daos://$pool2/$cont2/dest
+-Show the sync from one DAOS container to another, where both of the DAOS
+-containers are of the POSIX type, and both the source and destination use
+-a path relative to the root of each container.
++Perform the sync from one DAOS container to another, where both of the DAOS
++containers are of type POSIX. In this example, both the source and
++the destination use a path relative to the root of each container.
+ 
+ ```shell
+ $ mpirun -np 3 dsync -v daos://$pool1/$cont1/source daos://$pool2/$cont2/dest
+@@ -143,16 +186,47 @@ $ mpirun -np 3 dsync -v daos://$pool1/$cont1/source daos://$pool2/$cont2/dest
  [2020-04-28T00:47:59]   Links: 0
  ```
  
+-## DAOS POSIX Data Comparison Examples with dcmp
 +#### Example Two
-+
-+Show the sync from one DAOS container to another, where both of the DAOS
-+containers are not of the POSIX type.
+ 
+-Similar to dcp and dsync, dcmp supports DAOS, POSIX, and UNS paths,
+-but dcmp currently only supports POSIX-type DAOS containers.
++Perform the sync from one DAOS container to another, where both of the DAOS
++containers are *not* of type POSIX. Both containers must be of the same type.
 +
 +```shell
 +$ mpirun -np 3 dsync -v daos://$pool1/$cont1 daos://$pool1/$cont2
@@ -126,9 +571,10 @@ index 3e01829..05bd308 100644
 +
 +#### Example Three
 +
-+Show the same sync from the previous example, but where the destination
-+already contains the source data. In this case, the data in the destination
-+is compared to the source, and nothing is written.
++Perform the same sync as in Example Two, but here the destination container
++already contains the same data as the source container.
++In this case the data in the destination is compared to the source,
++and nothing needs to be written.
 +
 +```shell
 +$ mpirun -np 3 dsync -v daos://$pool1/$cont1 daos://$pool1/$cont2
@@ -139,28 +585,47 @@ index 3e01829..05bd308 100644
 +[2021-03-04T19:15:03] Bytes written : 0.000 B (0 bytes)
 +```
 +
- ## DAOS POSIX Data Comparison Examples with dcmp
++
++## Data Comparison Examples with dcmp
++
++Similar to dcp and dsync, dcmp supports DAOS, POSIX, and UNS paths.
++dcmp currently only supports DAOS containers of type POSIX.
  
- Similar to dcp and dsync, dcmp supports DAOS, POSIX, and UNS paths,
-@@ -163,3 +181,62 @@ Number of items that exist in both directories and have different types: 0 (Src:
+ #### Example One
+ 
+-Show the comparison between two DAOS containers, where both of the DAOS
+-containers are of the POSIX type, and both containers use a path relative
+-to the root of each container.
++Perform the comparison between two DAOS containers, where both of the DAOS
++containers are of type POSIX. In this example, both containers use a
++path relative to the root of each container.
+ 
+ ```shell
+ $ mpirun -np 3 dcmp -v daos://$pool1/$cont1/source daos://$pool2/$cont2/dest
+@@ -163,3 +237,73 @@ Number of items that exist in both directories and have different types: 0 (Src:
  Number of items that exist in both directories and have the same content: 1 (Src: 1 Dest: 1)
  Number of items that exist in both directories and have different contents: 0 (Src: 0 Dest: 0)
  ```
 +
-+## DAOS Serialization and Deserialization Examples
++## DAOS Container Serialization and Deserialization Examples
 +
 +daos-serialize and daos-deserialize can be used on any type of DAOS container.
 +They are DAOS only tools that require HDF5.
 +
-+daos-serialize will serialize a DAOS container to an HDF5 file. Depending on
-+the amount of data, multiple files may be written for each rank specified in the job.
++daos-serialize will serialize a DAOS container to one or more HDF5 files.
++Depending on the amount of data, multiple files may be written
++for each rank specified in the job.
 +
-+daos-deserialize will deserialize or restore the HDF5 files written into a new
-+DAOS container, and a pool UUID to deserialize the data to must be specified.
++daos-deserialize will deserialize or restore the HDF5 files that have been
++previously created by daos-serialize. A pool UUID to deserialize the data to
++must be specified, and a container with the original data and metadata
++will be created in that DAOS pool.
 +
 +#### Example One
 +
-+Show the serialization of a DAOS container
++Perform the serialization of a DAOS container into a set of HDF5 files.
++In this example, the HDF5 files are stored in the current working directory
++within a global parallel filesystem.
 +
 +```shell
 +$ mpirun -np 3 daos-serialize -v daos://$pool1/$cont1
@@ -171,17 +636,21 @@ index 3e01829..05bd308 100644
 +
 +#### Example Two
 +
-+Show the serialization of a DAOS container by specifying output directory
++Perform the serialization of a DAOS container into a set of HDF5 files.
++In this example, a directory in which to store the HDF5 files is specified.
 +
 +```shell
-+$ mpirun -np 3 daos-serialize -v -o serialize daos://$pool1/$cont1
-+Serializing Container to serialize/7bf8037d-823f-4fa5-ac2a-c2cae8f81f57_rank0.h5
-+Serializing Container to serialize/7bf8037d-823f-4fa5-ac2a-c2cae8f81f57_rank1.h5
-+Serializing Container to serialize/7bf8037d-823f-4fa5-ac2a-c2cae8f81f57_rank2.h5
++$ mpirun -np 3 daos-serialize -v -o serialized-cont daos://$pool1/$cont1
++Serializing Container to serialized-cont/7bf8037d-823f-4fa5-ac2a-c2cae8f81f57_rank0.h5
++Serializing Container to serialized-cont/7bf8037d-823f-4fa5-ac2a-c2cae8f81f57_rank1.h5
++Serializing Container to serialized-cont/7bf8037d-823f-4fa5-ac2a-c2cae8f81f57_rank2.h5
 +```
-+#### Example Three 
 +
-+Show the deserialization of an HDF5 file
++#### Example Three
++
++Perform the deserialization of a DAOS container that was previously serialized
++into a number of HDF5 files. In this example, the HDF5 files are individually
++specified on the command line.
 +
 +```shell
 +$ mpirun -np 3 daos-deserialize -v --pool $pool1 7bf8037d-823f-4fa5-ac2a-c2cae8f81f57_rank0.h5
@@ -195,21 +664,23 @@ index 3e01829..05bd308 100644
 +
 +#### Example Four
 +
-+Show the deserialization of HDF5 files from a specified directory
++Perform the deserialization of a DAOS container that was previously serialized
++into a number of HDF5 files. In this example, the directory in which 
++he HDF5 files are residing is specified on the command line.
 +
 +```shell
-+$ mpirun -np 3 daos-deserialize -v serialize
++$ mpirun -np 3 daos-deserialize -v serialized-cont
 +
 +Successfully created container 8d6a6083-4009-4afe-8364-7caa5ebaa72b
-+    Deserializing filename: serialize/7bf8037d-823f-4fa5-ac2a-c2cae8f81f57_rank0.h5
-+    Deserializing filename: serialize/7bf8037d-823f-4fa5-ac2a-c2cae8f81f57_rank1.h5
-+    Deserializing filename: serialize/7bf8037d-823f-4fa5-ac2a-c2cae8f81f57_rank2.h5
++    Deserializing filename: serialized-cont/7bf8037d-823f-4fa5-ac2a-c2cae8f81f57_rank0.h5
++    Deserializing filename: serialized-cont/7bf8037d-823f-4fa5-ac2a-c2cae8f81f57_rank1.h5
++    Deserializing filename: serialized-cont/7bf8037d-823f-4fa5-ac2a-c2cae8f81f57_rank2.h5
 +```
 diff --git a/README.md b/README.md
-index 6807ddc..6ca7fbe 100644
+index 6807ddc..64f0fb2 100644
 --- a/README.md
 +++ b/README.md
-@@ -5,7 +5,7 @@ Documentation is available on [ReadTheDocs](http://mpifileutils.readthedocs.io).
+@@ -5,10 +5,10 @@ Documentation is available on [ReadTheDocs](http://mpifileutils.readthedocs.io).
  
  ## DAOS Support
  
@@ -217,7 +688,103 @@ index 6807ddc..6ca7fbe 100644
 +mpiFileUtils supports a DAOS backend for dcp, dsync, and dcmp. Custom serialization and deserialization for DAOS containers to and from a POSIX filesystem is provided with daos-serialize and daos-deserialize. Details and usage examples are provided in [DAOS Support](DAOS-Support.md).
   
  ## Contributors
- We welcome contributions to the project.  For details on how to help, see our [Contributor Guide](.github/CONTRIBUTING.md)
+-We welcome contributions to the project.  For details on how to help, see our [Contributor Guide](.github/CONTRIBUTING.md)
++We welcome contributions to the project.  For details on how to help, see our [Contributor Guide](CONTRIBUTING.md)
+ 
+ ### Copyrights
+ 
+diff --git a/cmake/FindCART.cmake b/cmake/FindCART.cmake
+deleted file mode 100755
+index 216c146..0000000
+--- a/cmake/FindCART.cmake
++++ /dev/null
+@@ -1,38 +0,0 @@
+-# - Try to find cart libs 
+-# Once done this will define
+-#  cart_FOUND - System has libcart
+-#  cart_INCLUDE_DIRS - cart include directories
+-#  cart_LIBRARIES - The libraries needed to use cart
+-#  gurt_LIBRARIES - The libraries needed to use gurt (part of cart)
+-
+-FIND_PATH(WITH_CART_PREFIX
+-    NAMES cart/include
+-)
+-
+-FIND_LIBRARY(CART_LIBRARIES
+-    NAMES cart
+-    HINTS ${WITH_CART_PREFIX}/lib
+-)
+-
+-FIND_LIBRARY(GURT_LIBRARIES
+-    NAMES gurt
+-    HINTS ${WITH_CART_PREFIX}/lib
+-)
+-
+-FIND_PATH(CART_INCLUDE_DIRS
+-    NAMES cart/types.h
+-    HINTS ${WITH_CART_PREFIX}/include
+-)
+-
+-INCLUDE(FindPackageHandleStandardArgs)
+-FIND_PACKAGE_HANDLE_STANDARD_ARGS(CART DEFAULT_MSG
+-    CART_LIBRARIES
+-    CART_INCLUDE_DIRS
+-)
+-
+-# Hide these vars from ccmake GUI
+-MARK_AS_ADVANCED(
+-	CART_LIBRARIES
+-	GURT_LIBRARIES
+-	CART_INCLUDE_DIRS
+-)
+diff --git a/cmake/FindDAOS.cmake b/cmake/FindDAOS.cmake
+index c06ba2c..9646aa0 100755
+--- a/cmake/FindDAOS.cmake
++++ b/cmake/FindDAOS.cmake
+@@ -3,6 +3,8 @@
+ #  daos_FOUND - System has libdaos
+ #  daos_INCLUDE_DIRS - daos.h
+ #  daos_LIBRARIES - libdaos
++#  GURT_LIBRARIES - libgurt
++#  CART_LIBRARIES - libcart
+ #  DUNS_LIBRARIES - libduns 
+ #  DFS_LIBRARIES - libdfs 
+ #  COMMON_LIBRARIES - libdaos_common
+@@ -16,6 +18,16 @@ FIND_LIBRARY(DAOS_LIBRARIES
+     HINTS ${WITH_DAOS_PREFIX}/lib
+ )
+ 
++FIND_LIBRARY(GURT_LIBRARIES
++    NAMES gurt 
++    HINTS ${WITH_DAOS_PREFIX}/lib
++)
++
++FIND_LIBRARY(CART_LIBRARIES
++    NAMES cart 
++    HINTS ${WITH_DAOS_PREFIX}/lib
++)
++
+ FIND_LIBRARY(DUNS_LIBRARIES
+     NAMES duns
+     HINTS ${WITH_DAOS_PREFIX}/lib
+@@ -39,6 +51,8 @@ FIND_PATH(DAOS_INCLUDE_DIRS
+ INCLUDE(FindPackageHandleStandardArgs)
+ FIND_PACKAGE_HANDLE_STANDARD_ARGS(DAOS DEFAULT_MSG
+     DAOS_LIBRARIES
++    CART_LIBRARIES
++    GURT_LIBRARIES
+     DUNS_LIBRARIES
+     DFS_LIBRARIES
+     COMMON_LIBRARIES
+@@ -48,6 +62,8 @@ FIND_PACKAGE_HANDLE_STANDARD_ARGS(DAOS DEFAULT_MSG
+ # Hide these vars from ccmake GUI
+ MARK_AS_ADVANCED(
+         DAOS_LIBRARIES
++        CART_LIBRARIES
++        GURT_LIBRARIES
+         DUNS_LIBRARIES
+         DFS_LIBRARIES
+         COMMON_LIBRARIES
 diff --git a/cmake/FindHDF5.cmake b/cmake/FindHDF5.cmake
 new file mode 100644
 index 0000000..ee9e0a1
@@ -262,43 +829,766 @@ index 0000000..ee9e0a1
 +    HDF5_INCLUDE_DIRS
 +    HDF5_BIN_DIR
 +)
+diff --git a/cmake/FindLibAttr.cmake b/cmake/FindLibAttr.cmake
+new file mode 100644
+index 0000000..b5ca36b
+--- /dev/null
++++ b/cmake/FindLibAttr.cmake
+@@ -0,0 +1,25 @@
++# - Try to find libattr
++# Once done this will define
++#  LibAttr_FOUND - System has libattr
++#  LibAttr_INCLUDE_DIRS - The libattr include directories
++#  LibAttr_LIBRARIES - The libraries needed to use libattr
++
++FIND_LIBRARY(LibAttr_LIBRARIES
++    NAMES attr
++)
++
++FIND_PATH(LibAttr_INCLUDE_DIRS
++    NAMES attr/libattr.h
++)
++
++INCLUDE(FindPackageHandleStandardArgs)
++FIND_PACKAGE_HANDLE_STANDARD_ARGS(LibAttr DEFAULT_MSG
++    LibAttr_LIBRARIES
++    LibAttr_INCLUDE_DIRS
++)
++
++# Hide these vars from ccmake GUI
++MARK_AS_ADVANCED(
++	LibAttr_LIBRARIES
++	LibAttr_INCLUDE_DIRS
++)
+diff --git a/dist/CMakeLists.txt b/dist/CMakeLists.txt
+new file mode 100644
+index 0000000..eb6f7cf
+--- /dev/null
++++ b/dist/CMakeLists.txt
+@@ -0,0 +1,327 @@
++PROJECT(MFU)
++
++CMAKE_MINIMUM_REQUIRED(VERSION 3.1)
++
++IF(POLICY CMP0042)
++  CMAKE_POLICY(SET CMP0042 NEW)
++ENDIF(POLICY CMP0042)
++SET(CMAKE_MACOSX_RPATH ON)
++SET(CMAKE_POSITION_INDEPENDENT_CODE ON)
++
++LIST(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
++
++# Configuration Options
++
++OPTION(ENABLE_XATTRS "Enable code for extended attributes" ON)
++MESSAGE(STATUS "ENABLE_XATTRS: ${ENABLE_XATTRS}")
++IF(ENABLE_XATTRS)
++  ADD_DEFINITIONS(-DDCOPY_USE_XATTRS)
++
++  FIND_PACKAGE(LibAttr REQUIRED)
++  IF(LibAttr_FOUND)
++    ADD_DEFINITIONS(-DHAVE_LIBATTR)
++    INCLUDE_DIRECTORIES(${LibAttr_INCLUDE_DIRS})
++    LIST(APPEND MFU_EXTERNAL_LIBS ${LibAttr_LIBRARIES})
++  ENDIF(LibAttr_FOUND)
++ENDIF(ENABLE_XATTRS)
++
++OPTION(ENABLE_LUSTRE "Enable optimization and features for Lustre" OFF)
++MESSAGE(STATUS "ENABLE_LUSTRE: ${ENABLE_LUSTRE}")
++IF(ENABLE_LUSTRE)
++  ADD_DEFINITIONS(-DLUSTRE_SUPPORT)
++
++  FIND_LIBRARY(LUSTREAPI lustreapi)
++  IF(LUSTREAPI)
++#  INCLUDE_DIRECTORIES(${LUSTREAPI_INCLUDE_DIRS})
++    LIST(APPEND MFU_EXTERNAL_LIBS ${LUSTREAPI})
++  ENDIF(LUSTREAPI)
++
++  INCLUDE(CheckLibraryExists)
++
++  CHECK_LIBRARY_EXISTS(lustreapi llapi_layout_alloc ${LUSTREAPI} HAVE_LLAPI_LAYOUT)
++  IF(HAVE_LLAPI_LAYOUT)
++    ADD_DEFINITIONS(-DHAVE_LLAPI_LAYOUT)
++  ENDIF(HAVE_LLAPI_LAYOUT)
++
++  CHECK_LIBRARY_EXISTS(lustreapi llapi_file_create ${LUSTREAPI} HAVE_LLAPI_FILE_CREATE)
++  IF(HAVE_LLAPI_FILE_CREATE)
++    ADD_DEFINITIONS(-DHAVE_LLAPI_FILE_CREATE)
++  ENDIF(HAVE_LLAPI_FILE_CREATE)
++
++  CHECK_LIBRARY_EXISTS(lustreapi llapi_file_get_stripe ${LUSTREAPI} HAVE_LLAPI_FILE_GET_STRIPE)
++  IF(HAVE_LLAPI_FILE_GET_STRIPE)
++    ADD_DEFINITIONS(-DHAVE_LLAPI_FILE_GET_STRIPE)
++  ENDIF(HAVE_LLAPI_FILE_GET_STRIPE)
++
++  # todo investigate usage of other lustre #defs
++  # - LUSTRE_STAT
++ENDIF(ENABLE_LUSTRE)
++
++OPTION(ENABLE_GPFS "Enable GFPS/Spectrum Scale support")
++MESSAGE(STATUS "ENABLE_GPFS: ${ENABLE_GPFS}")
++IF(ENABLE_GPFS)
++  FIND_PACKAGE(GPFS REQUIRED)
++  INCLUDE_DIRECTORIES(${GPFS_INCLUDE_DIRS})
++  LIST(APPEND MFU_EXTERNAL_LIBS ${GPFS_LIBRARIES})
++  ADD_DEFINITIONS(-DGPFS_SUPPORT)
++ENDIF(ENABLE_GPFS)
++
++OPTION(ENABLE_EXPERIMENTAL "Build experimental tools" OFF)
++MESSAGE(STATUS "ENABLE_EXPERIMENTAL: ${ENABLE_EXPERIMENTAL}")
++
++## HEADERS
++INCLUDE(CheckIncludeFile)
++CHECK_INCLUDE_FILE(byteswap.h HAVE_BYTESWAP_H)
++if(HAVE_BYTESWAP_H)
++  ADD_DEFINITIONS(-DHAVE_BYTESWAP_H)
++ELSE(HAVE_BYTESWAP_H)
++  MESSAGE(SEND_ERROR "byteswap.h is required")
++ENDIF(HAVE_BYTESWAP_H)
++
++# Dependencies
++
++## MPI
++INCLUDE(SetupMPI)
++INCLUDE_DIRECTORIES(${MPI_C_INCLUDE_PATH})
++LIST(APPEND MFU_EXTERNAL_LIBS ${MPI_C_LIBRARIES})
++
++## LIBARCHIVE
++OPTION(ENABLE_LIBARCHIVE "Enable usage of libarchive and corresponding tools" ON)
++MESSAGE(STATUS "ENABLE_LIBARCHIVE: ${ENABLE_LIBARCHIVE}")
++# TODO how would we pass a version from spack?
++# libarchive 3.1.2 is available on some systems,
++# but pick a newer libarchive to avoid bug with files starting with "._",
++# which is misinterpretted as a MacOS extension on Linuxlibarchive 3.1.2
++IF(ENABLE_LIBARCHIVE)
++  FIND_PACKAGE(LibArchive 3.5.1 REQUIRED)
++  INCLUDE_DIRECTORIES(${LibArchive_INCLUDE_DIRS})
++  LIST(APPEND MFU_EXTERNAL_LIBS ${LibArchive_LIBRARIES})
++  ADD_DEFINITIONS(-DLIBARCHIVE_SUPPORT)
++ENDIF(ENABLE_LIBARCHIVE)
++
++## hdf5
++OPTION(ENABLE_HDF5 "Enable HDF5 library")
++MESSAGE(STATUS "ENABLE_HDF5: ${ENABLE_HDF5}")
++IF(ENABLE_HDF5)
++  FIND_PACKAGE(HDF5 REQUIRED)
++  INCLUDE_DIRECTORIES(${HDF5_INCLUDE_DIRS})
++  LIST(APPEND MFU_EXTERNAL_LIBS ${HDF5_LIBRARIES})
++  ADD_DEFINITIONS(-DHDF5_SUPPORT)
++  ADD_DEFINITIONS(-DHDF5_BIN_DIR=\"${HDF5_BIN_DIR}\")
++ENDIF(ENABLE_HDF5)
++
++OPTION(ENABLE_DAOS "Enable DAOS support")
++MESSAGE(STATUS "ENABLE_DAOS: ${ENABLE_DAOS}")
++IF(ENABLE_DAOS)
++  SET(CMAKE_EXE_LINKER_FLAGS -luuid)
++  FIND_PACKAGE(DAOS REQUIRED)
++  INCLUDE_DIRECTORIES(${DAOS_INCLUDE_DIRS})
++  LIST(APPEND MFU_EXTERNAL_LIBS ${DAOS_LIBRARIES})
++  LIST(APPEND MFU_EXTERNAL_LIBS ${GURT_LIBRARIES})
++  LIST(APPEND MFU_EXTERNAL_LIBS ${CART_LIBRARIES})
++  LIST(APPEND MFU_EXTERNAL_LIBS ${DUNS_LIBRARIES})
++  LIST(APPEND MFU_EXTERNAL_LIBS ${DFS_LIBRARIES})
++  LIST(APPEND MFU_EXTERNAL_LIBS ${DAOS_COMMON_LIBRARIES})
++  ADD_DEFINITIONS(-DDAOS_SUPPORT)
++ENDIF(ENABLE_DAOS)
++
++## BZip2
++FIND_PACKAGE(BZip2 REQUIRED)
++LIST(APPEND MFU_EXTERNAL_LIBS ${BZIP2_LIBRARIES})
++
++## libcap for checks on linux capabilities
++FIND_PACKAGE(LibCap)
++IF(LibCap_FOUND)
++  ADD_DEFINITIONS(-DHAVE_LIBCAP)
++  INCLUDE_DIRECTORIES(${LibCap_INCLUDE_DIRS})
++  LIST(APPEND MFU_EXTERNAL_LIBS ${LibCap_LIBRARIES})
++ENDIF(LibCap_FOUND)
++
++## OPENSSL for ddup
++FIND_PACKAGE(OpenSSL)
++
++# Setup Installation
++
++INCLUDE(GNUInstallDirs)
++SET(X_BINDIR ${CMAKE_INSTALL_FULL_BINDIR} CACHE INTERNAL "bin")
++SET(X_DATADIR ${CMAKE_INSTALL_FULL_DATADIR} CACHE INTERNAL "share")
++SET(X_INCLUDEDIR ${CMAKE_INSTALL_FULL_INCLUDEDIR} CACHE INTERNAL "include")
++SET(X_LIBDIR ${CMAKE_INSTALL_FULL_LIBDIR} CACHE INTERNAL "lib")
++
++############
++# This sets an rpath to buildtime libraries in build directory
++# and rewrites the rpath to the install location during install
++# these lines must come before add_library and add_executable macros
++############
++
++# https://gitlab.kitware.com/cmake/community/wikis/doc/cmake/RPATH-handling
++# use, i.e. don't skip the full RPATH for the build tree
++SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
++
++# when building, don't use the install RPATH already
++# (but later on when installing)
++SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
++
++SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
++
++# add the automatically determined parts of the RPATH
++# which point to directories outside the build tree to the install RPATH
++SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
++
++# the RPATH to be used when installing, but only if it's not a system directory
++LIST(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}" isSystemDir)
++IF("${isSystemDir}" STREQUAL "-1")
++   SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
++ENDIF("${isSystemDir}" STREQUAL "-1")
++
++############
++# End rpath stuff
++############
++
++# Subdirectories
++INCLUDE(MFU_ADD_TOOL)
++INCLUDE_DIRECTORIES(
++  ${CMAKE_CURRENT_SOURCE_DIR}/lwgrp/src
++  ${CMAKE_CURRENT_SOURCE_DIR}/dtcmp/src
++  ${CMAKE_CURRENT_SOURCE_DIR}/libcircle/libcircle
++  ${CMAKE_CURRENT_SOURCE_DIR}/mpifileutils/src/common
++)
++
++ADD_SUBDIRECTORY(mpifileutils/src)
++ADD_SUBDIRECTORY(mpifileutils/test)
++ADD_SUBDIRECTORY(mpifileutils/man)
++
++# Version for the shared mfu library
++set(MFU_VERSION_MAJOR 3) # Incompatible API changes
++set(MFU_VERSION_MINOR 0) # Backwards-compatible functionality
++set(MFU_VERSION_PATCH 0) # Backwards-compatible fixes
++set(MFU_VERSION ${MFU_VERSION_MAJOR}.${MFU_VERSION_MINOR}.${MFU_VERSION_PATCH})
++
++LIST(APPEND lwgrp_srcs
++    lwgrp/src/lwgrp.c
++    lwgrp/src/lwgrp_util.c
++    lwgrp/src/lwgrp_chain_ops.c
++    lwgrp/src/lwgrp_ring_ops.c
++    lwgrp/src/lwgrp_logchain_ops.c
++    lwgrp/src/lwgrp_logring_ops.c
++    lwgrp/src/lwgrp_comm.c
++    lwgrp/src/lwgrp_comm_split.c
++)
++
++LIST(APPEND dtcmp_srcs
++    dtcmp/src/dtcmp.c
++    dtcmp/src/dtcmp_util.c
++    dtcmp/src/dtcmp_ops.c
++    dtcmp/src/dtcmp_uniqify.c
++    dtcmp/src/dtcmp_search_binary.c
++    dtcmp/src/dtcmp_partitionz.c
++    dtcmp/src/dtcmp_partitionz_list.c
++    dtcmp/src/dtcmp_partition_local.c
++    dtcmp/src/dtcmp_merge_2way.c
++    dtcmp/src/dtcmp_merge_kway_heap.c
++    dtcmp/src/dtcmp_select_local_ends.c
++    dtcmp/src/dtcmp_select_local_randpartition.c
++    dtcmp/src/dtcmp_selectv_rand.c
++    dtcmp/src/dtcmp_selectv_medianofmedians.c
++    dtcmp/src/dtcmp_is_sorted.c
++    dtcmp/src/dtcmp_sort_local_insertionsort.c
++    dtcmp/src/dtcmp_sort_local_randquicksort.c
++    dtcmp/src/dtcmp_sort_local_mergesort.c
++    dtcmp/src/dtcmp_sort_local_qsort.c
++    dtcmp/src/dtcmp_sort_allgather.c
++    dtcmp/src/dtcmp_sort_bitonic.c
++    dtcmp/src/dtcmp_sort_samplesort.c
++    dtcmp/src/dtcmp_sortv_allgather.c
++    dtcmp/src/dtcmp_sortv_sortgather_scatter.c
++    dtcmp/src/dtcmp_sortv_cheng.c
++    dtcmp/src/dtcmp_sortz_samplesort.c
++    dtcmp/src/dtcmp_rankv_sort.c
++    dtcmp/src/dtcmp_seg_exscan.c
++)
++
++LIST(APPEND libcircle_srcs
++    libcircle/libcircle/lib.c
++    libcircle/libcircle/queue.c
++    libcircle/libcircle/token.c
++    libcircle/libcircle/worker.c
++)
++
++# todo re-asses if all of these must be *installed*
++LIST(APPEND libmfu_install_headers
++  mpifileutils/src/common/mfu.h
++  mpifileutils/src/common/mfu_errors.h
++  mpifileutils/src/common/mfu_bz2.h
++  mpifileutils/src/common/mfu_flist.h
++  mpifileutils/src/common/mfu_flist_internal.h
++  mpifileutils/src/common/mfu_io.h
++  mpifileutils/src/common/mfu_param_path.h
++  mpifileutils/src/common/mfu_path.h
++  mpifileutils/src/common/mfu_pred.h
++  mpifileutils/src/common/mfu_progress.h
++  mpifileutils/src/common/mfu_util.h
++  )
++if(ENABLE_DAOS)
++  LIST(APPEND libmfu_install_headers
++    mpifileutils/src/common/mfu_daos.h
++    )
++ENDIF(ENABLE_DAOS)
++
++INSTALL(FILES ${libmfu_install_headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
++
++# common library
++LIST(APPEND libmfu_srcs
++  mpifileutils/src/common/mfu_bz2.c
++  mpifileutils/src/common/mfu_bz2_static.c
++  mpifileutils/src/common/mfu_compress_bz2_libcircle.c
++  mpifileutils/src/common/mfu_decompress_bz2_libcircle.c
++  mpifileutils/src/common/mfu_flist.c
++  mpifileutils/src/common/mfu_flist_chunk.c
++  mpifileutils/src/common/mfu_flist_copy.c
++  mpifileutils/src/common/mfu_flist_io.c
++  mpifileutils/src/common/mfu_flist_chmod.c
++  mpifileutils/src/common/mfu_flist_create.c
++  mpifileutils/src/common/mfu_flist_remove.c
++  mpifileutils/src/common/mfu_flist_sort.c
++  mpifileutils/src/common/mfu_flist_usrgrp.c
++  mpifileutils/src/common/mfu_flist_walk.c
++  mpifileutils/src/common/mfu_io.c
++  mpifileutils/src/common/mfu_param_path.c
++  mpifileutils/src/common/mfu_path.c
++  mpifileutils/src/common/mfu_pred.c
++  mpifileutils/src/common/mfu_progress.c
++  mpifileutils/src/common/mfu_util.c
++  mpifileutils/src/common/strmap.c
++  ${lwgrp_srcs}
++  ${dtcmp_srcs}
++  ${libcircle_srcs}
++  )
++IF(ENABLE_LIBARCHIVE)
++  LIST(APPEND libmfu_srcs
++    mpifileutils/src/common/mfu_flist_archive.c
++    )
++ENDIF(ENABLE_LIBARCHIVE)
++IF(ENABLE_DAOS)
++  LIST(APPEND libmfu_srcs
++    mpifileutils/src/common/mfu_daos.c
++    )
++ENDIF(ENABLE_DAOS)
++
++ADD_LIBRARY(mfu_o OBJECT ${libmfu_srcs})
++SET_TARGET_PROPERTIES(mfu_o PROPERTIES C_STANDARD 99)
++
++ADD_LIBRARY(mfu SHARED $<TARGET_OBJECTS:mfu_o>)
++TARGET_LINK_LIBRARIES(mfu LINK_PUBLIC ${MFU_EXTERNAL_LIBS})
++SET_TARGET_PROPERTIES(mfu PROPERTIES VERSION ${MFU_VERSION} OUTPUT_NAME mfu CLEAN_DIRECT_OUTPUT 1)
++INSTALL(TARGETS mfu DESTINATION ${CMAKE_INSTALL_LIBDIR})
++
++ADD_LIBRARY(mfu-static STATIC $<TARGET_OBJECTS:mfu_o>)
++TARGET_LINK_LIBRARIES(mfu-static LINK_PUBLIC ${MFU_EXTERNAL_LIBS})
++SET_TARGET_PROPERTIES(mfu-static PROPERTIES OUTPUT_NAME mfu CLEAN_DIRECT_OUTPUT 1)
++INSTALL(TARGETS mfu-static DESTINATION ${CMAKE_INSTALL_LIBDIR})
++
++# some projects require a "make install" command to work,
++# so define at least a basic INSTALL function
++INSTALL(FILES lwgrp/README lwgrp/LICENSE.TXT DESTINATION share/lwgrp)
++INSTALL(FILES dtcmp/README.md dtcmp/LICENSE.TXT DESTINATION share/dtcmp)
++INSTALL(FILES libcircle/COPYING DESTINATION share/libcircle)
++INSTALL(FILES mpifileutils/LICENSE mpifileutils/NOTICE DESTINATION share/mpifileutils)
+diff --git a/dist/README.dist b/dist/README.dist
+new file mode 100644
+index 0000000..76b42ec
+--- /dev/null
++++ b/dist/README.dist
+@@ -0,0 +1,24 @@
++###########################################
++mpiFileUtils
++###########################################
++
++This is a release package of mpiFileUtils.
++It contains source for mpiFileUtils and several of its dependencies,
++including LWGRP, DTCMP, and libcircle.
++All included source files are compiled into a single library.
++
++For documentation, refer to:
++
++    https://mpifileutils.readthedocs.io
++
++For a simple build, one may run the following commands:
++
++    mkdir build
++    cd build
++    cmake -DCMAKE_INSTALL_PREFIX=../install ..
++    make -j install
++
++For details on available build flags,
++refer to the "Build" section of the documentation:
++
++    https://mpifileutils.readthedocs.io/en/latest/build.html
+diff --git a/dist/README.md b/dist/README.md
+new file mode 100644
+index 0000000..c44204a
+--- /dev/null
++++ b/dist/README.md
+@@ -0,0 +1,19 @@
++# mpiFileUtils release tarball
++The builddist script creates an mpiFileUtils release tarball.
++
++```bash
++    ./builddist main
++```
++
++This tarball is added as a binary attachment to the corresponding mpiFileUtils release page.
++This contains source for mpiFileUtils, LWGRP, DTCMP, and libcircle.
++It also contains a set of top-level CMake files that compiles all source files into a single libmfu library.
++
++# Steps to add a new release
++To add a new release:
++1. Define new CMake files if needed (TODO: support multiple versions of top-level CMake files)
++2. Edit builddist to define the appropriate tags for all packages
++3. Run builddist for appropriate tag
++4. Test build and run with resulting tarball
++5. Attach tarball to github release page (attach binary)
++6. Update mpiFileUtils readthedocs to describe builds from this tarball
+diff --git a/dist/builddist b/dist/builddist
+new file mode 100755
+index 0000000..2349e2a
+--- /dev/null
++++ b/dist/builddist
+@@ -0,0 +1,124 @@
++#!/bin/bash
++
++print_usage() {
++    echo "Usage: builddist <tag>"
++    echo ""
++    echo "Tags:"
++    echo "  main  - build tarball of latest"
++    echo "  v0.11 - build tarball of v0.11"
++}
++
++# check that we got an argument or print usage
++if [ $# -ne 1 ] ; then
++    print_usage
++    exit 1
++fi
++
++# for a given release, define tags for each component
++if [ "$1" == "main" ] ; then
++    # to build from latest branch of all repos
++    ORGS=(
++        "lwgrp"        "llnl" "main"
++        "dtcmp"        "llnl" "main"
++        "libcircle"    "hpc"  "master"
++        "mpifileutils" "hpc"  "master"
++    )
++elif [ "$1" == "v0.11" ] ; then
++    # to build from latest branch of all repos
++    ORGS=(
++        "lwgrp"        "llnl" "v1.0.3"
++        "dtcmp"        "llnl" "v1.1.1"
++        "libcircle"    "hpc"  "v0.3"
++        "mpifileutils" "hpc"  "v0.11"
++    )
++else
++    echo "Error: unknown tag: $1"
++    echo ""
++    print_usage
++    exit 1
++fi
++
++set -x
++
++# we assume everything is hosted at github
++REPOHOST=https://github.com
++
++# create a temporary directory to package things up
++rm -rf dist
++mkdir dist
++cd dist
++
++ARCH_DIR="archive"
++rm -rf $ARCH_DIR
++mkdir -p $ARCH_DIR
++
++len=${#ORGS[@]}
++for (( i=0; i<${len}; i=$(($i + 3)) )); do
++    # component name
++    component=${ORGS[$i]}
++
++    # github path to component
++    j=$(($i + 1))
++    repo=$REPOHOST/${ORGS[$j]}/$component
++
++    # repo tag to checkout
++    j=$(($i + 2))
++    TAG=${ORGS[$j]}
++
++    # clone the repo
++    git clone --depth 1 --branch $TAG $repo
++
++    # git archive the source files into a tarfile
++    cd $component
++        #TAG=`git describe --tags $(git rev-list --tags --max-count=1)`
++        git archive --format=tar --prefix=$component/ $TAG | gzip > $component-$TAG.tar.gz 2> /dev/null
++    cd ..
++
++    # unpack source files for this component in a directory with other components
++    cd $ARCH_DIR
++        tar -zxf ../$component/$component-$TAG.tar.gz
++
++        # hack out include of autotools config.h (not used anyway)
++        if [ "$component" == "lwgrp" ] ; then
++            sed -i 's@#include "../config/config.h"@@g' lwgrp/src/lwgrp_internal.h
++        fi
++        if [ "$component" == "libcircle" ] ; then
++            sed -i 's@#include <config.h>@@g' libcircle/libcircle/lib.h
++        fi
++
++        # hack out common dir for library (maybe could leave this in)
++        if [ "$component" == "mpifileutils" ] ; then
++            sed -i 's@ADD_SUBDIRECTORY(common)@#ADD_SUBDIRECTORY(common)@g' mpifileutils/src/CMakeLists.txt
++        fi
++
++        # remove doc and test directories for a smaller tarball
++        rm -rf ${component}/doc
++        rm -rf ${component}/doc-dev
++        if [ "$component" != "mpifileutils" ] ; then
++          rm -rf ${component}/test
++        fi
++    cd ..
++done
++
++# NOTE: last TAG is from SCR
++# rename archive directory to mpifileutils-TAG
++mv $ARCH_DIR mpifileutils-$TAG
++
++# copy in top-level CMake files
++cp -r ../CMakeLists.txt ../../cmake mpifileutils-$TAG
++
++# copy in README
++cp ../README.dist mpifileutils-$TAG/README
++
++# drop FindDTCMP and FindLWGRP cmake files
++#rm -f mpifileutils-$TAG/cmake/{FindDTCMP.cmake,FindLibCircle.cmake}
++
++# delete original CMakeLists to avoid confusion
++rm -rf mpifileutils-$TAG/mpifileutils/CMakeLists.txt mpifileutils-$TAG/mpifileutils/cmake
++
++# zip up release tarball
++tar -czf ../mpifileutils-${TAG}.tgz mpifileutils-$TAG
++
++# delete prep directory
++cd ..
++rm -rf dist
 diff --git a/doc/rst/build.rst b/doc/rst/build.rst
-index 6c8d277..7f63ebe 100644
+index 6c8d277..47cfccb 100644
 --- a/doc/rst/build.rst
 +++ b/doc/rst/build.rst
-@@ -106,7 +106,27 @@ or to build the latest mpiFileUtils from the master branch:
-      -DCMAKE_INSTALL_PREFIX=../install
-    make install
+@@ -2,15 +2,102 @@
+ Build
+ ==============================
  
--build latest mpiFileUtils from the master branch with DAOS Support:
-+To enable Lustre, GPFS, and experimental tools, add the following flags during CMake:
+-mpiFileUtils and its dependencies can be installed with and without Spack.
+-There are several common variations described here:
++mpiFileUtils and its dependencies can be installed with CMake or Spack.
++Several build variations are described in this section:
+ 
+-- install both mpiFileUtils and its dependencies with Spack
+-- install both mpiFileUtils and its dependencies directly
+-- install mpiFileUtis directly after installing its dependencies with Spack
++- CMake
++- Spack
++- development build with CMake
++- development build with Spack
++
++-------------------------
++CMake
++-------------------------
++
++mpiFileUtils requires CMake 3.1 or higher.
++Before running cmake, ensure that the MPI wrapper scripts like mpicc are loaded in your environment.
++
++The simplest mpiFileUtils install for many users is to build from a release package.
++This packages the source for a specific version of mpiFileUtils along with the corresponding source for several of its dependencies in a single tarball.
++mpiFileUtils release packages are available as attachments from their respective GitHub Releases page:
++
++https://github.com/hpc/mpifileutils/releases
++
++mpiFileUtils optionally depends on libarchive, version 3.5.1.
++If new enough, the system install of libarchive may be sufficient,
++though even newer versions may be incompatible with the required version.
++To be certain of compatibility, it is recommended that one install libarchive-3.5.1 with commands like the following
 +
 +.. code-block:: Bash
 +
-+    -DENABLE_LUSTRE=ON
-+    -DENABLE_GPFS=ON
-+    -DENABLE_EXPERIMENTAL=ON
++   #!/bin/bash
++   mkdir install
++   installdir=`pwd`/install
 +
-+To disable linking against libarchive, and tools requiring libarchive, add the following flag during CMake:
++   wget https://github.com/libarchive/libarchive/releases/download/3.5.1/libarchive-3.5.1.tar.gz
++   tar -zxf libarchive-3.5.1.tar.gz
++   cd libarchive-3.5.1
++     ./configure --prefix=$installdir
++     make install
++   cd ..
++
++To build on PowerPC, one may need to add :code:`--build=powerpc64le-redhat-linux-gnu` to the configure command.
++
++Assuming libarchive has been installed to an `install` directory as shown above,
++one can then build mpiFileUtils from a release like v0.11 with commands like the following:
 +
 +.. code-block:: Bash
 +
-+    -DENABLE_LIBARCHIVE=OFF
++   wget https://github.com/hpc/mpifileutils/releases/download/v0.11/mpifileutils-v0.11.tgz
++   tar -zxf mpifileutils-v0.11.tgz
++   cd mpifileutils-v0.11
++     mkdir build
++     cd build
++       cmake .. \
++         -DWITH_LibArchive_PREFIX=../../install \
++         -DCMAKE_INSTALL_PREFIX=../../install
++       make -j install
++     cd ..
++   cd ..
++
++Additional CMake options:
++
++* :code:`-DENABLE_LIBARCHIVE=[ON/OFF]` : use libarchive and build tools requiring libarchive like dtar, defaults to :code:`ON`
++* :code:`-DENABLE_XATTRS=[ON/OFF]` : use extended attributes and libattr, defaults to :code:`ON`
++* :code:`-DENABLE_LUSTRE=[ON/OFF]` : specialization for Lustre, defaults to :code:`OFF`
++* :code:`-DENABLE_GPFS=[ON/OFF]` : specialization for GPFS, defaults to :code:`OFF`
++* :code:`-DENABLE_EXPERIMENTAL=[ON/OFF]` : build experimental tools, defaults to :code:`OFF`
 +
 +-------------------------------------------
-+Build everything directly with DAOS support
++DAOS support
 +-------------------------------------------
 +
-+To build with DAOS support, first install the dependenies as mentioned above,
-+and make sure DAOS is installed. If CART and DAOS are installed under a standard
-+system path then specifying the CART and DAOS paths is unnecessary.
++To build with DAOS support, first install mpiFileUtils dependencies as mentioned above,
++and also make sure DAOS is installed. If DAOS is installed under a standard
++system path then specifying the DAOS path with :code:`-DWITH_DAOS_PREFIX` is unnecessary.
++
++.. code-block:: Bash
++
++   cmake ../mpifileutils \
++     -DCMAKE_INSTALL_PREFIX=../install \
++     -DWITH_DAOS_PREFIX=</path/to/daos/> \
++     -DENABLE_DAOS=ON
++   make -j install
++
++Some DAOS-enabled tools require HDF5.
++To use the `daos-serialize` and `daos-deserialize` tools, HDF5 1.2+ is required.
++To copy HDF5 containers with `dcp`, HDF5 1.8+ is required, along with the daos-vol.
++
++To build with HDF5 support, add the following flags during CMake.
++If HDF5 is installed under a standard system path then specifying the HDF5 path with :code:`-DWITH_HDF5_PREFIX` is unnecessary.
++
++.. code-block:: Bash
++
++   -DENABLE_HDF5=ON \
++   -DWITH_HDF5_PREFIX=</path/to/hdf5>
+ 
+ ---------------------------
+-Build everything with Spack
++Spack
+ ---------------------------
+ 
+ To use `Spack <https://github.com/spack/spack>`_, it is recommended that one first create a `packages.yaml` file to list system-provided packages, like MPI.
+@@ -29,13 +116,13 @@ or to enable all features:
+ 
+     spack install mpifileutils +lustre +gpfs +experimental
+ 
+--------------------------
+-Build everything directly
+--------------------------
++----------------------------
++Development build with CMake
++----------------------------
+ 
+-To build directly, mpiFileUtils requires CMake 3.1 or higher.
+-First ensure MPI wrapper scripts like mpicc are loaded in your environment.
+-Then to install the dependencies, run the following commands:
++To make changes to mpiFileUtils, one may wish to build from a clone of the repository.
++This requires that one installs the mpiFileUtils dependencies separately,
++which can be done with the following commands:
  
  .. code-block:: Bash
  
-@@ -122,23 +142,16 @@ build latest mpiFileUtils from the master branch with DAOS Support:
-      -DENABLE_DAOS=ON
-    make install
+@@ -49,19 +136,19 @@ Then to install the dependencies, run the following commands:
+      wget https://github.com/llnl/lwgrp/releases/download/v1.0.3/lwgrp-1.0.3.tar.gz
+      wget https://github.com/llnl/dtcmp/releases/download/v1.1.1/dtcmp-1.1.1.tar.gz
+      wget https://github.com/libarchive/libarchive/releases/download/3.5.1/libarchive-3.5.1.tar.gz
+-     
++
+      tar -zxf libcircle-0.3.0.tar.gz
+      cd libcircle-0.3.0
+        ./configure --prefix=$installdir
+        make install
+      cd ..
+-     
++
+      tar -zxf lwgrp-1.0.3.tar.gz
+      cd lwgrp-1.0.3
+        ./configure --prefix=$installdir
+        make install
+      cd ..
+-     
++
+      tar -zxf dtcmp-1.1.1.tar.gz
+      cd dtcmp-1.1.1
+        ./configure --prefix=$installdir --with-lwgrp=$installdir
+@@ -75,78 +162,30 @@ Then to install the dependencies, run the following commands:
+      cd ..
+    cd ..
  
+-To build on PowerPC, one may need to add :code:`--build=powerpc64le-redhat-linux-gnu`
+-to the configure commands.
+-
+-Assuming the dependencies have been placed in
+-an `install` directory as shown above, build mpiFileUtils from a release like v0.10:
++One can then clone, build, and install mpiFileUtils:
+ 
+ .. code-block:: Bash
+ 
+-   wget https://github.com/hpc/mpifileutils/archive/v0.10.tar.gz
+-   tar -zxf v0.10.tar.gz
+-   mkdir build install
+-   cd build
+-   cmake ../mpifileutils-0.10 \
+-     -DWITH_DTCMP_PREFIX=../install \
+-     -DWITH_LibCircle_PREFIX=../install \
+-     -DCMAKE_INSTALL_PREFIX=../install
+-   make install
+-
+-or to build the latest mpiFileUtils from the master branch:
+-
+-.. code-block:: Bash
+-
+-   git clone --depth 1 https://github.com/hpc/mpifileutils
+-   mkdir build install
++   git clone https://github.com/hpc/mpifileutils
++   mkdir build
+    cd build
+    cmake ../mpifileutils \
+      -DWITH_DTCMP_PREFIX=../install \
+      -DWITH_LibCircle_PREFIX=../install \
++     -DWITH_LibArchive_PREFIX=../install \
+      -DCMAKE_INSTALL_PREFIX=../install
+-   make install
+-
+-build latest mpiFileUtils from the master branch with DAOS Support:
+-
+-.. code-block:: Bash
+-
+-   git clone --depth 1 https://github.com/hpc/mpifileutils
+-   mkdir build install
+-   cd build
+-   cmake ../mpifileutils \
+-     -DWITH_DTCMP_PREFIX=../install \
+-     -DWITH_LibCircle_PREFIX=../install \
+-     -DCMAKE_INSTALL_PREFIX=../install \
+-     -DWITH_CART_PREFIX=</path/to/daos/> \
+-     -DWITH_DAOS_PREFIX=</path/to/daos/> \
+-     -DENABLE_DAOS=ON
+-   make install
+-
 -The above build with DAOS option also assumes you have already installed DAOS. If
 -CART and DAOS are installed under a standard system path then specifying the CART
 -and DAOS paths is unnecessary. 
@@ -310,21 +1600,78 @@ index 6c8d277..7f63ebe 100644
 -    -DENABLE_LUSTRE=ON
 -    -DENABLE_GPFS=ON
 -    -DENABLE_EXPERIMENTAL=ON
- 
+-
 -To disable linking against libarchive, and tools requiring libarchive, add the following flag during CMake:
-+To build with HDF5 support, add the following flags during CMake.
-+To use the `daos-serialize` and `daos-deserialize` tools, HDF5 1.2+ is required.
-+To copy HDF5 containers with `dcp`, HDF5 1.8+ is required, along with the daos-vol.
-+If HDF5 is installed under a standard system path then specifying the HDF5 path is unnecessary.
+-
+-.. code-block:: Bash
++   make -j install
+ 
+-    -DENABLE_LIBARCHIVE=OFF
++The same CMake options as described in earlier sections are available.
+ 
+---------------------------------------------------------------
+-Build mpiFileUtils directly, build its dependencies with Spack
+---------------------------------------------------------------
++----------------------------
++Development build with Spack
++----------------------------
+ 
+-One can use Spack to install mpiFileUtils dependencies using the `spack.yaml` file distributed with mpiFileUtils.
+-From the root directory of mpiFileUtils, run the command `spack find` to determine which packages spack will install.
+-Next, run `spack concretize` to have spack perform dependency analysis.
++One can also build from a clone of the mpiFileUtils repository
++after using Spack to install its dependencies via the `spack.yaml` file that is distributed with mpiFileUtils.
++From the root directory of mpiFileUtils, run the command `spack find` to determine which packages Spack will install.
++Next, run `spack concretize` to have Spack perform dependency analysis.
+ Finally, run `spack install` to build the dependencies.
+ 
+ There are two ways to tell CMake about the dependencies.
+@@ -156,7 +195,7 @@ Thus, the commands to build become:
  
  .. code-block:: Bash
  
--    -DENABLE_LIBARCHIVE=OFF
-+   -DENABLE_HDF5=ON \
-+   -DWITH_HDF5_PREFIX=</path/to/hdf5>
+-   git clone --depth 1 https://github.com/hpc/mpifileutils
++   git clone https://github.com/hpc/mpifileutils
+    mkdir build install
+    cd mpifileutils
+    spack install
+diff --git a/doc/rst/conf.py b/doc/rst/conf.py
+index 28c70e1..a5f0935 100644
+--- a/doc/rst/conf.py
++++ b/doc/rst/conf.py
+@@ -91,19 +91,20 @@ source_encoding = 'utf-8-sig'
+ # The theme to use for HTML and HTML Help pages.  See the documentation for
+ # a list of builtin themes.
+ #
+-import guzzle_sphinx_theme
++html_theme = 'default'
  
- --------------------------------------------------------------
- Build mpiFileUtils directly, build its dependencies with Spack
+-html_theme_path = guzzle_sphinx_theme.html_theme_path()
+-html_theme = 'guzzle_sphinx_theme'
+-
+-# Register the theme as an extension to generate a sitemap.xml
+-extensions.append("guzzle_sphinx_theme")
+-
+-# Guzzle theme options (see theme.conf for more information)
+-html_theme_options = {
+-    # Set the name of the project to appear in the sidebar
+-    "project_nav_name": "mpiFileUtils",
+-}
++#import guzzle_sphinx_theme
++#html_theme_path = guzzle_sphinx_theme.html_theme_path()
++#html_theme = 'guzzle_sphinx_theme'
++#
++## Register the theme as an extension to generate a sitemap.xml
++#extensions.append("guzzle_sphinx_theme")
++#
++## Guzzle theme options (see theme.conf for more information)
++#html_theme_options = {
++#    # Set the name of the project to appear in the sidebar
++#    "project_nav_name": "mpiFileUtils",
++#}
+ 
+ # Add any paths that contain custom static files (such as style sheets) here,
+ # relative to this directory. They are copied after the builtin static files,
 diff --git a/doc/rst/daos-deserialize.1.rst b/doc/rst/daos-deserialize.1.rst
 new file mode 100644
 index 0000000..324b454
@@ -442,11 +1789,48 @@ index 0000000..d9b46bc
 +
 +The mpiFileUtils source code and all documentation may be downloaded
 +from <https://github.com/hpc/mpifileutils>
+diff --git a/doc/rst/dcmp.1.rst b/doc/rst/dcmp.1.rst
+index d81996c..acf51c6 100644
+--- a/doc/rst/dcmp.1.rst
++++ b/doc/rst/dcmp.1.rst
+@@ -49,12 +49,6 @@ OPTIONS
+    "GB" can immediately follow the number without spaces (e.g. 64MB).
+    The default chunksize is 4MB.
+ 
+-.. option:: --daos-prefix PREFIX
+-
+-   Specify the DAOS prefix to be used. This is only necessary
+-   if copying a subset of a POSIX container in DAOS using a
+-   Unified Namespace path.
+-
+ .. option:: --daos-api API
+ 
+    Specify the DAOS API to be used. By default, the API is automatically
 diff --git a/doc/rst/dcp.1.rst b/doc/rst/dcp.1.rst
-index 02e30f6..24071f6 100644
+index 02e30f6..79e01ab 100644
 --- a/doc/rst/dcp.1.rst
 +++ b/doc/rst/dcp.1.rst
-@@ -45,6 +45,15 @@ OPTIONS
+@@ -32,11 +32,15 @@ OPTIONS
+    "GB" can immediately follow the number without spaces (e.g. 64MB).
+    The default chunksize is 4MB.
+ 
+-.. option:: --daos-prefix PREFIX
++.. option:: --xattrs WHICH
+ 
+-   Specify the DAOS prefix to be used. This is only necessary
+-   if copying a subset of a POSIX container in DAOS using a
+-   Unified Namespace path.
++    Copy extended attributes ("xattrs") from source files to target files.
++    WHICH determines which xattrs are copied.  Options are to copy no xattrs,
++    all xattrs, xattrs not excluded by /etc/xattr.conf, or all xattrs except
++    those which have special meaning to Lustre.  Certain xattrs control Lustre
++    features on a file-by-file basis, such as how the file data is distributed
++    across Lustre servers.  Values must be in {none, all, libattr, non-lustre}.
++    The default is non-lustre.
+ 
+ .. option:: --daos-api API
+ 
+@@ -45,6 +49,15 @@ OPTIONS
     DFS API, and all other containers use the DAOS object API.
     Values must be in {DFS, DAOS}.
  
@@ -462,6 +1846,10 @@ index 02e30f6..24071f6 100644
  .. option:: -i, --input FILE
  
     Read source list from FILE. FILE must be generated by another tool
+diff --git a/doc/rst/dcp_sierra.png b/doc/rst/dcp_sierra.png
+new file mode 100644
+index 0000000..cc5d435
+Binary files /dev/null and b/doc/rst/dcp_sierra.png differ
 diff --git a/doc/rst/dfind.1.rst b/doc/rst/dfind.1.rst
 index 247d4c2..dd0e331 100644
 --- a/doc/rst/dfind.1.rst
@@ -478,6 +1866,186 @@ index 247d4c2..dd0e331 100644
  .. option:: -v, --verbose
  
     Run in verbose mode.
+diff --git a/doc/rst/dsync.1.rst b/doc/rst/dsync.1.rst
+index 2fe4715..01af5ad 100644
+--- a/doc/rst/dsync.1.rst
++++ b/doc/rst/dsync.1.rst
+@@ -39,11 +39,15 @@ OPTIONS
+    "GB" can immediately follow the number without spaces (e.g. 64MB).
+    The default chunksize is 4MB.
+ 
+-.. option:: --daos-prefix PREFIX
+-
+-   Specify the DAOS prefix to be used. This is only necessary
+-   if copying a subset of a POSIX container in DAOS using a
+-   Unified Namespace path.
++.. option:: --xattrs WHICH
++
++    Copy extended attributes ("xattrs") from source files to target files.
++    WHICH determines which xattrs are copied.  Options are to copy no xattrs,
++    all xattrs, xattrs not excluded by /etc/xattr.conf, or all xattrs except
++    those which have special meaning to Lustre.  Certain xattrs control Lustre
++    features on a file-by-file basis, such as how the file data is distributed
++    across Lustre servers.  Values must be in {none, all, libattr, non-lustre}.
++    The default is non-lustre.
+ 
+ .. option:: --daos-api API
+ 
+diff --git a/doc/rst/index.rst b/doc/rst/index.rst
+index 4cb02f4..0ab552d 100644
+--- a/doc/rst/index.rst
++++ b/doc/rst/index.rst
+@@ -3,60 +3,39 @@
+    You can adapt this file completely to your liking, but it should at least
+    contain the root `toctree` directive.
+ 
+-===================================
+-**Documentation for mpiFileUtils**
+-===================================
++================
++**mpiFileUtils**
++================
+ 
+ Overview
+ *************
+ 
+-mpiFileUtils provides both a library called libmfu and a suite of MPI-based
+-tools to manage large datasets, which may vary from large directory trees to
+-large files. High-performance computing users often generate large datasets with
+-parallel applications that run with many processes (millions in some cases).
+-However those users are then stuck with single-process tools like cp and rm to
+-manage their datasets. This suite provides MPI-based tools to handle typical
+-jobs like copy, remove, and compare for such datasets, providing speedups of up
+-to 50x. The libmfu library simplifies the creation of new tools
+-and it can be called directly from within HPC applications.
++High-performance computing users generate large datasets using parallel applications that can run with thousands of processes.
++However, users are often stuck managing those datasets using traditional single-process tools like cp and rm.
++This mismatch in scale makes it impractical for users to work with their data.
++
++The mpiFileUtils suite solves this problem by offering MPI-based tools for basic tasks like copy, remove, and compare for such datasets,
++delivering orders of magnitude in performance speedup over their single-process counterparts.
++Furthermore, the libmfu library packages common functionality to simplify the creation of new tools,
++and it can even be invoked directly from within HPC applications.
+ 
+ Video Overview: `"Scalable Management of HPC Datasets with mpiFileUtils" <https://youtu.be/cxjPOUS-ZBY>`_, HPCKP'20.
+ 
++The figure below, taken from the above presentation, illustrates the potential performance improvement that one can achieve
++when scaling a tool like dcp to utilize more compute resources.
++
++.. figure:: dcp_sierra.png
++
++   dcp scaling performance on the Sierra cluster at LLNL using 40 processes/node.  Shows the time required to copy a single directory of 200k files totaling 24.4 TiB of data.  The minimum time of 93 seconds at 64 nodes is 495x faster than the 12.75 hours taken by the cp command.
++
+ User Guide
+ ***************************
+ 
+ .. toctree::
+-   :maxdepth: 3
++   :maxdepth: 2
+ 
++   build.rst
+    proj-design.rst
+    tools.rst
+    libmfu.rst
+-   build.rst
+-
+-Man Pages
+-***************************
+ 
+-.. toctree::
+-   :maxdepth: 1
+-
+-   dbcast.1
+-   dbz2.1
+-   dchmod.1
+-   dcmp.1
+-   dcp.1
+-   ddup.1
+-   dfind.1
+-   dreln.1
+-   drm.1
+-   dstripe.1
+-   dsync.1
+-   dwalk.1
+-   dgrep.1
+-   dparallel.1
+-   dtar.1
+-
+-Indices and tables
+-*********************
+-
+-* :ref:`genindex`
+-* :ref:`search`
+diff --git a/doc/rst/libmfu.rst b/doc/rst/libmfu.rst
+index f0ca232..4b6aa73 100644
+--- a/doc/rst/libmfu.rst
++++ b/doc/rst/libmfu.rst
+@@ -1,5 +1,5 @@
+ ========================
+-libmfu
++Common Library - libmfu
+ ========================
+ 
+ Functionality that is common to multiple tools is moved to the common library,
+diff --git a/doc/rst/tools.rst b/doc/rst/tools.rst
+index 81683f0..eb66065 100644
+--- a/doc/rst/tools.rst
++++ b/doc/rst/tools.rst
+@@ -7,19 +7,19 @@ as MPI applications, e.g., within a compute allocation on a cluster using
+ mpirun. The tools do not currently checkpoint, so one must be careful that an
+ invocation of the tool has sufficient time to complete before it is killed.
+ 
+-- dbcast - Broadcast a file to compute nodes.
+-- dbz2 - Compress a file with bz2.
+-- dchmod - Change owner, group, and permissions on files.
+-- dcmp - Compare files.
+-- dcp - Copy files.
+-- ddup - Find duplicate files.
+-- dfind - Filter files.
+-- dreln - Update symlinks.
+-- drm - Remove files.
+-- dstripe - Restripe files.
+-- dsync - Synchronize files.
+-- dtar - Create and extract tape archive files.
+-- dwalk - List, sort, and profile files.
++- :doc:`dbcast <dbcast.1>` - Broadcast a file to compute nodes.
++- :doc:`dbz2 <dbz2.1>` - Compress a file with bz2.
++- :doc:`dchmod <dchmod.1>` - Change owner, group, and permissions on files.
++- :doc:`dcmp <dcmp.1>` - Compare files.
++- :doc:`dcp <dcp.1>` - Copy files.
++- :doc:`ddup <ddup.1>` - Find duplicate files.
++- :doc:`dfind <dfind.1>` - Filter files.
++- :doc:`dreln <dreln.1>` - Update symlinks.
++- :doc:`drm <drm.1>` - Remove files.
++- :doc:`dstripe <dstripe.1>` - Restripe files.
++- :doc:`dsync <dsync.1>` - Synchronize files.
++- :doc:`dtar <dtar.1>` - Create and extract tape archive files.
++- :doc:`dwalk <dwalk.1>` - List, sort, and profile files.
+ 
+ ==============================
+ Experimental Utilities
+diff --git a/man/mpifileutils.1 b/man/mpifileutils.1
+index 224a8fe..6f23a6f 100644
+--- a/man/mpifileutils.1
++++ b/man/mpifileutils.1
+@@ -352,7 +352,6 @@ cmake ../mpifileutils \e
+   \-DWITH_DTCMP_PREFIX=../install \e
+   \-DWITH_LibCircle_PREFIX=../install \e
+   \-DCMAKE_INSTALL_PREFIX=../install \e
+-  \-DWITH_CART_PREFIX=</path/to/daos/> \e
+   \-DWITH_DAOS_PREFIX=</path/to/daos/> \e
+   \-DENABLE_DAOS=ON
+ make install
+@@ -362,8 +361,7 @@ make install
+ .UNINDENT
+ .sp
+ The above build with DAOS option also assumes you have already installed DAOS. If
+-CART and DAOS are installed under a standard system path then specifying the CART
+-and DAOS paths is unnecessary.
++DAOS is installed under a standard system path then specifying the DAOS path is unnecessary.
+ .sp
+ To enable Lustre, GPFS, and experimental tools, add the following flags during CMake:
+ .INDENT 0.0
 diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
 index 2f83d2d..775c70f 100644
 --- a/src/CMakeLists.txt
@@ -503,11 +2071,40 @@ index 2f83d2d..775c70f 100644
    ADD_SUBDIRECTORY(dfilemaker)
    ADD_SUBDIRECTORY(dgrep)
    ADD_SUBDIRECTORY(dparallel)
+diff --git a/src/common/mfu_bz2_static.c b/src/common/mfu_bz2_static.c
+index 84c62a6..62293ba 100644
+--- a/src/common/mfu_bz2_static.c
++++ b/src/common/mfu_bz2_static.c
+@@ -476,10 +476,10 @@ int mfu_decompress_bz2_static(const char* src_name, const char* dst_name)
+     int64_t block_meta  = (int64_t)footer[0]; /* offset to start of block metadata */
+     int64_t block_total = (int64_t)footer[1]; /* number of blocks */
+     int64_t block_size  = (int64_t)footer[2]; /* max uncompressed size of a block */
+-    int64_t data_size   = (int64_t)footer[3]; /* uncompressed size of all blocks */
++                                              /* (int64_t)footer[3] - unused - uncompressed size of all blocks */
+     uint64_t version    = footer[4];          /* dbz2 file format footer version */
+     uint64_t magic      = footer[5];          /* dbz2 file format magic value */
+-    int64_t filesize    = (int64_t)footer[6]; /* file size of compressed file */
++                                              /* (int64_t)footer[6] - unused - file size of compressed file */
+ 
+     /* check that we got correct magic value */
+     if (magic != 0x3141314131413141) {
+diff --git a/src/common/mfu_compress_bz2_libcircle.c b/src/common/mfu_compress_bz2_libcircle.c
+index c5862af..3e37680 100644
+--- a/src/common/mfu_compress_bz2_libcircle.c
++++ b/src/common/mfu_compress_bz2_libcircle.c
+@@ -182,7 +182,6 @@ static void find_wave_size(int64_t size, int opts_memory)
+      * memory required to do compression, keep 128B for variables,etc.
+      * The block itself must be in memory before compression. */
+     int64_t wave_size_approx = mem_limit - (int64_t)info.totalram * 2 / 100 - 8 * size - 400 * 1024 - 128 - size;
+-    int64_t waves_blocks_approx = wave_size_approx / comp_buff_size;
+     int64_t wave_size = wave_size_approx - 2 * tot_blocks * sizeof(struct block_info);
+     blocks_pn_pw = (int64_t)(0.4 * wave_size / comp_buff_size);
+     if (blocks_pn_pw > 800) {
 diff --git a/src/common/mfu_daos.c b/src/common/mfu_daos.c
-index c9ebc02..866afb6 100644
+index c9ebc02..8f53133 100644
 --- a/src/common/mfu_daos.c
 +++ b/src/common/mfu_daos.c
-@@ -7,6 +7,7 @@
+@@ -7,18 +7,182 @@
  
  #include <sys/types.h>
  #include <sys/stat.h>
@@ -515,10 +2112,11 @@ index c9ebc02..866afb6 100644
  #include <unistd.h>
  
  #include <daos_fs.h>
-@@ -14,11 +15,165 @@
+ #include <daos_uns.h>
  #include <gurt/common.h>
  #include <gurt/hash.h>
- 
++#include <libgen.h>
++
 +#ifdef HDF5_SUPPORT
 +#include <hdf5.h>
 +#if H5_VERS_MAJOR == 1 && H5_VERS_MINOR < 12
@@ -526,6 +2124,14 @@ index c9ebc02..866afb6 100644
 +#endif
 +#endif
 +
++#if defined(DAOS_API_VERSION_MAJOR) && defined(DAOS_API_VERSION_MINOR)
++#define CHECK_DAOS_API_VERSION(major, minor)                            \
++        ((DAOS_API_VERSION_MAJOR > (major))                             \
++         || (DAOS_API_VERSION_MAJOR == (major) && DAOS_API_VERSION_MINOR >= (minor)))
++#else
++#define CHECK_DAOS_API_VERSION(major, minor) 0
++#endif
+ 
  /*
   * Private definitions.
 + * TODO - Need to reorganize some functions in this file.
@@ -682,7 +2288,7 @@ index c9ebc02..866afb6 100644
  {
      return uuid && !uuid_is_null(uuid);
  }
-@@ -27,19 +182,26 @@ static bool daos_uuid_valid(const uuid_t uuid)
+@@ -27,19 +191,26 @@ static bool daos_uuid_valid(const uuid_t uuid)
  static int daos_check_args(
      int rank,
      char** argpaths,
@@ -718,7 +2324,7 @@ index c9ebc02..866afb6 100644
  
      /* Determine whether any DAOS arguments are supplied. 
       * If not, then there is nothing to check. */
-@@ -56,15 +218,31 @@ static int daos_check_args(
+@@ -56,15 +227,31 @@ static int daos_check_args(
          return 0;
      }
      
@@ -755,7 +2361,7 @@ index c9ebc02..866afb6 100644
      }
  
      /* Determine whether the source and destination paths are the same.
-@@ -129,20 +307,21 @@ static bool daos_check_prefix(
+@@ -129,36 +316,91 @@ static bool daos_check_prefix(
   * Returns 1 if a daos path was not parsed.
   * Returns -1 for actual errors.
   */
@@ -770,8 +2376,13 @@ index c9ebc02..866afb6 100644
  {
      struct duns_attr_t  dattr = {0};
      int                 rc;
++    char*               tmp_path1 = NULL;
++    char*               path_dirname = NULL;
++    char*               tmp_path2 = NULL;
++    char*               path_basename = NULL;
++    char*               tmp = NULL;
  
-+    /* Check if this path represents a daos pool and/or container. */
++    /* check first if duns_resolve_path succeeds on regular path */
      rc = duns_resolve_path(path, &dattr);
      if (rc == 0) {
          /* daos:// or UNS path */
@@ -782,7 +2393,80 @@ index c9ebc02..866afb6 100644
          if (dattr.da_rel_path == NULL) {
              strncpy(path, "/", path_len);
          } else {
-@@ -167,37 +346,43 @@ static int daos_parse_path(
+             strncpy(path, dattr.da_rel_path, path_len);
+         }
+-    } else if (strncmp(path, "daos:", 5) == 0) {
+-        /* Actual error, since we expect a daos path */
+-        rc = -1;
+     } else {
+-        /* We didn't parse a daos path,
+-         * but we weren't necessarily looking for one */
+-        rc = 1;
+-    }
++        /* If basename does not exist yet then duns_resolve_path will fail even
++        * if dirname is a UNS path */
+ 
+-    mfu_free(&dattr.da_rel_path);
++        /* get dirname */
++        tmp_path1 = strdup(path);
++        if (tmp_path1 == NULL) {
++            rc = -ENOMEM;
++            goto out;
++        }
++        path_dirname = dirname(tmp_path1);
++
++        /* reset before calling duns_resolve_path with new string */
++        memset(&dattr, 0, sizeof(struct duns_attr_t));
++
++        /* Check if this path represents a daos pool and/or container. */
++        rc = duns_resolve_path(path_dirname, &dattr);
++        /* if it succeeds get the basename and append it to the rel_path */
++        if (rc == 0) {
++            /* if duns_resolve_path succeeds then concat basename to 
++            * da_rel_path */
++            tmp_path2 = strdup(path);
++            if (tmp_path2 == NULL) {
++                rc = -ENOMEM;
++                goto out;
++            }
++            path_basename = basename(tmp_path2);
++   
++            /* dirname might be root uns path, if that is the case,
++             * then da_rel_path might be NULL */
++            if (dattr.da_rel_path == NULL) {
++                tmp = MFU_CALLOC(path_len, sizeof(char));
++            } else {
++                tmp = realloc(dattr.da_rel_path, path_len);
++            }
++            if (tmp == NULL) {
++                rc = -ENOMEM;
++                goto out;
++            }
++            dattr.da_rel_path = tmp;
++            strcat(dattr.da_rel_path, "/");
++            strcat(dattr.da_rel_path, path_basename);
+ 
++            snprintf(*pool_str, DAOS_PROP_LABEL_MAX_LEN + 1, "%s", dattr.da_pool);
++            snprintf(*cont_str, DAOS_PROP_LABEL_MAX_LEN + 1, "%s", dattr.da_cont);
++            strncpy(path, dattr.da_rel_path, path_len);
++        } else if (strncmp(path, "daos:", 5) == 0) {
++            /* Actual error, since we expect a daos path */
++            rc = -1;
++        } else {
++            /* We didn't parse a daos path,
++            * but we weren't necessarily looking for one */
++            rc = 1;
++        }
++    }
++out:
++    mfu_free(&tmp_path1);
++    mfu_free(&tmp_path2);
++    mfu_free(&dattr.da_rel_path);
++    duns_destroy_attr(&dattr);
+     return rc;
+ }
+ 
+@@ -167,37 +409,43 @@ static int daos_parse_path(
  static int daos_set_paths(
    int rank,
    char** argpaths,
@@ -836,7 +2520,7 @@ index c9ebc02..866afb6 100644
              rc = 1;
              goto out;
          }
-@@ -205,7 +390,6 @@ static int daos_set_paths(
+@@ -205,7 +453,6 @@ static int daos_set_paths(
          /* In case the user tries to give a sub path in the UNS path */
          if (strcmp(prefix_path, "/") != 0) {
              MFU_LOG(MFU_LOG_ERR, "DAOS prefix must be a UNS path");
@@ -844,7 +2528,7 @@ index c9ebc02..866afb6 100644
              rc = 1;
              goto out;
          }
-@@ -213,22 +397,23 @@ static int daos_set_paths(
+@@ -213,22 +460,23 @@ static int daos_set_paths(
          /* Check if the prefix matches the source */
          prefix_on_src = daos_check_prefix(argpaths[0], da->dfs_prefix, &da->src_path);
          if (prefix_on_src) {
@@ -877,7 +2561,7 @@ index c9ebc02..866afb6 100644
              rc = 1;
              goto out;
          }
-@@ -241,40 +426,67 @@ static int daos_set_paths(
+@@ -241,40 +489,67 @@ static int daos_set_paths(
       */
      if (!prefix_on_src) {
          size_t src_len = strlen(argpaths[0]);
@@ -955,7 +2639,19 @@ index c9ebc02..866afb6 100644
      return rc;
  }
  
-@@ -305,13 +517,49 @@ static int daos_get_cont_type(
+@@ -282,9 +557,8 @@ static int daos_get_cont_type(
+     daos_handle_t coh,
+     enum daos_cont_props* type)
+ {
+-    daos_prop_t*            prop = daos_prop_alloc(1);
+-    struct daos_prop_entry  entry;
+-    int                     rc;
++    daos_prop_t*    prop = daos_prop_alloc(1);
++    int             rc;
+ 
+     if (prop == NULL) {
+         MFU_LOG(MFU_LOG_ERR, "Failed to allocate prop (%d)", rc);
+@@ -305,13 +579,49 @@ static int daos_get_cont_type(
      return 0;
  }
  
@@ -1006,7 +2702,7 @@ index c9ebc02..866afb6 100644
      daos_api_t api)
  {
      /* If explicitly using DAOS, just set the type to DAOS */
-@@ -320,15 +568,6 @@ static int daos_set_api_cont_type(
+@@ -320,15 +630,6 @@ static int daos_set_api_cont_type(
          return 0;
      }
  
@@ -1022,7 +2718,7 @@ index c9ebc02..866afb6 100644
      if (cont_type == DAOS_PROP_CO_LAYOUT_POSIX) {
          mfu_file->type = DFS;
      } else {
-@@ -348,44 +587,37 @@ static int daos_set_api_cont_type(
+@@ -348,44 +649,33 @@ static int daos_set_api_cont_type(
   * Set the mfu_file types to either DAOS or DFS,
   * and make sure they are compatible.
   */
@@ -1033,19 +2729,17 @@ index c9ebc02..866afb6 100644
      daos_args_t* da,
      char** argpaths)
  {
-+    bool have_dst = (mfu_dst_file != NULL);
-+
-     /* Check whether we have pool/cont uuids */
+-    /* Check whether we have pool/cont uuids */
 -    bool have_src_pool  = daos_uuid_valid(da->src_pool_uuid);
 -    bool have_src_cont  = daos_uuid_valid(da->src_cont_uuid);
 -    bool have_dst_pool  = daos_uuid_valid(da->dst_pool_uuid);
 -    bool have_dst_cont  = daos_uuid_valid(da->dst_cont_uuid);
-+    bool have_src_pool  = strlen(da->src_pool) ? true : false;
-+    bool have_src_cont  = strlen(da->src_cont) ? true : false;
-+    bool have_dst_pool  = strlen(da->dst_pool) ? true : false;
-+    bool have_dst_cont  = strlen(da->dst_cont) ? true : false;
++    bool have_dst = (mfu_dst_file != NULL);
  
-     int rc;
+-    int rc;
++    /* Check whether we have pool/cont uuids */
++    bool have_src_cont  = strlen(da->src_cont) ? true : false;
++    bool have_dst_cont  = strlen(da->dst_cont) ? true : false;
  
 -    /* If the user explicitly wants to use the DAOS API,
 -     * then set both types to DAOS.
@@ -1083,7 +2777,7 @@ index c9ebc02..866afb6 100644
  
      /* If either type is DAOS:
       * Both paths must be root.
-@@ -396,13 +628,15 @@ static int daos_set_api(
+@@ -396,13 +686,15 @@ static int daos_set_api(
              MFU_LOG(MFU_LOG_ERR, "Cannot use path with non-POSIX container.");
              return 1;
          }
@@ -1104,7 +2798,7 @@ index c9ebc02..866afb6 100644
          if (!dst_path_is_root || !src_path_is_root) {
              MFU_LOG(MFU_LOG_ERR, "Cannot use path with non-POSIX container.");
              return 1;
-@@ -413,7 +647,6 @@ static int daos_set_api(
+@@ -413,7 +705,6 @@ static int daos_set_api(
          }
          mfu_src_file->type = DAOS;
      }
@@ -1112,7 +2806,7 @@ index c9ebc02..866afb6 100644
      return 0;
  }
  
-@@ -438,8 +671,329 @@ static int daos_any_error(int rank, bool local_daos_error, int flag_daos_args)
+@@ -438,8 +729,329 @@ static int daos_any_error(int rank, bool local_daos_error, int flag_daos_args)
      return 0;
  }
  
@@ -1443,7 +3137,7 @@ index c9ebc02..866afb6 100644
    int rank,              /* root rank for broadcast */
    daos_handle_t* handle, /* handle value to be broadcasted */
    daos_handle_t* poh,    /* daos pool for global2local conversion of container handle */
-@@ -503,34 +1057,61 @@ static void daos_bcast_handle(
+@@ -503,34 +1115,61 @@ static void daos_bcast_handle(
  }
  
  /* connect to DAOS pool, and then open container */
@@ -1517,7 +3211,7 @@ index c9ebc02..866afb6 100644
                  goto bcast;
              }
          }
-@@ -538,32 +1119,174 @@ static int daos_connect(
+@@ -538,32 +1177,174 @@ static int daos_connect(
          /* Try to open the container
           * If NOEXIST we create it */
          daos_cont_info_t co_info = {0};
@@ -1556,8 +3250,13 @@ index c9ebc02..866afb6 100644
 +                if (rc != 0) {
 +                    goto bcast;
 +                }
-+            }
-+
+             }
+ 
+-            /* try to open it again */
+-            rc = daos_cont_open(*poh, cont_uuid, DAOS_COO_RW, coh, &co_info, NULL);
+-            if (rc != 0) {
+-                MFU_LOG(MFU_LOG_ERR, "Failed to open DFS container");
+-                goto bcast;
 +            /* if a destination container string was passed in we need to
 +             * check if it is a uuid or cont label string. This is necessary
 +             * because a user can generate a uuid then pass it as destination,
@@ -1570,8 +3269,12 @@ index c9ebc02..866afb6 100644
 +                } else {
 +                    is_uuid = false;
 +                }
-+            }
-+
+             }
+-        }
+ 
+-        /* everything looks good so far */
+-        valid = 1;
+-    }
 +            /* Create a new container. If we don't have a source container,
 +             * create a POSIX container. Otherwise, create a container of
 +             * the same type as the source. */
@@ -1621,10 +3324,9 @@ index c9ebc02..866afb6 100644
 +                char uuid_str[130];
 +                uuid_unparse_lower(da->dst_cont_uuid, uuid_str);
 +                MFU_LOG(MFU_LOG_INFO, "Successfully created container %s", uuid_str);
-             }
- 
-             /* try to open it again */
--            rc = daos_cont_open(*poh, cont_uuid, DAOS_COO_RW, coh, &co_info, NULL);
++            }
++
++            /* try to open it again */
 +            if (dst_cont_passed) {
 +                if (is_uuid) {
 +                    rc = daos_cont_open(*poh, da->dst_cont_uuid, DAOS_COO_RW, coh, &co_info, NULL);
@@ -1634,16 +3336,11 @@ index c9ebc02..866afb6 100644
 +            } else {
 +                rc = daos_cont_open(*poh, da->dst_cont_uuid, DAOS_COO_RW, coh, &co_info, NULL);
 +            }
-             if (rc != 0) {
--                MFU_LOG(MFU_LOG_ERR, "Failed to open DFS container");
++            if (rc != 0) {
 +                MFU_LOG(MFU_LOG_ERR, "Failed to open container: "DF_RC, DP_RC(rc));
-                 goto bcast;
-             }
--        }
- 
--        /* everything looks good so far */
--        valid = 1;
--    }
++                goto bcast;
++            }
++
 +#ifdef HDF5_SUPPORT
 +            /* need to wait until destination container is valid to set user
 +             * attributes, preserve is only set true when destination is a DFS
@@ -1672,7 +3369,7 @@ index c9ebc02..866afb6 100644
 +            MFU_LOG(MFU_LOG_ERR, "Destination container already exists");
 +            goto bcast;
 +        }
-+
+ 
 +        /* check container status, and if unhealthy do not continue unless --force
 +         * option is used (only for serialization, never for copies) */
 +        bool status_healthy;
@@ -1688,7 +3385,7 @@ index c9ebc02..866afb6 100644
 +        /* everything looks good so far */
 +        valid = 1;
 +    }
-+bcast:
+ bcast:
 +    if (rank == 0) {
 +        daos_prop_free(props);
 +        mfu_free(&roots);
@@ -1701,12 +3398,11 @@ index c9ebc02..866afb6 100644
 +        }
 +#endif
 +    }
- 
--bcast:
++
      /* broadcast valid from rank 0 */
      MPI_Bcast(&valid, 1, MPI_INT, 0, MPI_COMM_WORLD);
  
-@@ -580,42 +1303,60 @@ bcast:
+@@ -580,42 +1361,64 @@ bcast:
  
      /* broadcast container handle from rank 0 */
      daos_bcast_handle(rank, coh, poh, CONT_HANDLE);
@@ -1728,7 +3424,10 @@ index c9ebc02..866afb6 100644
 +    if (rc !=0) {
 +        MFU_LOG(MFU_LOG_ERR, "Failed to mount DAOS filesystem (DFS): %s", strerror(rc));
 +        rc = -1;
++        goto out;
 +    }
++
++    /* Get underlying DFS base for DFS API calls */
 +    rc = dfs_sys2base(mfu_file->dfs_sys, &mfu_file->dfs);
      if (rc != 0) {
 -        MFU_LOG(MFU_LOG_ERR, "Failed to mount DAOS filesystem (DFS): "
@@ -1739,6 +3438,7 @@ index c9ebc02..866afb6 100644
 +        mfu_file->dfs_sys = NULL;
      }
  
++out:
      return rc;
  }
  
@@ -1763,10 +3463,7 @@ index c9ebc02..866afb6 100644
          rc = -1;
      }
 +    mfu_file->dfs_sys = NULL;
- 
--    /* Clean up the hash */
--    if (mfu_file->dfs_hash != NULL) {
--        d_hash_table_destroy(mfu_file->dfs_hash, true);
++
 +    return rc;
 +}
 +
@@ -1775,14 +3472,17 @@ index c9ebc02..866afb6 100644
 +    daos_epoch_range_t epr;
 +    epr.epr_lo = epoch;
 +    epr.epr_hi = epoch;
-+
+ 
+-    /* Clean up the hash */
+-    if (mfu_file->dfs_hash != NULL) {
+-        d_hash_table_destroy(mfu_file->dfs_hash, true);
 +    int rc = daos_cont_destroy_snap(coh, epr, NULL);
 +    if (rc != 0) {
 +        MFU_LOG(MFU_LOG_ERR, "DAOS destroy snapshot failed: "DF_RC, DP_RC(rc));
      }
  
      return rc;
-@@ -637,16 +1378,28 @@ daos_args_t* daos_args_new(void)
+@@ -637,16 +1440,28 @@ daos_args_t* daos_args_new(void)
      da->src_path   = NULL;
      da->dst_path   = NULL;
  
@@ -1817,7 +3517,7 @@ index c9ebc02..866afb6 100644
  
      return da;
  }
-@@ -658,6 +1411,7 @@ void daos_args_delete(daos_args_t** pda)
+@@ -658,6 +1473,7 @@ void daos_args_delete(daos_args_t** pda)
          mfu_free(&da->dfs_prefix);
          mfu_free(&da->src_path);
          mfu_free(&da->dst_path);
@@ -1825,7 +3525,7 @@ index c9ebc02..866afb6 100644
          mfu_free(pda);
      }
  }
-@@ -674,6 +1428,8 @@ int daos_parse_api_str(
+@@ -674,6 +1490,8 @@ int daos_parse_api_str(
          *api = DAOS_API_DFS;
      } else if (strcasecmp(api_str, "DAOS") == 0) {
          *api = DAOS_API_DAOS;
@@ -1834,7 +3534,7 @@ index c9ebc02..866afb6 100644
      } else {
          rc = 1;
      }
-@@ -693,14 +1449,110 @@ int daos_parse_epc_str(
+@@ -693,14 +1511,110 @@ int daos_parse_epc_str(
      return 0;
  }
  
@@ -1945,7 +3645,14 @@ index c9ebc02..866afb6 100644
  
      /* Each process keeps track of whether it had any DAOS errors.
       * If there weren't any daos args, then ignore daos_init errors.
-@@ -718,10 +1570,9 @@ int daos_setup(
+@@ -712,16 +1626,15 @@ int daos_setup(
+      * Later, ignore if no daos args supplied */
+     tmp_rc = daos_init();
+     if (tmp_rc != 0) {
+-        MFU_LOG(MFU_LOG_ERR, "Failed to initialize daos");
++        MFU_LOG(MFU_LOG_ERR, "Failed to initialize daos: "DF_RC, DP_RC(tmp_rc));
+         local_daos_error = true;
+     }
  
      /* Do a preliminary check on the DAOS args */
      if (!local_daos_error) {
@@ -1958,7 +3665,7 @@ index c9ebc02..866afb6 100644
              local_daos_error = true;
          }
      }
-@@ -731,20 +1582,18 @@ int daos_setup(
+@@ -731,20 +1644,18 @@ int daos_setup(
       * prefix since the path is mapped to the root
       * of the container in the DAOS DFS mount */
      if (!local_daos_error) {
@@ -1983,7 +3690,7 @@ index c9ebc02..866afb6 100644
              local_daos_error = true;
          }
      }
-@@ -757,76 +1606,193 @@ int daos_setup(
+@@ -757,76 +1668,192 @@ int daos_setup(
          return 1;
      }
  
@@ -1998,7 +3705,6 @@ index c9ebc02..866afb6 100644
 +    bool have_src_pool  = strlen(da->src_pool) > 0 ? true : false;
 +    bool have_src_cont  = strlen(da->src_cont) > 0 ? true : false;
 +    bool have_dst_pool  = strlen(da->dst_pool) > 0 ? true : false;
-+    bool have_dst_cont  = strlen(da->dst_cont) > 0 ? true : false;
  
      /* Check if containers are in the same pool */
 -    bool same_pool = (uuid_compare(da->src_pool_uuid, da->dst_pool_uuid) == 0);
@@ -2210,7 +3916,7 @@ index c9ebc02..866afb6 100644
          return 1;
      }
  
-@@ -843,70 +1809,92 @@ int daos_cleanup(
+@@ -843,70 +1870,92 @@ int daos_cleanup(
      int rc = 0;
      int tmp_rc;
  
@@ -2329,7 +4035,7 @@ index c9ebc02..866afb6 100644
      /* Finalize DAOS */
      tmp_rc = daos_fini();
      if (tmp_rc != 0) {
-@@ -919,118 +1907,301 @@ int daos_cleanup(
+@@ -919,118 +1968,301 @@ int daos_cleanup(
      return rc;
  }
  
@@ -2479,16 +4185,6 @@ index c9ebc02..866afb6 100644
 +    }
 +
 +    return 0;
-+}
-+
-+/* Sum an array of uint64_t */
-+static uint64_t sum_uint64_t(uint32_t number, uint64_t* buf)
-+{
-+    uint64_t sum = 0;
-+    for (uint32_t i = 0; i < number; i++) {
-+        sum += buf[i];
-+    }
-+    return sum;
  }
  
 -static int daos_copy_recx_array(daos_key_t *dkey,
@@ -2496,6 +4192,17 @@ index c9ebc02..866afb6 100644
 -                           daos_handle_t *src_oh,
 -                           daos_handle_t *dst_oh,
 -                           daos_iod_t *iod)
++/* Sum an array of uint64_t */
++static uint64_t sum_uint64_t(uint32_t number, uint64_t* buf)
+ {
+-    daos_anchor_t recx_anchor = {0}; 
++    uint64_t sum = 0;
++    for (uint32_t i = 0; i < number; i++) {
++        sum += buf[i];
++    }
++    return sum;
++}
++
 +/* Copy all array recx from a src obj to dst obj for a given dkey/akey.
 + * returns -1 on error, 0 if same, 1 if different */
 +static int mfu_daos_obj_sync_recx_array(
@@ -2507,8 +4214,7 @@ index c9ebc02..866afb6 100644
 +    bool compare_dst,
 +    bool write_dst,
 +    mfu_daos_stats_t* stats)
- {
--    daos_anchor_t recx_anchor = {0}; 
++{
 +    bool        all_dst_equal = true;   /* equal until found otherwise */
 +    uint32_t    max_number = 5;         /* max recxs per fetch */
 +    char*       src_buf[max_number];    /* src buffer data */
@@ -2670,7 +4376,11 @@ index c9ebc02..866afb6 100644
 +        free_iov_buf(number, src_buf);
      }
 -    return rc;
-+
+-}
+ 
+-static int daos_copy_list_keys(daos_handle_t *src_oh,
+-                          daos_handle_t *dst_oh)
+-{
 +    /* return 0 if equal, 1 if different */
 +    if (all_dst_equal) {
 +        return 0;
@@ -2680,10 +4390,8 @@ index c9ebc02..866afb6 100644
 +out_err:
 +    /* return -1 on true errors */
 +    return -1;
- }
- 
--static int daos_copy_list_keys(daos_handle_t *src_oh,
--                          daos_handle_t *dst_oh)
++}
++
 +/* Copy all dkeys and akeys from a src obj to dst obj.
 + * returns -1 on error, 0 if same, 1 if different */
 +static int mfu_daos_obj_sync_keys(
@@ -2692,7 +4400,7 @@ index c9ebc02..866afb6 100644
 +  bool compare_dst,
 +  bool write_dst,
 +  mfu_daos_stats_t* stats)
- {
++{
 +    /* Assume src and dst are equal until found otherwise */
 +    bool all_dst_equal = true;
 +
@@ -2707,7 +4415,7 @@ index c9ebc02..866afb6 100644
          daos_key_desc_t dkey_kds[ENUM_DESC_NR]       = {0};
          uint32_t        dkey_number                  = ENUM_DESC_NR;
          char            dkey_enum_buf[ENUM_DESC_BUF] = {0};
-@@ -1046,9 +2217,8 @@ static int daos_copy_list_keys(daos_handle_t *src_oh,
+@@ -1046,9 +2278,8 @@ static int daos_copy_list_keys(daos_handle_t *src_oh,
          rc = daos_obj_list_dkey(*src_oh, DAOS_TX_NONE, &dkey_number, dkey_kds,
                                  &dkey_sgl, &dkey_anchor, NULL);
          if (rc != 0) {
@@ -2719,7 +4427,7 @@ index c9ebc02..866afb6 100644
          }
  
          /* if no dkeys were returned move on */
-@@ -1058,20 +2228,20 @@ static int daos_copy_list_keys(daos_handle_t *src_oh,
+@@ -1058,20 +2289,20 @@ static int daos_copy_list_keys(daos_handle_t *src_oh,
          char* dkey_ptr;
          int   i;
  
@@ -2744,7 +4452,7 @@ index c9ebc02..866afb6 100644
                  daos_key_desc_t akey_kds[ENUM_DESC_NR]       = {0};
                  uint32_t        akey_number                  = ENUM_DESC_NR;
                  char            akey_enum_buf[ENUM_DESC_BUF] = {0};
-@@ -1087,9 +2257,8 @@ static int daos_copy_list_keys(daos_handle_t *src_oh,
+@@ -1087,9 +2318,8 @@ static int daos_copy_list_keys(daos_handle_t *src_oh,
                  rc = daos_obj_list_akey(*src_oh, DAOS_TX_NONE, &diov, &akey_number, akey_kds,
                                          &akey_sgl, &akey_anchor, NULL);
                  if (rc != 0) {
@@ -2756,7 +4464,7 @@ index c9ebc02..866afb6 100644
                  }
  
                  /* if no akeys returned move on */
-@@ -1099,12 +2268,12 @@ static int daos_copy_list_keys(daos_handle_t *src_oh,
+@@ -1099,12 +2329,11 @@ static int daos_copy_list_keys(daos_handle_t *src_oh,
                  int j;
                  char* akey_ptr;
  
@@ -2769,12 +4477,11 @@ index c9ebc02..866afb6 100644
 -                    snprintf(akey, akey_kds[j].kd_key_len + 1, "%s", akey_ptr);
 +                    daos_key_t aiov = {0};
 +                    daos_iod_t iod = {0};
-+                    daos_recx_t recx = {0};
 +                    memcpy(akey, akey_ptr, akey_kds[j].kd_key_len);
                      d_iov_set(&aiov, (void*)akey, akey_kds[j].kd_key_len);
  
                      /* set iod values */
-@@ -1112,124 +2281,173 @@ static int daos_copy_list_keys(daos_handle_t *src_oh,
+@@ -1112,47 +2341,125 @@ static int daos_copy_list_keys(daos_handle_t *src_oh,
                      iod.iod_type  = DAOS_IOD_SINGLE;
                      iod.iod_size  = DAOS_REC_ANY;
                      iod.iod_recxs = NULL;
@@ -2803,7 +4510,7 @@ index c9ebc02..866afb6 100644
 +                        rc = mfu_daos_obj_sync_recx_array(&diov, &aiov, src_oh, dst_oh,
 +                                                          &iod, compare_dst, write_dst, stats);
 +                        if (rc == -1) {
-+                            MFU_LOG(MFU_LOG_ERR, "DAOS mfu_daos_obj_sync_recx_array returned with errors: ",
++                            MFU_LOG(MFU_LOG_ERR, "DAOS mfu_daos_obj_sync_recx_array returned with errors: "
 +                                    MFU_ERRF, MFU_ERRP(-MFU_ERR_DAOS));
 +                            goto out_err;
 +                        } else if (rc == 1) {
@@ -2818,7 +4525,7 @@ index c9ebc02..866afb6 100644
 +                        rc = mfu_daos_obj_sync_recx_single(&diov, src_oh, dst_oh,
 +                                                           &iod, compare_dst, write_dst, stats);
 +                        if (rc == -1) {
-+                            MFU_LOG(MFU_LOG_ERR, "DAOS mfu_daos_obj_sync_recx_single returned with errors: ",
++                            MFU_LOG(MFU_LOG_ERR, "DAOS mfu_daos_obj_sync_recx_single returned with errors: "
 +                                    MFU_ERRF, MFU_ERRP(-MFU_ERR_DAOS));
 +                            goto out_err;
 +                        } else if (rc == 1) {
@@ -2862,38 +4569,23 @@ index c9ebc02..866afb6 100644
 +    bool compare_dst,             /* Whether to compare the src and dst before writing */
 +    bool write_dst,               /* Whether to write to the dst */
 +    mfu_daos_stats_t* stats)
- {
-     int rc = 0;
- 
--    flist_t* flist = (flist_t*) bflist;
++{
++    int rc = 0;
++
 +    /* open handle of object in src container */
 +    daos_handle_t src_oh;
 +    rc = daos_obj_open(src_coh, oid, DAOS_OO_RO, &src_oh, NULL);
 +    if (rc != 0) {
-+        MFU_LOG(MFU_LOG_ERR, "DAOS object open returned with errors: ", MFU_ERRF,
++        MFU_LOG(MFU_LOG_ERR, "DAOS object open returned with errors: " MFU_ERRF,
 +                MFU_ERRP(-MFU_ERR_DAOS));
 +        goto out_err;
 +    }
- 
--    uint64_t i;
--    const elem_t* p = flist->list_head;
--    for (i = 0; i < flist->list_count; i++) {
--        /* open DAOS object based on oid[i] to get obj handle */
--        daos_handle_t oh;
--        daos_obj_id_t oid;
--        oid.lo = p->obj_id_lo;	
--        oid.hi = p->obj_id_hi;	
--        rc = daos_obj_open(da->src_coh, oid, 0, &oh, NULL);
--        if (rc != 0) {
--            MFU_LOG(MFU_LOG_ERR, "DAOS object open returned with errors: ", MFU_ERRF,
--	            MFU_ERRP(-MFU_ERR_DAOS));
--	    return 1;
--        }
++
 +    /* open handle of object in dst container */
 +    daos_handle_t dst_oh;
 +    rc = daos_obj_open(dst_coh, oid, DAOS_OO_EXCL, &dst_oh, NULL);
 +    if (rc != 0) {
-+        MFU_LOG(MFU_LOG_ERR, "DAOS object open returned with errors: ", MFU_ERRF,
++        MFU_LOG(MFU_LOG_ERR, "DAOS object open returned with errors: " MFU_ERRF,
 +                MFU_ERRP(-MFU_ERR_DAOS));
 +        /* make sure to close the source if opening dst fails */
 +        daos_obj_close(src_oh, NULL);
@@ -2901,32 +4593,14 @@ index c9ebc02..866afb6 100644
 +    }
 +    int copy_rc = mfu_daos_obj_sync_keys(&src_oh, &dst_oh, compare_dst, write_dst, stats);
 +    if (copy_rc == -1) {
-+        MFU_LOG(MFU_LOG_ERR, "DAOS copy list keys returned with errors: ", MFU_ERRF,
++        MFU_LOG(MFU_LOG_ERR, "DAOS copy list keys returned with errors: " MFU_ERRF,
 +                MFU_ERRP(-MFU_ERR_DAOS));
 +        /* cleanup object handles on failure */
 +        daos_obj_close(src_oh, NULL);
 +        daos_obj_close(dst_oh, NULL);
 +        goto out_err;
 +    }
- 
--        /* open handle of object in dst container */
--        daos_handle_t dst_oh;
--        rc = daos_obj_open(da->dst_coh, oid, 0, &dst_oh, NULL);
--        if (rc != 0) {
--            MFU_LOG(MFU_LOG_ERR, "DAOS object open returned with errors: ", MFU_ERRF,
--	            MFU_ERRP(-MFU_ERR_DAOS));
--            /* make sure to close the source if opening dst fails */
--            daos_obj_close(oh, NULL);
--	    return 1;
--        }
--        rc = daos_copy_list_keys(&oh, &dst_oh);
--        if (rc != 0) {
--            MFU_LOG(MFU_LOG_ERR, "DAOS copy list keys returned with errors: ", MFU_ERRF,
--                    MFU_ERRP(-MFU_ERR_DAOS));
--            /* cleanup object handles on failure */
--            daos_obj_close(oh, NULL);
--            daos_obj_close(dst_oh, NULL);
--	    return 1;
++
 +    stats->total_oids++;
 +
 +    /* close source and destination object */
@@ -2949,15 +4623,43 @@ index c9ebc02..866afb6 100644
 +  bool compare_dst,
 +  bool write_dst,
 +  mfu_daos_stats_t* stats)
-+{
-+    int rc = 0;
-+
-+    flist_t* flist = (flist_t*) bflist;
-+
-+    uint64_t i;
-+    const elem_t* p = flist->list_head;
-+    for (i = 0; i < flist->list_count; i++) {
-+        daos_obj_id_t oid;
+ {
+     int rc = 0;
+ 
+@@ -1161,111 +2468,98 @@ static int daos_obj_copy(
+     uint64_t i;
+     const elem_t* p = flist->list_head;
+     for (i = 0; i < flist->list_count; i++) {
+-        /* open DAOS object based on oid[i] to get obj handle */
+-        daos_handle_t oh;
+         daos_obj_id_t oid;
+-        oid.lo = p->obj_id_lo;	
+-        oid.hi = p->obj_id_hi;	
+-        rc = daos_obj_open(da->src_coh, oid, 0, &oh, NULL);
+-        if (rc != 0) {
+-            MFU_LOG(MFU_LOG_ERR, "DAOS object open returned with errors: ", MFU_ERRF,
+-	            MFU_ERRP(-MFU_ERR_DAOS));
+-	    return 1;
+-        }
+-
+-        /* open handle of object in dst container */
+-        daos_handle_t dst_oh;
+-        rc = daos_obj_open(da->dst_coh, oid, 0, &dst_oh, NULL);
+-        if (rc != 0) {
+-            MFU_LOG(MFU_LOG_ERR, "DAOS object open returned with errors: ", MFU_ERRF,
+-	            MFU_ERRP(-MFU_ERR_DAOS));
+-            /* make sure to close the source if opening dst fails */
+-            daos_obj_close(oh, NULL);
+-	    return 1;
+-        }
+-        rc = daos_copy_list_keys(&oh, &dst_oh);
+-        if (rc != 0) {
+-            MFU_LOG(MFU_LOG_ERR, "DAOS copy list keys returned with errors: ", MFU_ERRF,
+-                    MFU_ERRP(-MFU_ERR_DAOS));
+-            /* cleanup object handles on failure */
+-            daos_obj_close(oh, NULL);
+-            daos_obj_close(dst_oh, NULL);
+-	    return 1;
 +        oid.lo = p->obj_id_lo;
 +        oid.hi = p->obj_id_hi;
 +
@@ -3019,9 +4721,10 @@ index c9ebc02..866afb6 100644
      }
 +    memset(&oids, 0, OID_ARR_SIZE*sizeof(daos_obj_id_t));
      memset(&anchor, 0, sizeof(anchor));
-     flist_t* flist = (flist_t*) bflist;
+-    flist_t* flist = (flist_t*) bflist;
  
-@@ -1238,34 +2456,51 @@ static int daos_obj_list_oids(daos_args_t* da, mfu_flist bflist) {
+     /* list and store all object ids in flist for this epoch */
+     while (1) {
          oids_nr = OID_ARR_SIZE;
          rc = daos_oit_list(toh, oids, &oids_nr, &anchor, NULL);
          if (rc != 0) {
@@ -3086,7 +4789,7 @@ index c9ebc02..866afb6 100644
      mfu_flist flist)
  {
      /* assume we'll succeed */
-@@ -1277,39 +2512,3390 @@ int mfu_flist_walk_daos(
+@@ -1277,39 +2571,3378 @@ int mfu_flist_walk_daos(
  
      /* have rank 0 do the work of listing the objects */
      if (rank == 0) {
@@ -3095,16 +4798,16 @@ index c9ebc02..866afb6 100644
 +        rc = daos_cont_create_snap_opt(coh, epoch, NULL,
 +                                       DAOS_SNAP_OPT_CR | DAOS_SNAP_OPT_OIT,
 +                                       NULL);
-         if (rc != 0) {
--            MFU_LOG(MFU_LOG_ERR, "DAOS failed to list oids: ",
--                MFU_ERRF, MFU_ERRP(-MFU_ERR_DAOS));
++        if (rc != 0) {
 +            MFU_LOG(MFU_LOG_ERR, "DAOS failed to create snapshot "DF_RC, DP_RC(rc));
 +            rc = -1;
 +            goto out_broadcast;
 +        }
 +
 +        rc = mfu_daos_obj_list_oids(da, flist, coh, *epoch);
-+        if (rc != 0) {
+         if (rc != 0) {
+-            MFU_LOG(MFU_LOG_ERR, "DAOS failed to list oids: ",
+-                MFU_ERRF, MFU_ERRP(-MFU_ERR_DAOS));
 +            rc = -1;
 +            goto out_broadcast;
          }
@@ -3162,7 +4865,7 @@ index c9ebc02..866afb6 100644
          /* someone failed, so return failure on all ranks */
          rc = 1;
 +        if (rank == 0) {
-+            MFU_LOG(MFU_LOG_ERR, "DAOS object copy failed: ",
++            MFU_LOG(MFU_LOG_ERR, "DAOS object copy failed: "
 +                    MFU_ERRF, MFU_ERRP(-MFU_ERR_DAOS));
 +        }
 +    } else {
@@ -3227,7 +4930,6 @@ index c9ebc02..866afb6 100644
 +{
 +    void        *buf;
 +    int         rc;
-+    herr_t      err;
 +    hvl_t       *kv_val;
 +    daos_size_t size = 0;
 +
@@ -3277,7 +4979,6 @@ index c9ebc02..866afb6 100644
 +    d_sg_list_t sgl;
 +    d_iov_t     iov;
 +    int         rc;
-+    herr_t      err;
 +    hvl_t       *single_val;
 +
 +    buf = MFU_CALLOC(1, buf_len);
@@ -3331,7 +5032,6 @@ index c9ebc02..866afb6 100644
 +    int                 attr_num = 0;
 +    int                 buf_len = 0;
 +    int                 path_len = 0;
-+    int                 encode_buf_len = 0;
 +    uint32_t            number = 5;
 +    size_t              nalloc = 0;
 +    daos_anchor_t       recx_anchor = {0}; 
@@ -3474,7 +5174,6 @@ index c9ebc02..866afb6 100644
 +                rc = 1;
 +                goto out;
 +            }
-+            hsize_t dset_size = H5Sget_simple_extent_npoints(hdf5->rx_dspace);
 +            hsize_t start = (hsize_t)recxs[i].rx_idx;
 +            hsize_t count = (hsize_t)recxs[i].rx_nr;
 +            status = H5Sselect_hyperslab(hdf5->rx_dspace,
@@ -3662,7 +5361,6 @@ index c9ebc02..866afb6 100644
 +                           mfu_daos_stats_t *stats)
 +{
 +    int             rc = 0;
-+    herr_t          err = 0;
 +    int             j = 0;
 +    daos_anchor_t   akey_anchor = {0}; 
 +    d_sg_list_t     akey_sgl;
@@ -3731,7 +5429,7 @@ index c9ebc02..866afb6 100644
 +                   (uint64_t)akey_kds[j].kd_key_len);
 +            akey_val->len = (uint64_t)akey_kds[j].kd_key_len; 
 +            (*hdf5->ak)[*ak_index].rec_dset_id = *ak_index;
- 
++
 +            /* set iod values */
 +            iod.iod_nr   = 1;
 +            iod.iod_type = DAOS_IOD_SINGLE;
@@ -3767,7 +5465,7 @@ index c9ebc02..866afb6 100644
 +                    rc = 1;
 +                    goto out;
 +                }
-+
+ 
 +                rc = serialize_recx_array(hdf5, &diov, &aiov, rec_name,
 +                                          ak_index, oh, &iod, stats);
 +                if (rc != 0) {
@@ -3801,7 +5499,7 @@ index c9ebc02..866afb6 100644
 +                           int *oid_index,
 +                           daos_args_t *da,
 +                           daos_obj_id_t oid,
-+                           bool is_kv_flat,
++                           bool is_kv,
 +                           mfu_daos_stats_t* stats)
 +{
 +    int             rc = 0;
@@ -3818,7 +5516,6 @@ index c9ebc02..866afb6 100644
 +    daos_key_t      diov;
 +    int             path_len = 0;
 +    hvl_t           *dkey_val;
-+    int             size = 0;
 +
 +    rc = init_recx_data(hdf5);
 +    if (rc != 0) {
@@ -3839,7 +5536,7 @@ index c9ebc02..866afb6 100644
 +
 +        d_iov_set(&dkey_iov, dkey_enum_buf, ENUM_DESC_BUF);
 +
-+        if (is_kv_flat) {
++        if (is_kv) {
 +            rc = daos_kv_list(*oh, DAOS_TX_NONE, &dkey_number,
 +                              dkey_kds, &dkey_sgl, &dkey_anchor, NULL);
 +            if (rc != 0) {
@@ -3884,7 +5581,7 @@ index c9ebc02..866afb6 100644
 +            dkey_val->len = (uint64_t)dkey_kds[i].kd_key_len; 
 +            (*hdf5->dk)[*dk_index].rec_kv_val.p = NULL;
 +            (*hdf5->dk)[*dk_index].rec_kv_val.len = 0;
-+            if (is_kv_flat) {
++            if (is_kv) {
 +                /* akey offset will not be used in this case */
 +                (*hdf5->dk)[*dk_index].akey_offset = 0;
 +
@@ -4152,7 +5849,6 @@ index c9ebc02..866afb6 100644
 +    hid_t       status = 0;
 +    hid_t       dset = 0;
 +    hid_t       dspace = 0;
-+    hid_t       vtype = 0;
 +    hsize_t     dims[1];
 +    usr_attr_t* attr_data = NULL;
 +    int         num_attrs = 0;
@@ -4598,7 +6294,6 @@ index c9ebc02..866afb6 100644
 +    int                     rc = 0;
 +    daos_prop_t*            prop_query = NULL;
 +    struct daos_prop_entry* entry;
-+    char                    cont_str[DAOS_PROP_LABEL_MAX_LEN];
 +
 +    rc = cont_get_props(cont, &prop_query, true, true, true);
 +    if (rc != 0) {
@@ -4728,6 +6423,23 @@ index c9ebc02..866afb6 100644
 +    return rc;
 +}
 +
++static bool obj_is_kv(daos_obj_id_t oid)
++{
++
++#if CHECK_DAOS_API_VERSION(2, 0)
++	return daos_obj_id2type(oid) == DAOS_OT_KV_HASHED;
++#else
++	daos_ofeat_t ofeat;
++
++        ofeat = (oid.hi & OID_FMT_FEAT_MASK) >> OID_FMT_FEAT_SHIFT;
++        if ((ofeat & DAOS_OF_KV_FLAT) &&
++            !(ofeat & DAOS_OF_ARRAY_BYTE) && !(ofeat & DAOS_OF_ARRAY)) {
++		return true;
++        }
++	return false;
++#endif
++}
++
 +int daos_cont_serialize_hdlr(int rank, struct hdf5_args *hdf5, char *output_dir,
 +                             uint64_t *files_written, daos_args_t *da,
 +                             mfu_flist flist, uint64_t num_oids,
@@ -4735,18 +6447,13 @@ index c9ebc02..866afb6 100644
 +{
 +    int             rc = 0;
 +    int             i = 0;
-+    int             path_len = 0;
 +    uint64_t        dk_index = 0;
 +    uint64_t        ak_index = 0;
-+    daos_handle_t   toh;
-+    daos_epoch_t    epoch;
 +    daos_handle_t   oh;
 +    float           version = 0.0;
-+    herr_t          err = 0;
 +    char            *filename = NULL;
 +    char            cont_str[FILENAME_LEN];
-+    daos_ofeat_t    ofeat;
-+    bool            is_kv_flat = false;
++    bool            is_kv = false;
 +    int             size = 0;
 +
 +    /* init HDF5 args */
@@ -4805,23 +6512,20 @@ index c9ebc02..866afb6 100644
 +        (*hdf5->oid)[i].oid_hi = oid.hi;
 +        (*hdf5->oid)[i].oid_low = oid.lo;
 +
++	is_kv = obj_is_kv(oid);
 +        /* TODO: DAOS_OF_KV_FLAT uses daos_kv_* functions, and
 +         * other object types use daos_obj_* functions. Maybe there is
 +         * a better way to organize this with swtich statements, or
 +         * creating "daos_obj" wrappers, etc. */
-+        ofeat = (oid.hi & OID_FMT_FEAT_MASK) >> OID_FMT_FEAT_SHIFT;
-+        if ((ofeat & DAOS_OF_KV_FLAT) &&
-+            !(ofeat & DAOS_OF_ARRAY_BYTE) && !(ofeat & DAOS_OF_ARRAY)) {
-+            is_kv_flat = true;
-+        }
-+        if (is_kv_flat) {
++
++        if (is_kv) {
 +            rc = daos_kv_open(da->src_coh, oid, DAOS_OO_RW, &oh, NULL);
 +            if (rc != 0) {
 +                MFU_LOG(MFU_LOG_ERR, "failed to open kv object: "DF_RC, DP_RC(rc));
 +                goto out;
 +            }
 +            rc = serialize_dkeys(hdf5, &dk_index, &ak_index,
-+                                 &oh, &i, da, oid, is_kv_flat, stats);
++                                 &oh, &i, da, oid, is_kv, stats);
 +            if (rc != 0) {
 +                MFU_LOG(MFU_LOG_ERR, "failed to serialize keys: %d", rc);
 +                goto out;
@@ -4839,7 +6543,7 @@ index c9ebc02..866afb6 100644
 +                goto out;
 +            }
 +            rc = serialize_dkeys(hdf5, &dk_index, &ak_index,
-+                                 &oh, &i, da, oid, is_kv_flat, stats);
++                                 &oh, &i, da, oid, is_kv, stats);
 +            if (rc != 0) {
 +                MFU_LOG(MFU_LOG_ERR, "failed to serialize keys: %d", rc);
 +                goto out;
@@ -5303,7 +7007,6 @@ index c9ebc02..866afb6 100644
 +                                  mfu_daos_stats_t* stats)
 +{
 +    int             rc = 0;
-+    hid_t           status = 0;
 +    daos_key_t      aiov;
 +    char            akey[ENUM_KEY_BUF] = {0};
 +    int             rx_ndims;
@@ -5315,7 +7018,6 @@ index c9ebc02..866afb6 100644
 +    d_sg_list_t     sgl;
 +    d_iov_t         iov;
 +    daos_iod_t      iod;
-+    hvl_t           *rec_kv_val;
 +    hvl_t           *akey_val;
 +    hvl_t           *rec_single_val;
 +    
@@ -5437,7 +7139,6 @@ index c9ebc02..866afb6 100644
 +                                 mfu_daos_stats_t* stats)
 +{
 +    int             rc = 0;
-+    hid_t           status = 0;
 +    int             j = 0;
 +    daos_key_t      diov;
 +    char            dkey[ENUM_KEY_BUF] = {0};
@@ -5696,7 +7397,6 @@ index c9ebc02..866afb6 100644
 +{
 +    hid_t           status = 0;
 +    int             rc = 0;
-+    int             i = 0;
 +    int             ndims = 0;
 +    const char      **rdata = NULL;
 +    struct daos_acl *acl;
@@ -6171,7 +7871,6 @@ index c9ebc02..866afb6 100644
 +{
 +    int                     rc = 0;
 +    int                     i = 0;
-+    daos_cont_info_t        cont_info;
 +    struct                  hdf5_args hdf5;
 +    daos_obj_id_t           oid;
 +    daos_handle_t           oh;
@@ -6180,10 +7879,7 @@ index c9ebc02..866afb6 100644
 +    uint64_t                total_dkeys_this_oid = 0;
 +    hid_t                   status = 0;
 +    float                   version;
-+    daos_cont_layout_t      cont_type;
-+    daos_prop_t*            prop;
-+    struct daos_prop_entry  *entry;
-+    bool                    is_kv_flat = false;
++    bool                    is_kv = false;
 +
 +    /* init HDF5 args */
 +    init_hdf5_args(&hdf5);
@@ -6242,16 +7938,11 @@ index c9ebc02..866afb6 100644
 +        rc = 1;
 +        goto out;
 +    }
-+    daos_ofeat_t ofeat; 
 +    for (i = 0; i < (int)hdf5.oid_dims[0]; i++) {
 +        oid.lo = hdf5.oid_data[i].oid_low;
 +        oid.hi = hdf5.oid_data[i].oid_hi;
-+        ofeat = (oid.hi & OID_FMT_FEAT_MASK) >> OID_FMT_FEAT_SHIFT;
-+        if ((ofeat & DAOS_OF_KV_FLAT) &&
-+            !(ofeat & DAOS_OF_ARRAY_BYTE) && !(ofeat & DAOS_OF_ARRAY)) {
-+            is_kv_flat = true;
-+        }
-+        if (is_kv_flat) {
++	is_kv = obj_is_kv(oid);
++        if (is_kv) {
 +            rc = daos_kv_open(da->src_coh, oid, DAOS_OO_RW, &oh, NULL);
 +            if (rc != 0) {
 +                MFU_LOG(MFU_LOG_ERR, "Failed to open kv object: "DF_RC, DP_RC(rc));
@@ -6279,7 +7970,7 @@ index c9ebc02..866afb6 100644
 +            MFU_LOG(MFU_LOG_ERR, "failed to deserialize keys: %d", rc);
 +            goto out;
 +        }
-+        if (is_kv_flat) {
++        if (is_kv) {
 +            rc = daos_kv_close(oh, NULL);
 +            if (rc != 0) {
 +                MFU_LOG(MFU_LOG_ERR, "failed to close kv object: "DF_RC, DP_RC(rc));
@@ -6849,6 +8540,28 @@ index 454ee04..86624c0 100644
 +    bool compare_dst,   /* whether to compare the dst before writing */
 +    bool write_dst      /* whether to actually write to the dst */
  );
+diff --git a/src/common/mfu_decompress_bz2_libcircle.c b/src/common/mfu_decompress_bz2_libcircle.c
+index 47c8ce3..f714369 100644
+--- a/src/common/mfu_decompress_bz2_libcircle.c
++++ b/src/common/mfu_decompress_bz2_libcircle.c
+@@ -258,13 +258,13 @@ int mfu_decompress_bz2_libcircle(const char* src, const char* dst)
+     }
+ 
+     /* extract values from footer into local variables */
+-    block_meta  = (int64_t)footer[0]; /* offset to start of block metadata */
+-    block_total = (int64_t)footer[1]; /* number of blocks */
++    block_meta  = (int64_t)footer[0];         /* offset to start of block metadata */
++    block_total = (int64_t)footer[1];         /* number of blocks */
+     block_size          = (int64_t)footer[2]; /* max uncompressed size of a block */
+-    int64_t data_size   = (int64_t)footer[3]; /* uncompressed size of all blocks */
++                                              /* (int64_t)footer[3] - unused - uncompressed size of all blocks */
+     uint64_t version    = footer[4];          /* dbz2 file format footer version */
+     uint64_t magic      = footer[5];          /* dbz2 file format magic value */
+-    int64_t filesize    = (int64_t)footer[6]; /* file size of compressed file */
++                                              /* (int64_t)footer[6] - unused - file size of compressed file */
+ 
+     /* check that we got correct magic value */
+     if (magic != 0x3141314131413141) {
 diff --git a/src/common/mfu_errors.h b/src/common/mfu_errors.h
 index ae80453..ce4ff17 100644
 --- a/src/common/mfu_errors.h
@@ -6873,10 +8586,18 @@ index ae80453..ce4ff17 100644
  #define MFU_ERR           1000
  #define MFU_ERR_INVAL_ARG 1001
 diff --git a/src/common/mfu_flist.c b/src/common/mfu_flist.c
-index 772fdc2..5b2c104 100644
+index 772fdc2..a0071f1 100644
 --- a/src/common/mfu_flist.c
 +++ b/src/common/mfu_flist.c
-@@ -771,6 +771,28 @@ void mfu_flist_set_detail (mfu_flist bflist, int detail)
+@@ -73,7 +73,6 @@ mfu_walk_opts_t* mfu_walk_opts_new(void)
+ void mfu_walk_opts_delete(mfu_walk_opts_t** popts)
+ {
+   if (popts != NULL) {
+-    mfu_walk_opts_t* opts = *popts;
+     mfu_free(popts);
+   }
+ }
+@@ -771,6 +770,28 @@ void mfu_flist_set_detail (mfu_flist bflist, int detail)
      return;
  }
  
@@ -6905,7 +8626,7 @@ index 772fdc2..5b2c104 100644
  const char* mfu_flist_file_get_name(mfu_flist bflist, uint64_t idx)
  {
      const char* name = NULL;
-@@ -1011,6 +1033,20 @@ void mfu_flist_file_set_oid(mfu_flist bflist, uint64_t idx, daos_obj_id_t oid)
+@@ -1011,6 +1032,20 @@ void mfu_flist_file_set_oid(mfu_flist bflist, uint64_t idx, daos_obj_id_t oid)
      }
      return;
  }
@@ -6947,11 +8668,139 @@ index 0cebf3f..dd02888 100644
  #endif
  void mfu_flist_file_set_name(mfu_flist flist, uint64_t index, const char* name);
  void mfu_flist_file_set_type(mfu_flist flist, uint64_t index, mfu_filetype type);
+diff --git a/src/common/mfu_flist_chmod.c b/src/common/mfu_flist_chmod.c
+index 7f269ef..d1bd985 100644
+--- a/src/common/mfu_flist_chmod.c
++++ b/src/common/mfu_flist_chmod.c
+@@ -1311,8 +1311,6 @@ mfu_chmod_opts_t* mfu_chmod_opts_new(void)
+ void mfu_chmod_opts_delete(mfu_chmod_opts_t** popts)
+ {
+   if (popts != NULL) {
+-    mfu_chmod_opts_t* opts = *popts;
+-
+     mfu_free(popts);
+   }
+ }
 diff --git a/src/common/mfu_flist_copy.c b/src/common/mfu_flist_copy.c
-index 8a36bc9..7368a68 100644
+index 8a36bc9..f5acaab 100644
 --- a/src/common/mfu_flist_copy.c
 +++ b/src/common/mfu_flist_copy.c
-@@ -1036,7 +1036,7 @@ static int mfu_create_directories(
+@@ -18,6 +18,10 @@
+ #include <time.h> /* asctime / localtime */
+ #include <regex.h>
+ 
++#ifdef HAVE_LIBATTR
++#include <attr/libattr.h>
++#endif /* HAVE_LIBATTR */
++
+ /* These headers are needed to query the Lustre MDS for stat
+  * information.  This information may be incomplete, but it
+  * is faster than a normal stat, which requires communication
+@@ -155,10 +159,6 @@ static int mfu_copy_open_file(
+     char* name = cache->name;
+     if (name != NULL) {
+         /* we have a cached file descriptor */
+-        int fd = cache->fd;
+-#ifdef DAOS_SUPPORT
+-        dfs_obj_t* obj = cache->obj;
+-#endif
+         if (strcmp(name, file) == 0 && cache->read == read_flag) {
+             /* the file we're trying to open matches name and read/write mode,
+              * so just return the cached descriptor */
+@@ -240,9 +240,6 @@ static int mfu_copy_close_file(
+     char* name = cache->name;
+     if (name != NULL) {
+         int fd = cache->fd;
+-#ifdef DAOS_SUPPORT
+-        dfs_obj_t* obj = cache->obj;
+-#endif
+         /* if open for write, fsync */
+         int read_flag = cache->read;
+         if (! read_flag && mfu_file->type == POSIX) {
+@@ -330,18 +327,40 @@ static int mfu_copy_xattrs(
+     /* iterate over list and copy values to new object lgetxattr/lsetxattr */
+     if(got_list) {
+         char* name = list;
+-
+         while(name < list + list_size) {
+             /* start with a reasonable buffer,
+              * allocate something bigger as needed */
+             size_t val_bufsize = 1024;
+             void* val = (void*) MFU_MALLOC(val_bufsize);
++            int copy_xattr;
+ 
+             /* lookup value for name */
+             ssize_t val_size;
+             int got_val = 0;
+ 
+-            while(! got_val) {
++            copy_xattr = 1; /* copy unless indicated below not to */
++            if (copy_opts->copy_xattrs == XATTR_USE_LIBATTR) {
++#ifdef HAVE_LIBATTR
++                if (attr_copy_action(name, NULL) == ATTR_ACTION_SKIP) {
++                    copy_xattr = 0;
++                }
++#endif /* HAVE_LIBATTR */
++            } else if (copy_opts->copy_xattrs == XATTR_SKIP_LUSTRE) {
++                /* ignore xattrs lustre treats specially */
++                /* list from lustre source file lustre_idl.h */
++                if (    strncmp(name,"lustre.",strlen("lustre.")) == 0 ||
++                        strcmp(name,"trusted.som") == 0 || strcmp(name,"trusted.lov") == 0 ||
++                        strcmp(name,"trusted.lma") == 0 || strcmp(name,"trusted.lmv") == 0 ||
++                        strcmp(name,"trusted.dmv") == 0 || strcmp(name,"trusted.link") == 0 ||
++                        strcmp(name,"trusted.fid") == 0 || strcmp(name,"trusted.version") == 0 ||
++                        strcmp(name,"trusted.hsm") == 0 || strcmp(name,"trusted.lfsck_bitmap") == 0 ||
++                        strcmp(name,"trusted.dummy") == 0)
++                {
++                    copy_xattr = 0;
++                }
++            }
++
++            while(! got_val && copy_xattr) {
+                 errno = 0;
+                 if (copy_opts->dereference) {
+                     /* getxattr of dereferenced symbolic links */
+@@ -390,7 +409,7 @@ static int mfu_copy_xattrs(
+             }
+ 
+             /* set attribute on destination object */
+-            if(got_val) {
++            if(got_val && copy_xattr) {
+                 errno = 0;
+                 /* lsetxattr of symbolic link itself. No need to dereference here */
+                 int setrc = mfu_file_lsetxattr(dest_path, name, val, (size_t) val_size, 0, mfu_dst_file);
+@@ -923,9 +942,9 @@ static int mfu_copy_set_metadata_dirs(
+ 
+ /* creates dir in destpath for specified item, identifies source path
+  * that contains source dir, computes relative path to dir under source path,
+- * and creates dir at same relative path under destpath, copies xattrs
+- * when preserving permissions, which contains file striping info on Lustre,
+- * returns 0 on success and -1 on error */
++ * and creates dir at same relative path under destpath, optionally copies
++ * xattrs (which contain striping information under Lustre), optionally
++ * preserves permissions, returns 0 on success and -1 on error */
+ static int mfu_create_directory(
+     mfu_flist list,                 /* flist holding target directory */
+     uint64_t idx,                   /* index of target directory within its list */
+@@ -993,7 +1012,7 @@ static int mfu_create_directory(
+      * creating / striping files in the directory */
+ 
+     /* copy extended attributes on directory */
+-    if (copy_opts->preserve) {
++    if (copy_opts->copy_xattrs != XATTR_COPY_NONE) {
+         int tmp_rc = mfu_copy_xattrs(list, idx, dest_path, copy_opts, mfu_src_file, mfu_dst_file);
+         if (tmp_rc < 0) {
+             rc = -1;
+@@ -1027,16 +1046,13 @@ static int mfu_create_directories(
+     /* assume we'll succeed */
+     int rc = 0;
+ 
+-    /* determine whether we should print status messages */
+-    int verbose = (mfu_debug_level >= MFU_LOG_VERBOSE);
+-
+     /* get current rank */
+     int rank;
+     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
  
      /* count total number of directories to be created */
      int level;
@@ -6960,7 +8809,7 @@ index 8a36bc9..7368a68 100644
      for (level = 0; level < levels; level++) {
          /* get list of items for this level */
          mfu_flist list = lists[level];
-@@ -1047,14 +1047,14 @@ static int mfu_create_directories(
+@@ -1047,14 +1063,14 @@ static int mfu_create_directories(
             /* check whether we have a directory */
             mfu_filetype type = mfu_flist_file_get_type(list, idx);
             if (type == MFU_TYPE_DIR) {
@@ -6977,7 +8826,48 @@ index 8a36bc9..7368a68 100644
  
      /* bail early if there is no work to do */
      if (mkdir_total_count == 0) {
-@@ -1342,14 +1342,14 @@ static void create_progress_fn(const uint64_t* vals, int count, int complete, in
+@@ -1078,7 +1094,6 @@ static int mfu_create_directories(
+         /* create each directory we have at this level */
+         uint64_t idx;
+         uint64_t size = mfu_flist_size(list);
+-        uint64_t count = 0;
+         for (idx = 0; idx < size; idx++) {
+             /* check whether we have a directory */
+             mfu_filetype type = mfu_flist_file_get_type(list, idx);
+@@ -1166,8 +1181,8 @@ static int mfu_create_link(
+         }
+     }
+ 
+-    /* set permissions on link */
+-    if (copy_opts->preserve) {
++    /* set xattrs on link */
++    if (copy_opts->copy_xattrs != XATTR_COPY_NONE) {
+         int xattr_rc = mfu_copy_xattrs(list, idx, dest_path, copy_opts, mfu_src_file, mfu_dst_file);
+         if (xattr_rc < 0) {
+             rc = -1;
+@@ -1185,9 +1200,9 @@ static int mfu_create_link(
+ 
+ /* creates inode in destpath for specified file, identifies source path
+  * that contains source file, computes relative path to file under source path,
+- * and creates file at same relative path under destpath, copies xattrs
+- * when preserving permissions, which contains file striping info on Lustre,
+- * returns 0 on success and -1 on error */
++ * and creates file at same relative path under destpath, optionally copies
++ * xattrs (which contain striping information under Lustre), optionally
++ * preserves permissions, returns 0 on success and -1 on error */
+ static int mfu_create_file(
+     mfu_flist list,
+     uint64_t idx,
+@@ -1240,7 +1255,7 @@ static int mfu_create_file(
+     /* copy extended attributes, important to do this first before
+      * writing data because some attributes tell file system how to
+      * stripe data, e.g., Lustre */
+-    if (copy_opts->preserve) {
++    if (copy_opts->copy_xattrs != XATTR_COPY_NONE) {
+         int tmp_rc = mfu_copy_xattrs(list, idx, dest_path, copy_opts, mfu_src_file, mfu_dst_file);
+         if (tmp_rc < 0) {
+             rc = -1;
+@@ -1342,14 +1357,14 @@ static void create_progress_fn(const uint64_t* vals, int count, int complete, in
  
      /* compute percentage of items created */
      double percent = 0.0;
@@ -6995,7 +8885,26 @@ index 8a36bc9..7368a68 100644
      }
  
      if (complete < ranks) {
-@@ -1489,7 +1489,7 @@ static int mfu_create_hardlinks(
+@@ -1376,9 +1391,6 @@ static int mfu_create_files(
+ {
+     int rc = 0;
+ 
+-    /* determine whether we should print status messages */
+-    int verbose = (mfu_debug_level >= MFU_LOG_VERBOSE);
+-
+     /* get current rank */
+     int rank;
+     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+@@ -1480,16 +1492,13 @@ static int mfu_create_hardlinks(
+ {
+     int rc = 0;
+ 
+-    /* determine whether we should print status messages */
+-    int verbose = (mfu_debug_level >= MFU_LOG_VERBOSE);
+-
+     /* get current rank */
+     int rank;
+     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
  
      /* first, count number of items to create in the list of the current process */
      int level;
@@ -7004,7 +8913,7 @@ index 8a36bc9..7368a68 100644
      for (level = 0; level < levels; level++) {
          /* get list of items for this level */
          mfu_flist list = lists[level];
-@@ -1500,14 +1500,14 @@ static int mfu_create_hardlinks(
+@@ -1500,14 +1509,14 @@ static int mfu_create_hardlinks(
              /* count regular files */
              mfu_filetype type = mfu_flist_file_get_type(list, idx);
              if (type == MFU_TYPE_FILE) {
@@ -7021,7 +8930,42 @@ index 8a36bc9..7368a68 100644
  
      /* bail early if there is no work to do */
      if (mknod_total_count == 0) {
-@@ -3220,8 +3220,8 @@ mfu_file_t* mfu_file_new(void)
+@@ -1530,7 +1539,6 @@ static int mfu_create_hardlinks(
+         /* iterate over items and create hardlink for each */
+         uint64_t idx;
+         uint64_t size = mfu_flist_size(list);
+-        uint64_t count = 0;
+         for (idx = 0; idx < size; idx++) {
+             /* get type of item */
+             mfu_filetype type = mfu_flist_file_get_type(list, idx);
+@@ -3100,23 +3108,19 @@ int mfu_flist_hardlink(
+                       mfu_copy_stats.wtime_started;
+ 
+     /* prep our values into buffer */
+-    int64_t values[5];
++    int64_t values[3];
+     values[0] = mfu_copy_stats.total_dirs;
+     values[1] = mfu_copy_stats.total_files;
+     values[2] = mfu_copy_stats.total_links;
+-    values[3] = mfu_copy_stats.total_size;
+-    values[4] = mfu_copy_stats.total_bytes_copied;
+ 
+     /* sum values across processes */
+-    int64_t sums[5];
+-    MPI_Allreduce(values, sums, 5, MPI_INT64_T, MPI_SUM, MPI_COMM_WORLD);
++    int64_t sums[3];
++    MPI_Allreduce(values, sums, 3, MPI_INT64_T, MPI_SUM, MPI_COMM_WORLD);
+ 
+     /* extract results from allreduce */
+     int64_t agg_dirs   = sums[0];
+     int64_t agg_files  = sums[1];
+     int64_t agg_links  = sums[2];
+-    int64_t agg_size   = sums[3];
+-    int64_t agg_copied = sums[4];
+ 
+     if(rank == 0) {
+         /* format start time */
+@@ -3220,8 +3224,8 @@ mfu_file_t* mfu_file_new(void)
      mfile->fd         = -1;
  #ifdef DAOS_SUPPORT
      mfile->obj        = NULL;
@@ -7031,8 +8975,52 @@ index 8a36bc9..7368a68 100644
  #endif
      return mfile;
  }
+@@ -3229,7 +3233,6 @@ mfu_file_t* mfu_file_new(void)
+ void mfu_file_delete(mfu_file_t** pfile)
+ {
+   if (pfile != NULL) {
+-    mfu_file_t* mfile = *pfile;
+     mfu_free(pfile);
+   }
+ }
+@@ -3254,6 +3257,9 @@ mfu_copy_opts_t* mfu_copy_opts_new(void)
+     /* By default, don't bother to preserve all attributes. */
+     opts->preserve = false;
+ 
++    /* By default, do not copy special to Lustre (which set striping) */
++    opts->copy_xattrs = XATTR_SKIP_LUSTRE;
++
+     /* By default, don't dereference source symbolic links. 
+      * This is not a perfect opposite of no_dereference */
+     opts->dereference = 0;
+diff --git a/src/common/mfu_flist_create.c b/src/common/mfu_flist_create.c
+index 36290ce..3455e1a 100644
+--- a/src/common/mfu_flist_create.c
++++ b/src/common/mfu_flist_create.c
+@@ -83,9 +83,6 @@ void mfu_flist_mkdir(mfu_flist flist, mfu_create_opts_t* opts)
+ {
+     int rc = 0;
+ 
+-    /* determine whether we should print status messages */
+-    int verbose = (mfu_debug_level <= MFU_LOG_INFO);
+-
+     /* get current rank */
+     int rank;
+     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+@@ -293,11 +290,6 @@ static int create_file(mfu_flist list, uint64_t idx, mfu_create_opts_t* opts)
+ /* create inodes for all regular files in flist, assumes directories exist */
+ void mfu_flist_mknod(mfu_flist flist, mfu_create_opts_t* opts)
+ {
+-    int rc = 0;
+-
+-    /* determine whether we should print status messages */
+-    int verbose = (mfu_debug_level <= MFU_LOG_INFO);
+-
+     /* get current rank */
+     int rank;
+     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 diff --git a/src/common/mfu_flist_walk.c b/src/common/mfu_flist_walk.c
-index fd30da2..2d7c701 100644
+index fd30da2..120976e 100644
 --- a/src/common/mfu_flist_walk.c
 +++ b/src/common/mfu_flist_walk.c
 @@ -93,6 +93,35 @@ static void reduce_fini(const void* buf, size_t size)
@@ -7097,7 +9085,15 @@ index fd30da2..2d7c701 100644
              }
  
              /* advance to next record */
-@@ -340,13 +361,8 @@ static void walk_readdir_process_dir(const char* dir, CIRCLE_handle* handle)
+@@ -314,6 +335,7 @@ static void walk_readdir_process_dir(const char* dir, CIRCLE_handle* handle)
+             struct stat st;
+             mfu_file_t* mfu_file = *CURRENT_PFILE;
+             int status = mfu_file_lstat(dir, &st, mfu_file);
++            // TODO handle status != 0
+             // turn on the usr read & execute bits
+             st.st_mode |= S_IRUSR;
+             st.st_mode |= S_IXUSR;
+@@ -340,13 +362,8 @@ static void walk_readdir_process_dir(const char* dir, CIRCLE_handle* handle)
              if ((strncmp(name, ".", 2)) && (strncmp(name, "..", 3))) {
                  /* <dir> + '/' + <name> + '/0' */
                  char newpath[CIRCLE_MAX_STRING_LEN];
@@ -7113,7 +9109,7 @@ index fd30da2..2d7c701 100644
  #ifdef _DIRENT_HAVE_D_TYPE
                      /* record info for item */
                      mode_t mode;
-@@ -393,11 +409,6 @@ static void walk_readdir_process_dir(const char* dir, CIRCLE_handle* handle)
+@@ -393,11 +410,6 @@ static void walk_readdir_process_dir(const char* dir, CIRCLE_handle* handle)
                      }
  #endif
                  }
@@ -7125,7 +9121,7 @@ index fd30da2..2d7c701 100644
              }
          }
      }
-@@ -477,20 +488,11 @@ static void walk_stat_process_dir(char* dir, CIRCLE_handle* handle)
+@@ -477,20 +489,11 @@ static void walk_stat_process_dir(char* dir, CIRCLE_handle* handle)
              if ((strncmp(name, ".", 2)) && (strncmp(name, "..", 3))) {
                  /* <dir> + '/' + <name> + '/0' */
                  char newpath[CIRCLE_MAX_STRING_LEN];
@@ -8985,10 +10981,42 @@ index 1274b54..1686087 100644
  
  /* call remove, retry a few times on EINTR or EIO */
 diff --git a/src/common/mfu_param_path.c b/src/common/mfu_param_path.c
-index d065fdf..54bd093 100644
+index d065fdf..488d4f2 100644
 --- a/src/common/mfu_param_path.c
 +++ b/src/common/mfu_param_path.c
-@@ -372,11 +372,14 @@ char* mfu_param_path_copy_dest(const char* name, int numpaths,
+@@ -303,6 +303,31 @@ static void mfu_unpack_param(const char** pptr, mfu_param_path* param)
+     return;
+ }
+ 
++/*
++ * Parse an option string provided by the user to determine
++ * which xattrs to copy from source to destination.
++ */
++attr_copy_t parse_copy_xattrs_option(char *optarg)
++{
++    if (strcmp(optarg,"none") == 0) {
++        return XATTR_COPY_NONE;
++    }
++
++    if (strcmp(optarg,"non-lustre") == 0) {
++        return XATTR_SKIP_LUSTRE;
++    }
++
++    if (strcmp(optarg,"libattr") == 0) {
++        return XATTR_USE_LIBATTR;
++    }
++
++    if (strcmp(optarg,"all") == 0) {
++        return XATTR_COPY_ALL;
++    }
++
++    return XATTR_COPY_INVAL;
++}
++
+ /**
+  * Analyze all file path inputs and place on the work queue.
+  *
+@@ -372,11 +397,14 @@ char* mfu_param_path_copy_dest(const char* name, int numpaths,
      /* get number of components in source path */
      int src_components = mfu_path_components(src);
  
@@ -9005,7 +11033,7 @@ index d065fdf..54bd093 100644
              (paths[i].orig[strlen(paths[i].orig) - 1] != '/')) {
              cut--;
          }
-@@ -534,8 +537,8 @@ void mfu_param_path_check_copy(uint64_t num, const mfu_param_path* paths,
+@@ -534,8 +562,8 @@ void mfu_param_path_check_copy(uint64_t num, const mfu_param_path* paths,
  
              /* check that dest is writable */
              if(mfu_file_access(destpath->path, W_OK, mfu_dst_file) < 0) {
@@ -9016,7 +11044,7 @@ index d065fdf..54bd093 100644
                  valid = 0;
                  goto bcast;
              }
-@@ -552,8 +555,8 @@ void mfu_param_path_check_copy(uint64_t num, const mfu_param_path* paths,
+@@ -552,8 +580,8 @@ void mfu_param_path_check_copy(uint64_t num, const mfu_param_path* paths,
  
              /* check that parent is writable */
              if(mfu_file_access(parent_str, W_OK, mfu_dst_file) < 0) {
@@ -9028,7 +11056,7 @@ index d065fdf..54bd093 100644
                  mfu_free(&parent_str);
                  goto bcast;
 diff --git a/src/common/mfu_param_path.h b/src/common/mfu_param_path.h
-index 5c6bb4c..d0f893d 100644
+index 5c6bb4c..156be26 100644
 --- a/src/common/mfu_param_path.h
 +++ b/src/common/mfu_param_path.h
 @@ -58,10 +58,10 @@ typedef struct {
@@ -9046,6 +11074,64 @@ index 5c6bb4c..d0f893d 100644
  #endif
  } mfu_file_t;
  
+@@ -115,26 +115,41 @@ typedef struct {
+     int dereference;    /* flag option to dereference symbolic links */
+ } mfu_walk_opts_t;
+ 
++typedef enum {
++    XATTR_COPY_INVAL,
++    XATTR_COPY_NONE,
++    XATTR_SKIP_LUSTRE,
++    XATTR_USE_LIBATTR,
++    XATTR_COPY_ALL,
++} attr_copy_t;
++
+ /* options passed to mfu_ */
+ typedef struct {
+-    int    copy_into_dir;  /* flag indicating whether copying into existing dir */
+-    int    do_sync;        /* flag option to sync src dir with dest dir */ 
+-    char*  dest_path;      /* prefex of destination directory */
+-    char*  input_file;     /* file name of input list */
+-    bool   preserve;       /* whether to preserve timestamps, ownership, permissions, etc. */
+-    int    dereference;    /* if true, dereference symbolic links in the source.
+-                            * this is not a perfect opposite of no_dereference */
+-    int    no_dereference; /* if true, don't dereference source symbolic links */
+-    bool   direct;         /* whether to use O_DIRECT */
+-    bool   sparse;         /* whether to create sparse files */
+-    size_t chunk_size;     /* size to chunk files by */
+-    size_t buf_size;       /* buffer size to read/write to file system */
+-    char*  block_buf1;     /* buffer to read / write data */
+-    char*  block_buf2;     /* another buffer to read / write data */
+-    int    grouplock_id;   /* Lustre grouplock ID */
+-    uint64_t batch_files;  /* max batch size to copy files, 0 implies no limit */
++    int          copy_into_dir;    /* flag indicating whether copying into existing dir */
++    int          do_sync;          /* flag option to sync src dir with dest dir */
++    char*        dest_path;        /* prefex of destination directory */
++    char*        input_file;       /* file name of input list */
++    bool         preserve;         /* whether to preserve timestamps, ownership, permissions, etc. */
++    attr_copy_t  copy_xattrs;      /* which xattrs to copy; important for Lustre */
++    int          dereference;      /* if true, dereference symbolic links in the source.
++                                    * this is not a perfect opposite of no_dereference */
++    int          no_dereference;   /* if true, don't dereference source symbolic links */
++    bool         direct;           /* whether to use O_DIRECT */
++    bool         sparse;           /* whether to create sparse files */
++    size_t       chunk_size;       /* size to chunk files by */
++    size_t       buf_size;         /* buffer size to read/write to file system */
++    char*        block_buf1;       /* buffer to read / write data */
++    char*        block_buf2;       /* another buffer to read / write data */
++    int          grouplock_id;     /* Lustre grouplock ID */
++    uint64_t     batch_files;      /* max batch size to copy files, 0 implies no limit */
+ } mfu_copy_opts_t;
+ 
++/*
++ * Parse an option string provided by the user to determine
++ * which xattrs to copy from source to destination.
++ */
++attr_copy_t parse_copy_xattrs_option(char *optarg);
++
+ /* Given a source item name, determine which source path this item
+  * is contained within, extract directory components from source
+  * path to this item and then prepend destination prefix.
 diff --git a/src/common/mfu_util.c b/src/common/mfu_util.c
 index 44f59f0..0be0fa7 100644
 --- a/src/common/mfu_util.c
@@ -9100,6 +11186,41 @@ index d6f94dd..dcc32e5 100644
  /* if size > 0, allocates size bytes aligned with specified alignment
   * and returns pointer, calls mfu_abort on failure,
   * returns NULL if size == 0 */
+diff --git a/src/common/strmap.c b/src/common/strmap.c
+index a8761ae..fef5a7d 100644
+--- a/src/common/strmap.c
++++ b/src/common/strmap.c
+@@ -765,17 +765,20 @@ int strmap_unset(strmap* tree, const char* key)
+ 
+             /* found it, identify the node to replace it */
+             if (node->left != NULL && node->right != NULL) {
+-                /* we have two children, extract the rightmost node in
+-                 * our left subtree */
++                /* we have two children, identify rightmost node of left subtree */
+                 strmap_node* replacement = (strmap_node*) strmap_node_rightmost(node->left);
+-                strmap_node_extract_single(replacement);
+-
+-                /* update the left child of this node to point to our left child,
+-                 * (note that this works correctly even if the replacement is our
+-                 * original left child, because the extract call would update our
+-                 * left child to be our left grandchild) */
+-                replacement->left = node->left;
+-                node->left->parent = replacement;
++
++                /* if the rightmost node of our left subtree is not our left child,
++                 * extract it and promote it to be our replacement */ 
++                if (replacement != node->left) {
++                    /* since this is a rightmost node, it has at most one child,
++                     * so safe to use extract_single  */
++                    strmap_node_extract_single(replacement);
++
++                    /* update the left child of this node to point to our replacement */
++                    replacement->left = node->left;
++                    node->left->parent = replacement;
++                }
+ 
+                 /* update the right child of this node to point to our right child,
+                  * (we're guaranteed that the rightmost node from our left subtree
 diff --git a/src/daos-deserialize/CMakeLists.txt b/src/daos-deserialize/CMakeLists.txt
 new file mode 100644
 index 0000000..84e5cf1
@@ -9547,7 +11668,7 @@ index 0000000..f2ead98
 +MFU_ADD_TOOL(daos-gen)
 diff --git a/src/daos-gen/daos-gen.c b/src/daos-gen/daos-gen.c
 new file mode 100644
-index 0000000..9b1e833
+index 0000000..d96373a
 --- /dev/null
 +++ b/src/daos-gen/daos-gen.c
 @@ -0,0 +1,304 @@
@@ -9659,7 +11780,7 @@ index 0000000..9b1e833
 +
 +        switch(c) {
 +            case 'p':
-+                uuid_parse(optarg, daos_args->src_pool_uuid);
++                strncpy(daos_args->src_pool, optarg, DAOS_PROP_LABEL_MAX_LEN);
 +                break;
 +            case 'o':
 +                num_objects = atoi(optarg);
@@ -9735,14 +11856,14 @@ index 0000000..9b1e833
 +    /* connect to pool/cont then broadcast to rest of ranks */
 +    if (rank == 0) {
 +        /* generate container UUID */
-+        uuid_generate(daos_args->src_cont_uuid);
++        uuid_generate(daos_args->src_cont);
 +        daos_pool_info_t pool_info = {0};
 +        daos_cont_info_t co_info = {0};
 +#if DAOS_API_VERSION_MAJOR < 1
-+        rc = daos_pool_connect(daos_args->src_pool_uuid, NULL, NULL, DAOS_PC_RW,
++        rc = daos_pool_connect(daos_args->src_pool, NULL, NULL, DAOS_PC_RW,
 +                               &(daos_args->src_poh), &pool_info, NULL);
 +#else
-+        rc = daos_pool_connect(daos_args->src_pool_uuid, NULL, DAOS_PC_RW,
++        rc = daos_pool_connect(daos_args->src_pool, NULL, DAOS_PC_RW,
 +                               &(daos_args->src_poh), &pool_info, NULL);
 +#endif
 +        if (rc != 0) {
@@ -9752,13 +11873,13 @@ index 0000000..9b1e833
 +        }
 +
 +        /* create cont and open */
-+        rc = daos_cont_create(daos_args->src_poh, daos_args->src_cont_uuid, NULL, NULL);
++        rc = daos_cont_create(daos_args->src_poh, daos_args->src_cont, NULL, NULL);
 +        if (rc != 0) {
 +            MFU_LOG(MFU_LOG_ERR, "Failed to create cont: "DF_RC, DP_RC(rc));
 +            rc = 1;
 +            goto err_cont;
 +        }
-+        rc = daos_cont_open(daos_args->src_poh, daos_args->src_cont_uuid,
++        rc = daos_cont_open(daos_args->src_poh, daos_args->src_cont,
 +                            DAOS_COO_RW, &daos_args->src_coh, &co_info, NULL);
 +        if (rc != 0) {
 +            MFU_LOG(MFU_LOG_ERR, "Failed to open container: "DF_RC, DP_RC(rc));
@@ -9814,7 +11935,7 @@ index 0000000..9b1e833
 +     * generates same amount */
 +    if (rank == 0) {
 +        int total_num_objects = size * num_objects; 
-+        uuid_unparse(daos_args->src_cont_uuid, uuid_str);
++        uuid_unparse(daos_args->src_cont, uuid_str);
 +        printf("Container UUID: %s\n\ttotal objects:%d\n"
 +               "\tkeys per object:%d\n", uuid_str, total_num_objects, keys_per_object);
 +    }
@@ -10171,10 +12292,18 @@ index 0000000..f70f2c7
 +    return 0;
 +}
 diff --git a/src/dcmp/dcmp.c b/src/dcmp/dcmp.c
-index c7e3770..3c828c7 100644
+index c7e3770..cc4deb0 100644
 --- a/src/dcmp/dcmp.c
 +++ b/src/dcmp/dcmp.c
-@@ -2287,7 +2287,7 @@ int main(int argc, char **argv)
+@@ -42,7 +42,6 @@ static void print_usage(void)
+     printf("      --bufsize <SIZE>      - IO buffer size in bytes (default " MFU_BUFFER_SIZE_STR ")\n");
+     printf("      --chunksize <SIZE>    - minimum work size per task in bytes (default " MFU_CHUNK_SIZE_STR ")\n");
+ #ifdef DAOS_SUPPORT
+-    printf("      --daos-prefix         - DAOS prefix for unified namespace path\n");
+     printf("      --daos-api            - DAOS API in {DFS, DAOS} (default uses DFS for POSIX containers)\n");
+ #endif
+     printf("  -s, --direct              - open files with O_DIRECT\n");
+@@ -2287,7 +2286,7 @@ int main(int argc, char **argv)
      bool daos_do_exit = false;
      
      /* Set up DAOS arguments, containers, dfs, etc. */
@@ -10184,12 +12313,16 @@ index c7e3770..3c828c7 100644
          daos_do_exit = true;
      }
 diff --git a/src/dcp/dcp.c b/src/dcp/dcp.c
-index 813a667..67b730a 100644
+index 813a667..fc47f19 100644
 --- a/src/dcp/dcp.c
 +++ b/src/dcp/dcp.c
-@@ -82,6 +82,10 @@ void print_usage(void)
+@@ -79,14 +79,18 @@ void print_usage(void)
+ #endif
+     printf("  -b, --bufsize <SIZE>     - IO buffer size in bytes (default " MFU_BUFFER_SIZE_STR ")\n");
+     printf("  -k, --chunksize <SIZE>   - work size per task in bytes (default " MFU_CHUNK_SIZE_STR ")\n");
++    printf("  -X, --xattrs <OPT>       - copy xattrs (none, all, non-lustre, libattr)\n");
  #ifdef DAOS_SUPPORT
-     printf("      --daos-prefix        - DAOS prefix for unified namespace path\n");
+-    printf("      --daos-prefix        - DAOS prefix for unified namespace path\n");
      printf("      --daos-api           - DAOS API in {DFS, DAOS} (default uses DFS for POSIX containers)\n");
 +#ifdef HDF5_SUPPORT
 +    printf("      --daos-preserve      - preserve DAOS container properties and user attributes, a filename "
@@ -10198,15 +12331,64 @@ index 813a667..67b730a 100644
  #endif
      printf("  -i, --input <file>       - read source list from file\n");
      printf("  -L, --dereference        - copy original files instead of links\n");
-@@ -143,6 +147,7 @@ int main(int argc, char** argv)
+     printf("  -P, --no-dereference     - don't follow links in source\n");
+-    printf("  -p, --preserve           - preserve permissions, ownership, timestamps, extended attributes\n");
++    printf("  -p, --preserve           - preserve permissions, ownership, timestamps (see also --xattrs)\n");
+     printf("  -s, --direct             - open files with O_DIRECT\n");
+     printf("  -S, --sparse             - create sparse files when possible\n");
+     printf("      --progress <N>       - print progress every N seconds\n");
+@@ -141,10 +145,12 @@ int main(int argc, char** argv)
+         {"bufsize"              , required_argument, 0, 'b'},
+         {"debug"                , required_argument, 0, 'd'}, // undocumented
          {"grouplock"            , required_argument, 0, 'g'}, // untested
-         {"daos-prefix"          , required_argument, 0, 'X'},
-         {"daos-api"             , required_argument, 0, 'x'},
+-        {"daos-prefix"          , required_argument, 0, 'X'},
+-        {"daos-api"             , required_argument, 0, 'x'},
++        {"daos-prefix"          , required_argument, 0, 'Y'},
++        {"daos-api"             , required_argument, 0, 'y'},
 +        {"daos-preserve"        , required_argument, 0, 'D'},
          {"input"                , required_argument, 0, 'i'},
          {"chunksize"            , required_argument, 0, 'k'},
++        {"xattrs"               , required_argument, 0, 'X'},
          {"dereference"          , no_argument      , 0, 'L'},
-@@ -245,6 +250,13 @@ int main(int argc, char** argv)
+         {"no-dereference"       , no_argument      , 0, 'P'},
+         {"preserve"             , no_argument      , 0, 'p'},
+@@ -163,7 +169,7 @@ int main(int argc, char** argv)
+     int usage = 0;
+     while(1) {
+         int c = getopt_long(
+-                    argc, argv, "b:d:g:i:k:LPpsSvqh",
++                    argc, argv, "b:d:g:i:k:LPpsSvqhX:",
+                     long_options, &option_index
+                 );
+ 
+@@ -226,6 +232,15 @@ int main(int argc, char** argv)
+                     }
+                 }
+                 break;
++            case 'X':
++                mfu_copy_opts->copy_xattrs = parse_copy_xattrs_option(optarg);
++                if (mfu_copy_opts->copy_xattrs == XATTR_COPY_INVAL) {
++                    if (rank == 0) {
++                        MFU_LOG(MFU_LOG_ERR, "Unrecognized option '%s' for --xattrs", optarg);
++                    }
++                    usage = 1;
++                }
++                break;
+ #ifdef LUSTRE_SUPPORT
+             case 'g':
+                 mfu_copy_opts->grouplock_id = atoi(optarg);
+@@ -236,15 +251,22 @@ int main(int argc, char** argv)
+                 break;
+ #endif
+ #ifdef DAOS_SUPPORT
+-            case 'X':
++            case 'Y':
+                 daos_args->dfs_prefix = MFU_STRDUP(optarg);
+                 break;
+-            case 'x':
++            case 'y':
+                 if (daos_parse_api_str(optarg, &daos_args->api) != 0) {
+                     MFU_LOG(MFU_LOG_ERR, "Failed to parse --daos-api");
                      usage = 1;
                  }
                  break;
@@ -10220,7 +12402,7 @@ index 813a667..67b730a 100644
  #endif
              case 'i':
                  inputname = MFU_STRDUP(optarg);
-@@ -358,17 +370,31 @@ int main(int argc, char** argv)
+@@ -358,17 +380,31 @@ int main(int argc, char** argv)
  
  #ifdef DAOS_SUPPORT
      /* Set up DAOS arguments, containers, dfs, etc. */
@@ -10256,7 +12438,7 @@ index 813a667..67b730a 100644
          daos_cleanup(daos_args, mfu_src_file, mfu_dst_file);
          mfu_finalize();
          MPI_Finalize();
-@@ -376,16 +402,13 @@ int main(int argc, char** argv)
+@@ -376,16 +412,13 @@ int main(int argc, char** argv)
      }
  #endif
  
@@ -10274,7 +12456,7 @@ index 813a667..67b730a 100644
  
          /* last item in the list is the destination path */
          mfu_param_path* destpath = &paths[numpaths - 1];
-@@ -417,7 +440,7 @@ int main(int argc, char** argv)
+@@ -417,7 +450,7 @@ int main(int argc, char** argv)
              mfu_param_path_free_all(numpaths, paths);
              mfu_free(&paths);
  #ifdef DAOS_SUPPORT
@@ -10283,7 +12465,7 @@ index 813a667..67b730a 100644
  #endif
              mfu_finalize();
              MPI_Finalize();
-@@ -451,68 +474,48 @@ int main(int argc, char** argv)
+@@ -451,68 +484,48 @@ int main(int argc, char** argv)
              rc = 1;
          }
  
@@ -10364,6 +12546,16 @@ index 813a667..67b730a 100644
 +
      /* free the copy options */
      mfu_copy_opts_delete(&mfu_copy_opts);
+ 
+diff --git a/src/dcp1/CMakeLists.txt b/src/dcp1/CMakeLists.txt
+index ba72276..07c59c0 100644
+--- a/src/dcp1/CMakeLists.txt
++++ b/src/dcp1/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR})
++INCLUDE_DIRECTORIES(BEFORE ${CMAKE_CURRENT_SOURCE_DIR})
+ 
+ # MFU_ADD_TOOL(dcp1)
  
 diff --git a/src/dfind/dfind.c b/src/dfind/dfind.c
 index 3137188..2cfe20e 100644
@@ -10780,7 +12972,7 @@ index 083fc8a..949c727 100644
 +    return rc;
  }
 diff --git a/src/dsync/dsync.c b/src/dsync/dsync.c
-index e14c9f5..f97050c 100644
+index e14c9f5..ac98e14 100644
 --- a/src/dsync/dsync.c
 +++ b/src/dsync/dsync.c
 @@ -41,6 +41,8 @@
@@ -10792,6 +12984,16 @@ index e14c9f5..f97050c 100644
  /* for daos */
  #ifdef DAOS_SUPPORT
  #include "mfu_daos.h"
+@@ -61,8 +63,8 @@ static void print_usage(void)
+     printf("  -b  --batch-files <N>   - batch files into groups of N during copy\n");
+     printf("      --bufsize <SIZE>    - IO buffer size in bytes (default " MFU_BUFFER_SIZE_STR ")\n");
+     printf("      --chunksize <SIZE>  - minimum work size per task in bytes (default " MFU_CHUNK_SIZE_STR ")\n");
++    printf("  -X, --xattrs <OPT>      - copy xattrs (none, all, non-lustre, libattr)\n");
+ #ifdef DAOS_SUPPORT
+-    printf("      --daos-prefix       - DAOS prefix for unified namespace path \n");
+     printf("      --daos-api          - DAOS API in {DFS, DAOS} (default uses DFS for POSIX containers)\n");
+ #endif
+     printf("  -c, --contents          - read and compare file contents rather than compare size and mtime\n");
 @@ -101,7 +103,7 @@ typedef enum _dsync_state {
        * This file only exist in dest directory.
        * Only valid for DCMPF_EXIST.
@@ -10801,7 +13003,18 @@ index e14c9f5..f97050c 100644
        */
      DCMPS_ONLY_DEST,
  
-@@ -2869,6 +2871,95 @@ static int dsync_validate_link_dest(const char *link_dest, const char *dest, mfu
+@@ -1921,6 +1923,10 @@ static int dsync_strmap_compare(
+         }
+     }
+ 
++    if (rank == 0) {
++        MFU_LOG(MFU_LOG_INFO, "Completed updating timestamps");
++    }
++
+     /* done with our list of files for refreshing metadata */
+     strmap_delete(&metadata_refresh);
+ 
+@@ -2869,6 +2875,95 @@ static int dsync_validate_link_dest(const char *link_dest, const char *dest, mfu
      }
  }
  
@@ -10897,7 +13110,51 @@ index e14c9f5..f97050c 100644
  int main(int argc, char **argv)
  {
      int rc = 0;
-@@ -3108,56 +3199,35 @@ int main(int argc, char **argv)
+@@ -2926,8 +3021,9 @@ int main(int argc, char **argv)
+         {"batch-files",    1, 0, 'b'},
+         {"bufsize",        1, 0, 'B'},
+         {"chunksize",      1, 0, 'k'},
+-        {"daos-prefix",    1, 0, 'X'},
+-        {"daos-api",       1, 0, 'x'},
++        {"xattrs",         1, 0, 'X'},
++        {"daos-prefix",    1, 0, 'Y'},
++        {"daos-api",       1, 0, 'y'},
+         {"contents",       0, 0, 'c'},
+         {"delete",         0, 0, 'D'},
+         {"dereference",    0, 0, 'L'},
+@@ -2956,7 +3052,7 @@ int main(int argc, char **argv)
+ 
+     while (1) {
+         int c = getopt_long(
+-            argc, argv, "b:cDso:LPSvqh",
++            argc, argv, "b:cDso:LPSvqhX:",
+             long_options, &option_index
+         );
+ 
+@@ -2990,11 +3086,20 @@ int main(int argc, char **argv)
+                 copy_opts->chunk_size = bytes;
+             }
+             break;
+-#ifdef DAOS_SUPPORT
+         case 'X':
++            copy_opts->copy_xattrs = parse_copy_xattrs_option(optarg);
++            if (copy_opts->copy_xattrs == XATTR_COPY_INVAL) {
++                if (rank == 0) {
++                    MFU_LOG(MFU_LOG_ERR, "Unrecognized option '%s' for --xattrs", optarg);
++                }
++                usage = 1;
++            }
++            break;
++#ifdef DAOS_SUPPORT
++        case 'Y':
+             daos_args->dfs_prefix = MFU_STRDUP(optarg);
+             break;
+-        case 'x':
++        case 'y':
+             if (daos_parse_api_str(optarg, &daos_args->api) != 0) {
+                 MFU_LOG(MFU_LOG_ERR, "Failed to parse --daos-api");
+                 usage = 1;
+@@ -3108,56 +3213,35 @@ int main(int argc, char **argv)
          if (rank == 0) {
              print_usage();
          }
@@ -10970,7 +13227,7 @@ index e14c9f5..f97050c 100644
      /* first item is source and second is dest */
      mfu_param_path* srcpath  = &paths[0];
      mfu_param_path* destpath = &paths[1];
-@@ -3219,15 +3289,8 @@ int main(int argc, char **argv)
+@@ -3219,15 +3303,8 @@ int main(int argc, char **argv)
              mfu_param_path_free(linkpath);
              mfu_free(&linkpath);
          }
@@ -10988,7 +13245,7 @@ index e14c9f5..f97050c 100644
      }
  
      /* walk destinaton path.
-@@ -3304,18 +3367,20 @@ int main(int argc, char **argv)
+@@ -3304,18 +3381,20 @@ int main(int argc, char **argv)
          mfu_flist_free(&flist_link);
      }
  
@@ -11015,6 +13272,27 @@ index e14c9f5..f97050c 100644
      dsync_option_fini();
  
      /* free the copy options structure */
+@@ -3333,6 +3412,10 @@ int main(int argc, char **argv)
+     mfu_file_delete(&mfu_src_file);
+     mfu_file_delete(&mfu_dst_file);
+ 
++    if (rank == 0) {
++        MFU_LOG(MFU_LOG_INFO, "Completed sync");
++    }
++
+     /* shut down */
+     mfu_finalize();
+     MPI_Finalize();
+diff --git a/src/dtar/CMakeLists.txt b/src/dtar/CMakeLists.txt
+index de4db8c..c1fa5e0 100644
+--- a/src/dtar/CMakeLists.txt
++++ b/src/dtar/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR})
++INCLUDE_DIRECTORIES(BEFORE ${CMAKE_CURRENT_SOURCE_DIR})
+ 
+ # MFU_ADD_TOOL(dtar)
+ ADD_EXECUTABLE(dtar dtar.c)
 diff --git a/src/dwalk/dwalk.c b/src/dwalk/dwalk.c
 index 467b992..3676c62 100644
 --- a/src/dwalk/dwalk.c
@@ -11184,3 +13462,193 @@ index 467b992..3676c62 100644
 -    return 0;
 +    return rc;
  }
+diff --git a/test/tests/test_dsync/test_xattr.py b/test/tests/test_dsync/test_xattr.py
+new file mode 100644
+index 0000000..a4021ff
+--- /dev/null
++++ b/test/tests/test_dsync/test_xattr.py
+@@ -0,0 +1,16 @@
++#!/usr/bin/env python2
++import subprocess
++
++# change paths here for bash script as necessary
++mpifu_path     = "~/mpifileutils/test/tests/test_dsync/test_xattr.sh"
++
++# vars in bash script
++dsync_test_bin   = "/root/mpifileutils/install/bin/dsync"
++dsync_src_dir    = "/mnt/lustre"
++dsync_dest_dir   = "/mnt/lustre2"
++dsync_test_file  = "file_test_xattr_XXX"
++
++def test_xattr():
++        p = subprocess.Popen(["%s %s %s %s %s %s %s" % (dsync_test_bin,
++          dsync_src_dir, dsync_dest_dir, dsync_test_file)], shell=True,
++          executable="/bin/bash").communicate()
+diff --git a/test/tests/test_dsync/test_xattr.sh b/test/tests/test_dsync/test_xattr.sh
+new file mode 100755
+index 0000000..694c623
+--- /dev/null
++++ b/test/tests/test_dsync/test_xattr.sh
+@@ -0,0 +1,162 @@
++#!/bin/bash
++
++##############################################################################
++# Description:
++#
++#   A test to check if dsync properly copies xattrs
++#
++##############################################################################
++
++# Turn on verbose output
++#set -x
++
++DSYNC_TEST_BIN=${DSYNC_TEST_BIN:-${1}}
++DSYNC_SRC_DIR=${DSYNC_SRC_DIR:-${2}}
++DSYNC_DEST_DIR=${DSYNC_DEST_DIR:-${3}}
++DSYNC_TMP_FILE=${DSYNC_TMP_FILE:-${4}}
++
++echo "Using dsync binary at: $DSYNC_TEST_BIN"
++echo "Using src directory at: $DSYNC_SRC_DIR"
++echo "Using dest directory at: $DSYNC_DEST_DIR"
++echo "Using temp file name: $DSYNC_TMP_FILE"
++
++set -a lustre_xattr_names
++lustre_xattr_names=("lustre.lov" "trusted.som" "trusted.lov" "trusted.lma" "trusted.lmv" "trusted.dmv" "trusted.link" "trusted.fid" "trusted.version" "trusted.hsm" "trusted.lfsck_bitmap" "trusted.dummy")
++
++set -a other_xattr_names
++other_xattr_names=("xattr1" "456" "testing" "sync_and_verify_test")
++
++function fs_type()
++{
++	fname=$1
++	df -T ${fname} | awk '$1 != "Filesystem" {print $2}'
++}
++
++# set all xattrs in other_xattr_names on file
++# no need for equivalent for lustre xattrs, because they cannot be set from userspace
++function set_other_xattrs()
++{
++	fname=$1
++
++	set -e
++	for attrname in ${other_xattr_names[*]}; do
++		attr -s $attrname -V "$attrname:1234567890" $fname
++	done
++	set +e
++}
++
++function list_all_xattrs()
++{
++	fname=$1
++
++	echo Listing xattrs on $fname
++	attr -l $fname
++}
++
++function compare_xattr_lists()
++{
++	fname0=$1
++	fname1=$2
++
++	for attrname in ${lustre_xattr_names[*]} ${other_xattr_names[*]}; do
++		in0=$(attr -g -q $attrname $fname0 2>/dev/null && echo 1)
++		in1=$(attr -g -q $attrname $fname1 2>/dev/null && echo 1)
++		if [ "$in0" -eq 1 -o "$in1" -eq 1 ]; then
++			echo "$attrname $in0 $in1"
++		fi
++	done
++}
++
++function sync_and_verify()
++{
++	local srcdir=$1
++	local destdir=$2
++	local name=$3
++	local opt=$4
++
++	local result=0
++	local dest_type=$(fs_type $destdir)
++
++	if [ $opt = "non-lustre" ]; then
++		echo "SKIPPED verify of option $opt"
++		return 0
++	fi
++
++	if [ $opt = "libattr" -a $(id -u) -ne 0 ]; then
++		echo "SKIPPED verify of option $opt, need root to test"
++		return 0
++	fi
++
++	set -e
++	rm -f $destdir/$name
++
++	if [ $opt = "libattr" ]; then
++		echo "user.sync_and_verify_test  skip" >> /etc/xattr.conf
++	fi
++
++	$DSYNC_TEST_BIN --quiet --xattrs=$opt $srcdir $destdir
++
++	if [ $opt = "libattr" ]; then
++		sed --in-place "/^user.sync_and_verify_test/d" /etc/xattr.conf
++	fi
++
++	srclog=$(mktemp /tmp/sync_and_verify.src.XXXXX)
++	destlog=$(mktemp /tmp/sync_and_verify.dest.XXXXX)
++
++	list_all_xattrs  $srcdir/$name  | awk '!/Listing xattrs on/ {print $1,$2,$3,$4,$5}'  > $srclog
++	list_all_xattrs  $destdir/$name | awk '!/Listing xattrs on/ {print $1,$2,$3,$4,$5}'  > $destlog
++
++	case $opt in
++	  "none")
++		result=$(wc -c < $destlog)
++		;;
++	  "all")
++		diff $srclog $destlog
++		result=$?
++		;;
++	  "libattr")
++		diff <(grep -v -w sync_and_verify_test $srclog) $destlog
++		result=$?
++		;;
++	esac
++
++	set +e
++
++	if [ "$result" -eq 0 ]; then
++		echo "PASSED verify of option $opt for $destdir type $dest_type"
++	else
++		echo "FAILED verify of option $opt for $destdir type $dest_type"
++		echo =======================
++		echo "dest:"
++		cat $destlog
++		echo =======================
++		exit 1
++	fi
++
++	rm $srclog $destlog
++
++	return $result
++}
++
++# Create the source
++echo Preparing Source
++touch $DSYNC_SRC_DIR/aaa
++set_other_xattrs $DSYNC_SRC_DIR/aaa
++
++# Make sure the short option is accepted; rest of tests use long option
++set -e
++$DSYNC_TEST_BIN --quiet -X all $DSYNC_SRC_DIR $DSYNC_DEST_DIR
++set +e
++
++# Sync and verify
++echo
++echo Testing dsync
++sync_and_verify  $DSYNC_SRC_DIR $DSYNC_DEST_DIR aaa none
++sync_and_verify  $DSYNC_SRC_DIR $DSYNC_DEST_DIR aaa all
++sync_and_verify  $DSYNC_SRC_DIR $DSYNC_DEST_DIR aaa non-lustre
++sync_and_verify  $DSYNC_SRC_DIR $DSYNC_DEST_DIR aaa libattr
++
++# Clean up
++rm $DSYNC_SRC_DIR/aaa
++
++exit 0
