@@ -58,7 +58,6 @@ Source:		https://github.com/hpc/%{name}/archive/v%{version}.tar.gz
 %if %{defined git_short}
 Patch1:		v%{version}..%{?git_short}.patch
 %endif
-Patch2:    https://github.com/daos-stack/%{name}/commit/03d25d95bc8785e0145763e03b45e0208a845a84.patch
 BuildRoot:	%_topdir/BUILDROOT
 %if (0%{?suse_version} >= 1500)
 BuildRequires: cmake >= 3.1
