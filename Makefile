@@ -3,9 +3,9 @@ SRC_EXT   := gz
 REPO_NAME := mpifileutils-pkg
 #GIT_SHORT := bdc379b
 
-BUILD_DEFINES := --define "git_short $(GIT_SHORT)"
+#BUILD_DEFINES := --define "git_short $(GIT_SHORT)"
 
-RPM_BUILD_OPTIONS := $(BUILD_DEFINES)
+#RPM_BUILD_OPTIONS := $(BUILD_DEFINES)
 
 TEST_PACKAGES := $(NAME)-mpich-devel $(NAME)-openmpi3-devel
 
