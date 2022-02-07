@@ -47,8 +47,8 @@
 %endif
 
 Name:		mpifileutils
-Version:	0.11
-Release:	10%{?git_short:.g%{git_short}}%{?dist}
+Version:	0.11.1
+Release:	1%{?git_short:.g%{git_short}}%{?dist}
 Summary:	File utilities designed for scalability and performance.
 
 Group:		System Environment/Libraries
@@ -73,6 +73,7 @@ BuildRequires: openssl-devel
 %endif
 BuildRequires: gcc-c++
 BuildRequires: libuuid-devel
+BuildRequires: libattr-devel
 
 
 %if (0%{?suse_version} >= 1500)
@@ -184,7 +185,6 @@ for mpi in %{?mpi_list}; do
              -DLibCircle_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libcircle.so \
              -DHDF5_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}         \
              -DHDF5_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libhdf5.so        \
-             -DWITH_CART_PREFIX=/usr                                              \
              -DWITH_DAOS_PREFIX=/usr                                              \
              -DCMAKE_INSTALL_INCLUDEDIR=%{mpi_includedir}/$mpi%{mpi_include_ext}  \
              -DCMAKE_INSTALL_PREFIX=%{mpi_libdir}/$mpi                            \
@@ -249,6 +249,12 @@ done
 %endif
 
 %changelog
+* Mon Feb 07 2021 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11.1-1
+- Update to v0.11.1
+- Remove patch2 in favor of upstream d5f41b3
+- Remove unused WITH_CART_PREFIX
+- Add libattr-devel dependency - now required for xattrs
+
 * Fri Nov 12 2021 Wang Shilong <shilong.wang@intel.com> - 0.11-10
 - Rebuilt for breaking DAOS API change
 - Add patch to work with libdaos.so.2
