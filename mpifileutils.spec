@@ -46,9 +46,11 @@
 %global cmake cmake3
 %endif
 
+%global shortcommit %(c=%{commit};echo ${c:0:7})
+
 Name:		mpifileutils
 Version:	0.11.1
-Release:	1%{?git_short:.g%{git_short}}%{?dist}
+Release:	1%{?commit:.g%{shortcommit}}%{?dist}
 Summary:	File utilities designed for scalability and performance.
 
 Group:		System Environment/Libraries
