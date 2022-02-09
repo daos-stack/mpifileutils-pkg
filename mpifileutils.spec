@@ -55,8 +55,8 @@ Group:		System Environment/Libraries
 License:	Copyright and BSD License
 URL:		https://hpc.github.io/mpifileutils
 Source:		https://github.com/hpc/%{name}/archive/v%{version}.tar.gz
-%if %{defined git_short}
-Patch1:		v%{version}..%{?git_short}.patch
+%if "%{?commit}" != ""
+Patch1: %{version}..%{commit}.patch
 %endif
 BuildRoot:	%_topdir/BUILDROOT
 %if (0%{?suse_version} >= 1500)
