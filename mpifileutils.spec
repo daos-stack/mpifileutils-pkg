@@ -250,7 +250,7 @@ done
 %endif
 
 %changelog
-* Mon Feb 07 2022 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11.1-1
+* Tue Feb 22 2022 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11.1-1
 - Update to v0.11.1
 - Remove patch2 in favor of upstream d5f41b3
 - Remove unused WITH_CART_PREFIX
