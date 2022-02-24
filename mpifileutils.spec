@@ -250,9 +250,9 @@ done
 %endif
 
 %changelog
-* Wed Feb 23 2022 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11.1-1
-- Update to v0.11.1 + patch 0837021e841e04475e804d8989d000887d5bb576
-- Remove patch2 in favor of upstream d5f41b3, containe in v0.11.1
+* Thu Feb 24 2022 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11.1-1
+- Update to v0.11.1 + patch 356cb83d36a9243e30fe8a1bbc83e81fc46d2be2
+- Remove patch2, which was merged into v0.11.1
 - Remove unused WITH_CART_PREFIX
 - Add libattr-devel dependency - now required for xattrs
 
