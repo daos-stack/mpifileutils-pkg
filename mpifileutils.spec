@@ -46,19 +46,20 @@
 %global cmake cmake3
 %endif
 
+%global shortcommit %(c=%{commit};echo ${c:0:7})
+
 Name:		mpifileutils
-Version:	0.11
-Release:	10%{?git_short:.g%{git_short}}%{?dist}
+Version:	0.11.1
+Release:	1%{?commit:.g%{shortcommit}}%{?dist}
 Summary:	File utilities designed for scalability and performance.
 
 Group:		System Environment/Libraries
 License:	Copyright and BSD License
 URL:		https://hpc.github.io/mpifileutils
 Source:		https://github.com/hpc/%{name}/archive/v%{version}.tar.gz
-%if %{defined git_short}
-Patch1:		v%{version}..%{?git_short}.patch
+%if "%{?commit}" != ""
+Patch1: %{version}..%{commit}.patch
 %endif
-Patch2:    https://github.com/daos-stack/%{name}/commit/03d25d95bc8785e0145763e03b45e0208a845a84.patch
 BuildRoot:	%_topdir/BUILDROOT
 %if (0%{?suse_version} >= 1500)
 BuildRequires: cmake >= 3.1
@@ -73,6 +74,7 @@ BuildRequires: openssl-devel
 %endif
 BuildRequires: gcc-c++
 BuildRequires: libuuid-devel
+BuildRequires: libattr-devel
 
 
 %if (0%{?suse_version} >= 1500)
@@ -184,7 +186,6 @@ for mpi in %{?mpi_list}; do
              -DLibCircle_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libcircle.so \
              -DHDF5_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}         \
              -DHDF5_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libhdf5.so        \
-             -DWITH_CART_PREFIX=/usr                                              \
              -DWITH_DAOS_PREFIX=/usr                                              \
              -DCMAKE_INSTALL_INCLUDEDIR=%{mpi_includedir}/$mpi%{mpi_include_ext}  \
              -DCMAKE_INSTALL_PREFIX=%{mpi_libdir}/$mpi                            \
@@ -249,6 +250,12 @@ done
 %endif
 
 %changelog
+* Thu Feb 24 2022 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11.1-1
+- Update to v0.11.1 + patch 356cb83d36a9243e30fe8a1bbc83e81fc46d2be2
+- Remove patch2, which was merged into v0.11.1
+- Remove unused WITH_CART_PREFIX
+- Add libattr-devel dependency - now required for xattrs
+
 * Fri Nov 12 2021 Wang Shilong <shilong.wang@intel.com> - 0.11-10
 - Rebuilt for breaking DAOS API change
 - Add patch to work with libdaos.so.2
