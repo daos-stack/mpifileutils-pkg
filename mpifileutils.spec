@@ -50,7 +50,7 @@
 
 Name:		mpifileutils
 Version:	0.11.1
-Release:	1%{?commit:.g%{shortcommit}}%{?dist}
+Release:	2%{?commit:.g%{shortcommit}}%{?dist}
 Summary:	File utilities designed for scalability and performance.
 
 Group:		System Environment/Libraries
@@ -250,6 +250,9 @@ done
 %endif
 
 %changelog
+* Mon Mar 14 2022 Mohamad Chaarawi <mohamad.chaarawi@intel.com> - 0.11.1-2
+- Update to build with HDF5 1.13.1
+
 * Thu Feb 24 2022 Dalton A. Bohning <daltonx.bohning@intel.com> - 0.11.1-1
 - Update to v0.11.1 + patch 356cb83d36a9243e30fe8a1bbc83e81fc46d2be2
 - Remove patch2, which was merged into v0.11.1
