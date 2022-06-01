@@ -1,0 +1,279 @@
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+index d7c9a01..4ffcf16 100644
+--- a/CONTRIBUTING.md
++++ b/CONTRIBUTING.md
+@@ -3,17 +3,12 @@
+ *Thank you for taking the time to contribute!*
+ 
+ ## Table of Contents
+-[Resources](#resources)
+-
+ [How To Contribute](#how-to-contribute)
+   * [Reporting an Issue & Feature Suggestions](#reporting-an-issue--feature-suggestions)
+   * [Pull Requests](#pull-requests)
+   * [License](#license)
+   * [Contributor's Declaration](#contributors-declaration)
+ 
+-## Resources
+-[mpiFileUtils Google Group](https://groups.google.com/forum/#!forum/mpifileutils)
+-
+ ## How To Contribute
+ 
+ ### Reporting an Issue & Feature Suggestions
+diff --git a/doc/rst/build.rst b/doc/rst/build.rst
+index 047ba87..aedf67c 100644
+--- a/doc/rst/build.rst
++++ b/doc/rst/build.rst
+@@ -34,7 +34,7 @@ To be certain of compatibility, it is recommended that one install libarchive-3.
+    mkdir install
+    installdir=`pwd`/install
+ 
+-   wget https://github.com/libarchive/libarchive/releases/download/3.5.1/libarchive-3.5.1.tar.gz
++   wget https://github.com/libarchive/libarchive/releases/download/v3.5.1/libarchive-3.5.1.tar.gz
+    tar -zxf libarchive-3.5.1.tar.gz
+    cd libarchive-3.5.1
+      ./configure --prefix=$installdir
+@@ -135,7 +135,7 @@ which can be done with the following commands:
+      wget https://github.com/hpc/libcircle/releases/download/v0.3/libcircle-0.3.0.tar.gz
+      wget https://github.com/llnl/lwgrp/releases/download/v1.0.4/lwgrp-1.0.4.tar.gz
+      wget https://github.com/llnl/dtcmp/releases/download/v1.1.4/dtcmp-1.1.4.tar.gz
+-     wget https://github.com/libarchive/libarchive/releases/download/3.5.1/libarchive-3.5.1.tar.gz
++     wget https://github.com/libarchive/libarchive/releases/download/v3.5.1/libarchive-3.5.1.tar.gz
+ 
+      tar -zxf libcircle-0.3.0.tar.gz
+      cd libcircle-0.3.0
+diff --git a/src/common/mfu_daos.c b/src/common/mfu_daos.c
+index 8f53133..8981371 100644
+--- a/src/common/mfu_daos.c
++++ b/src/common/mfu_daos.c
+@@ -1182,7 +1182,9 @@ int daos_connect(
+              * If nothing is passed in for destination a uuid is always generated
+              * unless user passed one in, because destination container labels are
+              * not generated */
+-            rc = daos_cont_open(*poh, da->dst_cont_uuid, DAOS_COO_RW, coh, &co_info, NULL);
++            char cont_str[130];
++            uuid_unparse(da->dst_cont_uuid, cont_str);
++            rc = daos_cont_open(*poh, cont_str, DAOS_COO_RW, coh, &co_info, NULL);
+         } else {
+             rc = daos_cont_open(*poh, *cont, DAOS_COO_RW, coh, &co_info, NULL);
+         }
+@@ -1273,14 +1275,12 @@ int daos_connect(
+             }
+ 
+             /* try to open it again */
+-            if (dst_cont_passed) {
+-                if (is_uuid) {
+-                    rc = daos_cont_open(*poh, da->dst_cont_uuid, DAOS_COO_RW, coh, &co_info, NULL);
+-                } else {
+-                    rc = daos_cont_open(*poh, *cont, DAOS_COO_RW, coh, &co_info, NULL);
+-                }
++            if (dst_cont_passed && !is_uuid) {
++                rc = daos_cont_open(*poh, *cont, DAOS_COO_RW, coh, &co_info, NULL);
+             } else {
+-                rc = daos_cont_open(*poh, da->dst_cont_uuid, DAOS_COO_RW, coh, &co_info, NULL);
++                char cont_str[130];
++                uuid_unparse(da->dst_cont_uuid, cont_str);
++                rc = daos_cont_open(*poh, cont_str, DAOS_COO_RW, coh, &co_info, NULL);
+             }
+             if (rc != 0) {
+                 MFU_LOG(MFU_LOG_ERR, "Failed to open container: "DF_RC, DP_RC(rc));
+@@ -3857,7 +3857,7 @@ static int cont_serialize_prop_str(struct hdf5_args* hdf5,
+     hid_t   attr_dspace;
+     hid_t   usr_attr;
+ 
+-    if (entry == NULL || entry->dpe_str == NULL) {
++    if (entry == NULL) {
+         MFU_LOG(MFU_LOG_ERR, "Property %s not found", prop_str);
+         rc = 1;
+         goto out;
+@@ -3870,7 +3870,7 @@ static int cont_serialize_prop_str(struct hdf5_args* hdf5,
+         rc = 1;
+         goto out;
+     }
+-    status = H5Tset_size(attr_dtype, strlen(entry->dpe_str) + 1);
++    status = H5Tset_size(attr_dtype, (entry->dpe_str ? strlen(entry->dpe_str) : 0) + 1);
+     if (status < 0) {
+         MFU_LOG(MFU_LOG_ERR, "failed to set dtype size");
+         rc = 1;
+@@ -3895,7 +3895,7 @@ static int cont_serialize_prop_str(struct hdf5_args* hdf5,
+         rc = 1;
+         goto out;
+     }   
+-    status = H5Awrite(usr_attr, attr_dtype, entry->dpe_str);
++    status = H5Awrite(usr_attr, attr_dtype, entry->dpe_str ? entry->dpe_str : "");
+     if (status < 0) {
+         MFU_LOG(MFU_LOG_ERR, "failed to write attribute");
+         rc = 1;
+@@ -5394,22 +5394,23 @@ int cont_deserialize_all_props(struct hdf5_args *hdf5,
+         goto out;
+     }
+ 
+-    rc = daos_cont_open(poh, label_entry->dpe_str, DAOS_COO_RW, &coh, &cont_info, NULL);
+-    if (rc == -DER_NONEXIST) {
+-        /* doesn't exist so ok to deserialize this container label */
+-        deserialize_label = true;
+-    } else if (rc != 0) {
+-        MFU_LOG(MFU_LOG_ERR, "daos_cont_open failed: "DF_RC, DP_RC(rc));
+-        goto out;
+-    }  else {
+-        /* if this succeeds then label already exists, close container after
+-         * checking */
+-        rc = daos_cont_close(coh, NULL);
+-        if (rc != 0) {
++    if (label_entry->dpe_str[0]) {
++        rc = daos_cont_open(poh, label_entry->dpe_str, DAOS_COO_RW, &coh, &cont_info, NULL);
++        if (rc == -DER_NONEXIST) {
++            /* doesn't exist so ok to deserialize this container label */
++            deserialize_label = true;
++        } else if (rc != 0) {
++            MFU_LOG(MFU_LOG_ERR, "daos_cont_open failed: "DF_RC, DP_RC(rc));
+             goto out;
++        }  else {
++            /* if this succeeds then label already exists, close container after
++             * checking */
++            rc = daos_cont_close(coh, NULL);
++            if (rc != 0) {
++                goto out;
++            }
+         }
+     }
+-
+     if (deserialize_label) {
+         num_props++;
+     }
+@@ -5617,7 +5618,7 @@ int daos_cont_deserialize_connect(daos_args_t *daos_args,
+     } else {
+         uuid_unparse(daos_args->dst_cont_uuid, cont_str);
+         MFU_LOG(MFU_LOG_INFO, "Successfully created container %s", cont_str);
+-        rc = daos_cont_open(daos_args->src_poh, daos_args->dst_cont_uuid,
++        rc = daos_cont_open(daos_args->src_poh, cont_str,
+                             DAOS_COO_RW, &daos_args->src_coh, &co_info, NULL);
+     }
+     if (rc != 0) {
+diff --git a/src/common/mfu_flist_copy.c b/src/common/mfu_flist_copy.c
+index f5acaab..0e9c78f 100644
+--- a/src/common/mfu_flist_copy.c
++++ b/src/common/mfu_flist_copy.c
+@@ -1680,12 +1680,20 @@ static int mfu_copy_file_normal(
+         /* If we're using O_DIRECT, deal with short reads.
+          * Retry with same buffer and offset since those must
+          * be aligned at block boundaries. */
++        int retries = 0;
+         while (copy_opts->direct &&            /* using O_DIRECT */
+                bytes_read > 0 &&               /* read was not an error or eof */
+                bytes_read < left_to_read &&    /* shorter than requested */
+                (off + bytes_read) < file_size) /* not at end of file */
+         {
+-            /* TODO: probably should retry a limited number of times then abort */
++            /* try the read a limited number of times then given up with error */
++            retries++;
++            if (retries == 5) {
++              MFU_LOG(MFU_LOG_ERR, "Source file `%s' exceeded short read limit, maybe shorter than expected size of %llu bytes",
++                  src, file_size);
++              return -1;
++            }
++
+             bytes_read = mfu_file_pread(src, buf, left_to_read, off, mfu_src_file);
+         }
+ 
+@@ -1698,8 +1706,8 @@ static int mfu_copy_file_normal(
+ 
+         /* check for early EOF */
+         if (bytes_read == 0) {
+-            MFU_LOG(MFU_LOG_ERR, "Source file `%s' shorter than expected %llu (errno=%d %s)",
+-                src, file_size, errno, strerror(errno));
++            MFU_LOG(MFU_LOG_ERR, "Source file `%s' shorter than expected size of %llu bytes",
++                src, file_size);
+             return -1;
+         }
+ 
+diff --git a/src/daos-gen/daos-gen.c b/src/daos-gen/daos-gen.c
+index d96373a..46ee44d 100644
+--- a/src/daos-gen/daos-gen.c
++++ b/src/daos-gen/daos-gen.c
+@@ -18,6 +18,14 @@
+ #define BUFLEN 80
+ #define UUID_STR_LEN 129
+ 
++#if defined(DAOS_API_VERSION_MAJOR) && defined(DAOS_API_VERSION_MINOR)
++#define CHECK_DAOS_API_VERSION(major, minor)                                            \
++	((DAOS_API_VERSION_MAJOR > (major))                                             \
++	 || (DAOS_API_VERSION_MAJOR == (major) && DAOS_API_VERSION_MINOR >= (minor)))
++#else
++#define CHECK_DAOS_API_VERSION(major, minor) 0
++#endif
++
+ static uint32_t obj_id_gen = 1;
+ 
+ /** Print a usage message. */
+@@ -176,13 +184,18 @@ int main(int argc, char** argv)
+     char                key[keys_per_object];
+     int                 i,j;
+     char                uuid_str[UUID_STR_LEN];
++    uuid_t              cont_uuid;
++
++#if CHECK_DAOS_API_VERSION(2, 0)
++    enum daos_otype_t   otype;
++    otype = DAOS_OT_KV_HASHED;
++#else
+     daos_ofeat_t        ofeats;
++    ofeats = DAOS_OF_KV_FLAT;
++#endif
+ 
+-    ofeats = DAOS_OF_DKEY_UINT64 | DAOS_OF_KV_FLAT | DAOS_OF_KV_FLAT;
+     /* connect to pool/cont then broadcast to rest of ranks */
+     if (rank == 0) {
+-        /* generate container UUID */
+-        uuid_generate(daos_args->src_cont);
+         daos_pool_info_t pool_info = {0};
+         daos_cont_info_t co_info = {0};
+ #if DAOS_API_VERSION_MAJOR < 1
+@@ -199,14 +212,27 @@ int main(int argc, char** argv)
+         }
+ 
+         /* create cont and open */
++#if CHECK_DAOS_API_VERSION(2, 0)
++        rc = daos_cont_create(daos_args->src_poh, &cont_uuid, NULL, NULL);
++#else
++        /* generate container UUID */
++        uuid_generate(daos_args->src_cont);
++        uuid_copy(cont_uuid, daos_args->src_cont);
+         rc = daos_cont_create(daos_args->src_poh, daos_args->src_cont, NULL, NULL);
++#endif
+         if (rc != 0) {
+             MFU_LOG(MFU_LOG_ERR, "Failed to create cont: "DF_RC, DP_RC(rc));
+             rc = 1;
+             goto err_cont;
+         }
++        uuid_unparse(cont_uuid, uuid_str);
++#if CHECK_DAOS_API_VERSION(2, 0)
++        rc = daos_cont_open(daos_args->src_poh, uuid_str,
++                            DAOS_COO_RW, &daos_args->src_coh, &co_info, NULL);
++#else
+         rc = daos_cont_open(daos_args->src_poh, daos_args->src_cont,
+                             DAOS_COO_RW, &daos_args->src_coh, &co_info, NULL);
++#endif
+         if (rc != 0) {
+             MFU_LOG(MFU_LOG_ERR, "Failed to open container: "DF_RC, DP_RC(rc));
+             rc = 1;
+@@ -222,8 +248,11 @@ int main(int argc, char** argv)
+ 	memset(buf, 'A', BUFLEN);
+     for (i = 0; i < num_objects; i++) {
+         oid[i] = dts_oid_gen(0);
+-                                   
++#if CHECK_DAOS_API_VERSION(2, 0)
++        rc = daos_obj_generate_oid(daos_args->src_coh, &oid[i], otype, OC_RP_XSF, 0, 0);
++#else                                   
+         rc = daos_obj_generate_oid(daos_args->src_coh, &oid[i], ofeats, OC_RP_XSF, 0, 0);
++#endif
+         if (rc != 0) {
+             MFU_LOG(MFU_LOG_ERR, "Failed to generate oid: "DF_RC, DP_RC(rc));
+             rc = 1;
+@@ -261,7 +290,6 @@ int main(int argc, char** argv)
+      * generates same amount */
+     if (rank == 0) {
+         int total_num_objects = size * num_objects; 
+-        uuid_unparse(daos_args->src_cont, uuid_str);
+         printf("Container UUID: %s\n\ttotal objects:%d\n"
+                "\tkeys per object:%d\n", uuid_str, total_num_objects, keys_per_object);
+     }

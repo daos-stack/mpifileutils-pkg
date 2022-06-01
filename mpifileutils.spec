@@ -50,7 +50,7 @@
 
 Name:		mpifileutils
 Version:	0.11.1
-Release:	2%{?commit:.g%{shortcommit}}%{?dist}
+Release:	3%{?commit:.g%{shortcommit}}%{?dist}
 Summary:	File utilities designed for scalability and performance.
 
 Group:		System Environment/Libraries
@@ -250,6 +250,9 @@ done
 %endif
 
 %changelog
+*Wed Jun 01 2022 Lei Huang <lei.huang@intel.com> - 0.11.1-3
+- Update to patch 6230ed2 to support empty container lable
+
 * Mon Mar 14 2022 Mohamad Chaarawi <mohamad.chaarawi@intel.com> - 0.11.1-2
 - Update to build with HDF5 1.13.1
 
