@@ -175,8 +175,8 @@ for mpi in %{?mpi_list}; do
   mkdir $mpi
   pushd $mpi
   %module_load $mpi
-  %cmake ../ -DCMAKE_C_FLAGS="${RPM_OPT_FLAGS}"                               \
-             -DCMAKE_CXX_FLAGS="${RPM_OPT_FLAGS}"                             \
+  %cmake ../ -DCMAKE_C_FLAGS="${RPM_OPT_FLAGS}"                                   \
+             -DCMAKE_CXX_FLAGS="${RPM_OPT_FLAGS}"                                 \
              -DENABLE_DAOS=ON                                                     \
              -DENABLE_LIBARCHIVE=OFF                                              \
              -DENABLE_HDF5=ON                                                     \
