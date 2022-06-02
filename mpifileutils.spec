@@ -175,9 +175,8 @@ for mpi in %{?mpi_list}; do
   mkdir $mpi
   pushd $mpi
   %module_load $mpi
-  %cmake ../ -DCMAKE_C_FLAGS="${RPM_OPT_FLAGS} -g "                               \
-             -DCMAKE_CXX_FLAGS="${RPM_OPT_FLAGS} -g "                             \
-             -DCMAKE_LD_FLAGS="${RPM_OPT_FLAGS} -g "                              \
+  %cmake ../ -DCMAKE_C_FLAGS="${RPM_OPT_FLAGS}"                               \
+             -DCMAKE_CXX_FLAGS="${RPM_OPT_FLAGS}"                             \
              -DENABLE_DAOS=ON                                                     \
              -DENABLE_LIBARCHIVE=OFF                                              \
              -DENABLE_HDF5=ON                                                     \
@@ -202,6 +201,7 @@ rm -rf %{buildroot}
 for mpi in %{?mpi_list}; do
   %module_load $mpi
   make install -C $mpi DESTDIR=%{buildroot}
+  rm %{buildroot}%{mpi_libdir}/${mpi}/%{mpi_lib_ext}/libmfu.a
   module purge
 done
 
