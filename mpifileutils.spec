@@ -251,7 +251,7 @@ done
 
 %changelog
 *Wed Jun 01 2022 Lei Huang <lei.huang@intel.com> - 0.11.1-3
-- Update to patch 6230ed2 to support empty container lable
+- Update to patch 6230ed2 to support empty container label
 
 * Mon Mar 14 2022 Mohamad Chaarawi <mohamad.chaarawi@intel.com> - 0.11.1-2
 - Update to build with HDF5 1.13.1
