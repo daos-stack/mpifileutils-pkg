@@ -51,10 +51,10 @@
 Name:		mpifileutils
 Version:	0.11.1
 Release:	3%{?commit:.g%{shortcommit}}%{?dist}
-Summary:	File utilities designed for scalability and performance.
+Summary:	File utilities designed for scalability and performance
 
 Group:		System Environment/Libraries
-License:	Copyright and BSD License
+License:	BSD
 URL:		https://hpc.github.io/mpifileutils
 Source:		https://github.com/hpc/%{name}/archive/v%{version}.tar.gz
 %if "%{?commit}" != ""
@@ -82,22 +82,22 @@ BuildRequires: libfabric1 >= 1.12.0
 %endif
 
 %description
-File utilities designed for scalability and performance.
+File utilities designed for scalability and performance
 
 %if %{with_openmpi}
 %package openmpi
-Summary:	File utilities designed for scalability and performance.
+Summary:	File utilities designed for scalability and performance
 BuildRequires: openmpi-devel
 BuildRequires: dtcmp-openmpi-devel
 BuildRequires: libcircle-openmpi-devel
 BuildRequires: hdf5-vol-daos-openmpi-devel
 
 %description openmpi
-File utilities designed for scalability and performance.
+File utilities designed for scalability and performance
 
 
 %package openmpi-devel
-Summary:	File utilities designed for scalability and performance.
+Summary:	File utilities designed for scalability and performance
 Requires: %{name}-openmpi%{_isa} = %version-%release
 
 %description openmpi-devel
@@ -106,25 +106,25 @@ Development files for %{name}-openmpi.
 
 %if %{with_openmpi3}
 %package openmpi3
-Summary:	File utilities designed for scalability and performance.
+Summary:	File utilities designed for scalability and performance
 BuildRequires: openmpi3-devel
 BuildRequires: dtcmp-openmpi3-devel
 BuildRequires: libcircle-openmpi3-devel
 BuildRequires: hdf5-vol-daos-openmpi3-devel
 
 %description openmpi3
-File utilities designed for scalability and performance.
+File utilities designed for scalability and performance
 
 %if (0%{?suse_version} >= 1500)
 %package -n libmfu0-openmpi3
-Summary:	File utilities designed for scalability and performance.
+Summary:	File utilities designed for scalability and performance
 
 %description -n libmfu0-openmpi3
 Shared libraries for %{name}-openmpi3.
 %endif
 
 %package openmpi3-devel
-Summary:	File utilities designed for scalability and performance.
+Summary:	File utilities designed for scalability and performance
 %if (0%{?suse_version} >= 1500)
 Requires: libmfu0-openmpi3%{_isa} = %version-%release
 %else
@@ -137,25 +137,25 @@ Development files for %{name}-openmpi3.
 
 %if %{with_mpich}
 %package mpich
-Summary:	File utilities designed for scalability and performance.
+Summary:	File utilities designed for scalability and performance
 BuildRequires: mpich-devel
 BuildRequires: dtcmp-mpich-devel
 BuildRequires: libcircle-mpich-devel
 BuildRequires: hdf5-vol-daos-mpich-devel
 
 %description mpich
-File utilities designed for scalability and performance.
+File utilities designed for scalability and performance
 
 %if (0%{?suse_version} >= 1500)
 %package -n libmfu0-mpich
-Summary:	File utilities designed for scalability and performance.
+Summary:	File utilities designed for scalability and performance
 
 %description -n libmfu0-mpich
 Shared libraries for %{name}-mpich.
 %endif
 
 %package mpich-devel
-Summary:	File utilities designed for scalability and performance.
+Summary:	File utilities designed for scalability and performance
 %if (0%{?suse_version} >= 1500)
 Requires: libmfu0-mpich%{_isa} = %version-%release
 %else
@@ -202,6 +202,7 @@ for mpi in %{?mpi_list}; do
   %module_load $mpi
   make install -C $mpi DESTDIR=%{buildroot}
   rm %{buildroot}%{mpi_libdir}/${mpi}/%{mpi_lib_ext}/libmfu.a
+  find %{buildroot}%{mpi_libdir}/${mpi}/share/man -type f -exec gzip -9 -n {} \;
   module purge
 done
 
@@ -246,6 +247,18 @@ done
 %{mpi_includedir}/mpich%{mpi_include_ext}/*
 %{mpi_libdir}/mpich/%{mpi_lib_ext}/lib*.so
 %endif
+
+%post -n mpifileutils-debuginfo -p /sbin/ldconfig
+%post -n mpifileutils-mpich -p /sbin/ldconfig
+%post -n mpifileutils-mpich-devel -p /sbin/ldconfig
+%post -n mpifileutils-openmpi3 -p /sbin/ldconfig
+%post -n mpifileutils-openmpi3-devel -p /sbin/ldconfig
+
+%postun -n mpifileutils-debuginfo -p /sbin/ldconfig
+%postun -n mpifileutils-mpich -p /sbin/ldconfig
+%postun -n mpifileutils-mpich-devel -p /sbin/ldconfig
+%postun -n mpifileutils-openmpi3 -p /sbin/ldconfig
+%postun -n mpifileutils-openmpi3-devel -p /sbin/ldconfig
 
 %changelog
 *Wed Jun 01 2022 Lei Huang <lei.huang@intel.com> - 0.11.1-3
