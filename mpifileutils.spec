@@ -82,7 +82,9 @@ BuildRequires: libfabric1 >= 1.12.0
 %endif
 
 %description
-File utilities designed for scalability and performance
+mpiFileUtils provides both a library called libmfu and a suite of MPI-based
+tools to manage large datasets, which may vary from large directory trees
+to large files.
 
 %if %{with_openmpi}
 %package openmpi
@@ -93,15 +95,17 @@ BuildRequires: libcircle-openmpi-devel
 BuildRequires: hdf5-vol-daos-openmpi-devel
 
 %description openmpi
-File utilities designed for scalability and performance
-
+mpiFileUtils provides both a library called libmfu and a suite of MPI-based
+tools to manage large datasets, which may vary from large directory trees
+to large files.
 
 %package openmpi-devel
 Summary:	File utilities designed for scalability and performance
 Requires: %{name}-openmpi%{_isa} = %version-%release
 
 %description openmpi-devel
-Development files for %{name}-openmpi.
+Development files for %{name}-openmpi which provides file utilities 
+designed for scalability and performance.
 %endif
 
 %if %{with_openmpi3}
@@ -113,7 +117,9 @@ BuildRequires: libcircle-openmpi3-devel
 BuildRequires: hdf5-vol-daos-openmpi3-devel
 
 %description openmpi3
-File utilities designed for scalability and performance
+mpiFileUtils provides both a library called libmfu and a suite of MPI-based
+tools to manage large datasets, which may vary from large directory trees
+to large files.
 
 %if (0%{?suse_version} >= 1500)
 %package -n libmfu0-openmpi3
@@ -132,7 +138,8 @@ Requires: %{name}-openmpi3%{_isa} = %version-%release
 %endif
 
 %description openmpi3-devel
-Development files for %{name}-openmpi3.
+Development files for %{name}-openmpi3 which provides file utilities 
+designed for scalability and performance.
 %endif
 
 %if %{with_mpich}
@@ -144,7 +151,9 @@ BuildRequires: libcircle-mpich-devel
 BuildRequires: hdf5-vol-daos-mpich-devel
 
 %description mpich
-File utilities designed for scalability and performance
+mpiFileUtils provides both a library called libmfu and a suite of MPI-based 
+tools to manage large datasets, which may vary from large directory trees 
+to large files.
 
 %if (0%{?suse_version} >= 1500)
 %package -n libmfu0-mpich
@@ -163,7 +172,8 @@ Requires: %{name}-mpich%{_isa} = %version-%release
 %endif
 
 %description mpich-devel
-Development files for %{name}-mpich.
+Development files for %{name}-mpich which provides file utilities 
+designed for scalability and performance.
 %endif
 
 
@@ -175,8 +185,9 @@ for mpi in %{?mpi_list}; do
   mkdir $mpi
   pushd $mpi
   %module_load $mpi
-  %cmake ../ -DCMAKE_C_FLAGS="${RPM_OPT_FLAGS}"                                   \
-             -DCMAKE_CXX_FLAGS="${RPM_OPT_FLAGS}"                                 \
+  %cmake ../ -DCMAKE_C_FLAGS="${RPM_OPT_FLAGS} -g -fPIC "                         \
+             -DCMAKE_CXX_FLAGS="${RPM_OPT_FLAGS} -g -fPIC "                       \
+             -DCMAKE_LD_FLAGS="${RPM_OPT_FLAGS} -g -fPIC "                        \
              -DENABLE_DAOS=ON                                                     \
              -DENABLE_LIBARCHIVE=OFF                                              \
              -DENABLE_HDF5=ON                                                     \
