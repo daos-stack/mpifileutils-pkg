@@ -185,9 +185,9 @@ for mpi in %{?mpi_list}; do
   mkdir $mpi
   pushd $mpi
   %module_load $mpi
-  %cmake ../ -DCMAKE_C_FLAGS="${RPM_OPT_FLAGS} -g -fPIC "                         \
-             -DCMAKE_CXX_FLAGS="${RPM_OPT_FLAGS} -g -fPIC "                       \
-             -DCMAKE_LD_FLAGS="${RPM_OPT_FLAGS} -g -fPIC "                        \
+  %cmake ../ -DCMAKE_C_FLAGS="${RPM_OPT_FLAGS} -g -fPIE "                         \
+             -DCMAKE_CXX_FLAGS="${RPM_OPT_FLAGS} -g -fPIE "                       \
+             -DCMAKE_LD_FLAGS="${RPM_OPT_FLAGS} -g -fPIE "                        \
              -DENABLE_DAOS=ON                                                     \
              -DENABLE_LIBARCHIVE=OFF                                              \
              -DENABLE_HDF5=ON                                                     \
@@ -259,13 +259,11 @@ done
 %{mpi_libdir}/mpich/%{mpi_lib_ext}/lib*.so
 %endif
 
-%post -n mpifileutils-debuginfo -p /sbin/ldconfig
 %post -n mpifileutils-mpich -p /sbin/ldconfig
 %post -n mpifileutils-mpich-devel -p /sbin/ldconfig
 %post -n mpifileutils-openmpi3 -p /sbin/ldconfig
 %post -n mpifileutils-openmpi3-devel -p /sbin/ldconfig
 
-%postun -n mpifileutils-debuginfo -p /sbin/ldconfig
 %postun -n mpifileutils-mpich -p /sbin/ldconfig
 %postun -n mpifileutils-mpich-devel -p /sbin/ldconfig
 %postun -n mpifileutils-openmpi3 -p /sbin/ldconfig
