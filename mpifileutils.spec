@@ -126,7 +126,8 @@ to large files.
 Summary:	File utilities designed for scalability and performance
 
 %description -n libmfu0-openmpi3
-Shared libraries for %{name}-openmpi3.
+Shared libraries for %{name}-openmpi3, file utilities designed for 
+scalability and performance.
 %endif
 
 %package openmpi3-devel
@@ -187,7 +188,7 @@ for mpi in %{?mpi_list}; do
   %module_load $mpi
   %cmake ../ -DCMAKE_C_FLAGS="${RPM_OPT_FLAGS} -g -fPIE "                         \
              -DCMAKE_CXX_FLAGS="${RPM_OPT_FLAGS} -g -fPIE "                       \
-             -DCMAKE_LD_FLAGS="${RPM_OPT_FLAGS} -g -fPIE "                        \
+             -DCMAKE_LD_FLAGS="${RPM_OPT_FLAGS} -g -pie "                        \
              -DENABLE_DAOS=ON                                                     \
              -DENABLE_LIBARCHIVE=OFF                                              \
              -DENABLE_HDF5=ON                                                     \
