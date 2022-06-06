@@ -259,16 +259,6 @@ done
 %{mpi_libdir}/mpich/%{mpi_lib_ext}/lib*.so
 %endif
 
-%post -n mpifileutils-mpich -p /sbin/ldconfig
-%post -n mpifileutils-mpich-devel -p /sbin/ldconfig
-%post -n mpifileutils-openmpi3 -p /sbin/ldconfig
-%post -n mpifileutils-openmpi3-devel -p /sbin/ldconfig
-
-%postun -n mpifileutils-mpich -p /sbin/ldconfig
-%postun -n mpifileutils-mpich-devel -p /sbin/ldconfig
-%postun -n mpifileutils-openmpi3 -p /sbin/ldconfig
-%postun -n mpifileutils-openmpi3-devel -p /sbin/ldconfig
-
 %changelog
 *Wed Jun 01 2022 Lei Huang <lei.huang@intel.com> - 0.11.1-3
 - Update to patch 6230ed2 to support empty container label
