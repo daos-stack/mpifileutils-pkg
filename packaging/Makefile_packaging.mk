@@ -463,7 +463,7 @@ endif
 test:
 	# Test the rpmbuild by installing the built RPM
 	$(call install_repos,$(REPO_NAME)@$(BRANCH_NAME):$(BUILD_NUMBER))
-	dnf -y install hdf5-mpich daos daos-client dtcmp-mpich dtcmp-mpich-devel libcircle-mpich libcircle-mpich-devel $(TEST_PACKAGES)
+	dnf -y install $(TEST_PACKAGES)
 
 show_NAME:
 	@echo '$(NAME)'
