@@ -16,8 +16,8 @@ ARG UID=1000
 
 # Install basic tools
 RUN yum install -y epel-release
-RUN yum install -y mock make rpm-build curl createrepo rpmlint redhat-lsb-core \
-                   git python-srpm-macros dnf
+RUN yum install -y curl createrepo dnf git make mock  python-srpm-macros \
+                   redhat-lsb-core rpm-build rpmdevtools rpmlint
 
 # Add build user (to keep rpmbuild happy)
 ENV USER build
