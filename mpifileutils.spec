@@ -182,8 +182,8 @@ designed for scalability and performance.
 %autosetup -p1
 
 %build
-export CFLAGS="%{RPM_OPT_FLAGS} -fPIC -pie"
-export CXXFLAGS="%{RPM_OPT_FLAGS} -fPIC -pie"
+export CFLAGS="%{optflags} -fPIC -pie"
+export CXXFLAGS="%{optflags} -fPIC -pie"
 for mpi in %{?mpi_list}; do
   mkdir $mpi
   pushd $mpi
