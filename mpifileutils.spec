@@ -182,14 +182,13 @@ designed for scalability and performance.
 %autosetup -p1
 
 %build
+export CFLAGS="%{RPM_OPT_FLAGS} -fPIC -pie"
+export CXXFLAGS="%{RPM_OPT_FLAGS} -fPIC -pie"
 for mpi in %{?mpi_list}; do
   mkdir $mpi
   pushd $mpi
   %module_load $mpi
-  %cmake ../ -DCMAKE_C_FLAGS="${RPM_OPT_FLAGS} -g -fPIE "                         \
-             -DCMAKE_CXX_FLAGS="${RPM_OPT_FLAGS} -g -fPIE "                       \
-             -DCMAKE_LD_FLAGS="${RPM_OPT_FLAGS} -g -pie "                        \
-             -DENABLE_DAOS=ON                                                     \
+  %cmake ../ -DENABLE_DAOS=ON                                                     \
              -DENABLE_LIBARCHIVE=OFF                                              \
              -DENABLE_HDF5=ON                                                     \
              -DDTCMP_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}        \

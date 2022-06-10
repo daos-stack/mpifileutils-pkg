@@ -98,13 +98,11 @@ define distro_map
 endef
 
 define install_repos
-	if [ "$(ID_LIKE)" = "debian" ]; then                            \
-	    IFS='|' read -ra BASES <<< "$($(DISTRO_BASE)_LOCAL_REPOS)"; \
-	    for baseurl in "$${BASES[@]}"; do                           \
-	        baseurl="$${baseurl# *}";                               \
-	        $(call install_repo,$$baseurl)                          \
-	    done;                                                       \
-	fi
+        IFS='|' read -ra BASES <<< "$($(DISTRO_BASE)_LOCAL_REPOS)"; \
+        for baseurl in "$${BASES[@]}"; do \
+            baseurl="$${baseurl# *}"; \
+            $(call install_repo,$$baseurl) \
+        done
 	for repo in $($(DISTRO_BASE)_PR_REPOS)                                                             \
 	            $(PR_REPOS) $(1); do                                                                   \
 	    branch="master";                                                                               \
@@ -347,8 +345,13 @@ ifeq ($(LOCAL_REPOS),true)
       DAOS_STACK_$(DISTRO_BASE)_LOCAL_REPO := $(subst reposi,artifac,$(DAOS_STACK_$(DISTRO_BASE)_LOCAL_REPO))
       # $(DISTRO_BASE)_LOCAL_REPOS is a list separated by | because you cannot pass lists
       # of values with spaces as environment variables
-      $(DISTRO_BASE)_LOCAL_REPOS := [trusted=yes] $(ARTIFACTORY_URL)$(subst stack,stack-daos,$(DAOS_STACK_$(DISTRO_BASE)_LOCAL_REPO))
-      $(DISTRO_BASE)_LOCAL_REPOS += |[trusted=yes] $(ARTIFACTORY_URL)$(subst stack,stack-deps,$(DAOS_STACK_$(DISTRO_BASE)_LOCAL_REPO))
+      ifeq ($(ID_LIKE), debian)
+        $(DISTRO_BASE)_LOCAL_REPOS := [trusted=yes] $(ARTIFACTORY_URL)$(subst stack,stack-daos,$(DAOS_STACK_$(DISTRO_BASE)_LOCAL_REPO))
+        $(DISTRO_BASE)_LOCAL_REPOS += |[trusted=yes] $(ARTIFACTORY_URL)$(subst stack,stack-deps,$(DAOS_STACK_$(DISTRO_BASE)_LOCAL_REPO))
+      else
+	$(DISTRO_BASE)_LOCAL_REPOS := $(ARTIFACTORY_URL)$(subst stack,stack-daos,$(DAOS_STACK_$(DISTRO_BASE)_LOCAL_REPO))/
+        $(DISTRO_BASE)_LOCAL_REPOS += |$(ARTIFACTORY_URL)$(subst stack,stack-deps,$(DAOS_STACK_$(DISTRO_BASE)_LOCAL_REPO))/
+      endif
     endif #ifneq ($(DAOS_STACK_$(DISTRO_BASE)_LOCAL_REPO),)
   endif # ifneq ($(ARTIFACTORY_URL),)
 endif # ifeq ($(LOCAL_REPOS),true)
