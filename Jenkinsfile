@@ -40,5 +40,5 @@
 // I.e. for testing library changes
 //@Library(value="pipeline-lib@your_branch") _
 
-packageBuildingPipeline(['distros' : ['centos7', 'el8', 'leap15']])
+packageBuildingPipeline(['distros' : ['centos7', 'el8', 'leap15', 'ubuntu20.04']])
 

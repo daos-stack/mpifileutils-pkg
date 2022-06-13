@@ -161,7 +161,8 @@ to large files.
 Summary:	File utilities designed for scalability and performance
 
 %description -n libmfu0-mpich
-Shared libraries for %{name}-mpich.
+Shared libraries for %{name}-mpich, file utilities designed for
+scalability and performance.
 %endif
 
 %package mpich-devel
