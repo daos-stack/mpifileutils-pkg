@@ -214,9 +214,19 @@ for mpi in %{?mpi_list}; do
   %module_load $mpi
   make install -C $mpi DESTDIR=%{buildroot}
   rm %{buildroot}%{mpi_libdir}/${mpi}/%{mpi_lib_ext}/libmfu.a
+  strip --strip-unneeded %{buildroot}%{mpi_libdir}/${mpi}/%{mpi_lib_ext}/libmfu*
+  strip --strip-unneeded %{buildroot}%{mpi_libdir}/${mpi}/bin/*
   find %{buildroot}%{mpi_libdir}/${mpi}/share/man -type f -exec gzip -9 -n {} \;
   module purge
 done
+
+%if 0%{?suse_version} >= 01315
+%post -n %{suse_libname} -p /sbin/ldconfig
+%postun -n %{suse_libname} -p /sbin/ldconfig
+%else
+%post -p /sbin/ldconfig
+%postun -p /sbin/ldconfig
+%endif
 
 %if %{with_openmpi}
 %files openmpi
