@@ -186,38 +186,42 @@ designed for scalability and performance.
 export CFLAGS="%{optflags} -fPIC -pie"
 export CXXFLAGS="%{optflags} -fPIC -pie"
 for mpi in %{?mpi_list}; do
-  mkdir $mpi
-  pushd $mpi
-  %module_load $mpi
-  %cmake ../ -DENABLE_DAOS=ON                                                     \
-             -DENABLE_LIBARCHIVE=OFF                                              \
-             -DENABLE_HDF5=ON                                                     \
-             -DDTCMP_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}        \
-             -DDTCMP_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libdtcmp.so      \
-             -DLibCircle_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}    \
-             -DLibCircle_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libcircle.so \
-             -DHDF5_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}         \
-             -DHDF5_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libhdf5.so        \
-             -DWITH_DAOS_PREFIX=/usr                                              \
-             -DCMAKE_INSTALL_INCLUDEDIR=%{mpi_includedir}/$mpi%{mpi_include_ext}  \
-             -DCMAKE_INSTALL_PREFIX=%{mpi_libdir}/$mpi                            \
-             -DCMAKE_INSTALL_LIBDIR=%{mpi_lib_ext}
+	mkdir $mpi
+	pushd $mpi
+	%module_load $mpi
+	%cmake ../ -DENABLE_DAOS=ON							\
+		-DENABLE_LIBARCHIVE=OFF							\
+		-DENABLE_HDF5=ON							\
+		-DDTCMP_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}		\
+		-DDTCMP_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libdtcmp.so		\
+		-DLibCircle_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}	\
+		-DLibCircle_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libcircle.so	\
+		-DHDF5_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}		\
+		-DHDF5_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libhdf5.so		\
+		-DWITH_DAOS_PREFIX=/usr							\
+		-DCMAKE_INSTALL_INCLUDEDIR=%{mpi_includedir}/$mpi%{mpi_include_ext}	\
+		-DCMAKE_INSTALL_PREFIX=%{mpi_libdir}/$mpi				\
+		-DCMAKE_INSTALL_LIBDIR=%{mpi_lib_ext}
 
-  make
-  module purge
-  popd
+	make
+	module purge
+	popd
 done
 
 %install
 rm -rf %{buildroot}
 for mpi in %{?mpi_list}; do
-  %module_load $mpi
-  make install -C $mpi DESTDIR=%{buildroot}
-  rm %{buildroot}%{mpi_libdir}/${mpi}/%{mpi_lib_ext}/libmfu.a
-  strip --strip-unneeded %{buildroot}%{mpi_libdir}/${mpi}/%{mpi_lib_ext}/libmfu*
-  strip --strip-unneeded %{buildroot}%{mpi_libdir}/${mpi}/bin/*
-  find %{buildroot}%{mpi_libdir}/${mpi}/share/man -type f -exec gzip -9 -n {} \;
-  module purge
+	%module_load $mpi
+	make install -C $mpi DESTDIR=%{buildroot}
+	rm %{buildroot}%{mpi_libdir}/${mpi}/%{mpi_lib_ext}/libmfu.a
+
+%if (0%{?suse_version} >= 1500)
+	strip --strip-unneeded %{buildroot}%{mpi_libdir}/${mpi}/%{mpi_lib_ext}/libmfu*
+	strip --strip-unneeded %{buildroot}%{mpi_libdir}/${mpi}/bin/*
+%endif
+
+	find %{buildroot}%{mpi_libdir}/${mpi}/share/man -type f -exec gzip -9 -n {} \;
+	module purge
 done
 
 %if %{with_openmpi}
