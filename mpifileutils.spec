@@ -220,14 +220,6 @@ for mpi in %{?mpi_list}; do
   module purge
 done
 
-%if 0%{?suse_version} >= 01315
-%post -n %{suse_libname} -p /sbin/ldconfig
-%postun -n %{suse_libname} -p /sbin/ldconfig
-%else
-%post -p /sbin/ldconfig
-%postun -p /sbin/ldconfig
-%endif
-
 %if %{with_openmpi}
 %files openmpi
 %defattr(-,root,root,-)
