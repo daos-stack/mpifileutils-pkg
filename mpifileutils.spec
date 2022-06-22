@@ -81,6 +81,12 @@ BuildRequires: libattr-devel
 BuildRequires: libfabric1 >= 1.12.0
 %endif
 
+%if (0%{?suse_version} > 0)
+%global __debug_package 1
+%global _debuginfo_subpackages 0
+%debug_package
+%endif
+
 %description
 mpiFileUtils provides both a library called libmfu and a suite of MPI-based
 tools to manage large datasets, which may vary from large directory trees
@@ -93,12 +99,6 @@ BuildRequires: openmpi-devel
 BuildRequires: dtcmp-openmpi-devel
 BuildRequires: libcircle-openmpi-devel
 BuildRequires: hdf5-vol-daos-openmpi-devel
-
-%if (0%{?suse_version} > 0)
-%global __debug_package 1
-%global _debuginfo_subpackages 0
-%debug_package
-%endif
 
 %description openmpi
 mpiFileUtils provides both a library called libmfu and a suite of MPI-based
@@ -121,12 +121,6 @@ BuildRequires: openmpi3-devel
 BuildRequires: dtcmp-openmpi3-devel
 BuildRequires: libcircle-openmpi3-devel
 BuildRequires: hdf5-vol-daos-openmpi3-devel
-
-%if (0%{?suse_version} > 0)
-%global __debug_package 1
-%global _debuginfo_subpackages 0
-%debug_package
-%endif
 
 %description openmpi3
 mpiFileUtils provides both a library called libmfu and a suite of MPI-based
@@ -162,12 +156,6 @@ BuildRequires: mpich-devel
 BuildRequires: dtcmp-mpich-devel
 BuildRequires: libcircle-mpich-devel
 BuildRequires: hdf5-vol-daos-mpich-devel
-
-%if (0%{?suse_version} > 0)
-%global __debug_package 1
-%global _debuginfo_subpackages 0
-%debug_package
-%endif
 
 %description mpich
 mpiFileUtils provides both a library called libmfu and a suite of MPI-based 
