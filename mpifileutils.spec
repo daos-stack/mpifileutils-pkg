@@ -94,6 +94,12 @@ BuildRequires: dtcmp-openmpi-devel
 BuildRequires: libcircle-openmpi-devel
 BuildRequires: hdf5-vol-daos-openmpi-devel
 
+%if (0%{?suse_version} > 0)
+%global __debug_package 1
+%global _debuginfo_subpackages 0
+%debug_package
+%endif
+
 %description openmpi
 mpiFileUtils provides both a library called libmfu and a suite of MPI-based
 tools to manage large datasets, which may vary from large directory trees
@@ -115,6 +121,12 @@ BuildRequires: openmpi3-devel
 BuildRequires: dtcmp-openmpi3-devel
 BuildRequires: libcircle-openmpi3-devel
 BuildRequires: hdf5-vol-daos-openmpi3-devel
+
+%if (0%{?suse_version} > 0)
+%global __debug_package 1
+%global _debuginfo_subpackages 0
+%debug_package
+%endif
 
 %description openmpi3
 mpiFileUtils provides both a library called libmfu and a suite of MPI-based
@@ -150,6 +162,12 @@ BuildRequires: mpich-devel
 BuildRequires: dtcmp-mpich-devel
 BuildRequires: libcircle-mpich-devel
 BuildRequires: hdf5-vol-daos-mpich-devel
+
+%if (0%{?suse_version} > 0)
+%global __debug_package 1
+%global _debuginfo_subpackages 0
+%debug_package
+%endif
 
 %description mpich
 mpiFileUtils provides both a library called libmfu and a suite of MPI-based 
@@ -214,12 +232,6 @@ for mpi in %{?mpi_list}; do
 	%module_load $mpi
 	make install -C $mpi DESTDIR=%{buildroot}
 	rm %{buildroot}%{mpi_libdir}/${mpi}/%{mpi_lib_ext}/libmfu.a
-
-%if (0%{?suse_version} >= 1500)
-	strip --strip-unneeded %{buildroot}%{mpi_libdir}/${mpi}/%{mpi_lib_ext}/libmfu*
-	strip --strip-unneeded %{buildroot}%{mpi_libdir}/${mpi}/bin/*
-%endif
-
 	find %{buildroot}%{mpi_libdir}/${mpi}/share/man -type f -exec gzip -9 -n {} \;
 	module purge
 done
