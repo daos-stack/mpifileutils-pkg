@@ -89,4 +89,4 @@ fi
 # shellcheck disable=SC2086
 eval mock --configdir "$mock_config_dir" -r "${CHROOT_NAME}"           \
      ${repo_dels[*]} ${repo_adds[*]} --disablerepo=\*-debug*           \
-     "${releasever_opt[@]}" $MOCK_OPTIONS $RPM_BUILD_OPTIONS "$TARGET" -v
+     "${releasever_opt[@]}" $MOCK_OPTIONS $RPM_BUILD_OPTIONS "$TARGET"
