@@ -40,6 +40,6 @@
 // I.e. for testing library changes
 //@Library(value="pipeline-lib@your_branch") _
 
-packageBuildingPipeline(['distros' : ['el8', 'leap15'],
-                         'test-tag': 'mpifileutils'])
+packageBuildingPipelineDAOSTest(['distros' : ['el8', 'leap15'],
+                                 'test-tag': 'mpifileutils'])
 
