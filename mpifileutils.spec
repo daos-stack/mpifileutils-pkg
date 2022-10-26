@@ -50,11 +50,11 @@
 
 Name:		mpifileutils
 Version:	0.11.1
-Release:	2%{?commit:.g%{shortcommit}}%{?dist}
-Summary:	File utilities designed for scalability and performance.
+Release:	3%{?commit:.g%{shortcommit}}%{?dist}
+Summary:	File utilities designed for scalability and performance
 
 Group:		System Environment/Libraries
-License:	Copyright and BSD License
+License:	BSD
 URL:		https://hpc.github.io/mpifileutils
 Source:		https://github.com/hpc/%{name}/archive/v%{version}.tar.gz
 %if "%{?commit}" != ""
@@ -81,12 +81,20 @@ BuildRequires: libattr-devel
 BuildRequires: libfabric1 >= 1.12.0
 %endif
 
+%if (0%{?suse_version} > 0)
+%global __debug_package 1
+%global _debuginfo_subpackages 1
+%debug_package
+%endif
+
 %description
-File utilities designed for scalability and performance.
+mpiFileUtils provides both a library called libmfu and a suite of MPI-based
+tools to manage large datasets, which may vary from large directory trees
+to large files.
 
 %if %{with_openmpi}
 %package openmpi
-Summary:	File utilities designed for scalability and performance.
+Summary:	File utilities designed for scalability and performance
 BuildRequires: openmpi-devel
 BuildRequires: dtcmp-openmpi-devel
 BuildRequires: libcircle-openmpi-devel
@@ -97,34 +105,39 @@ File utilities designed for scalability and performance.
 
 
 %package openmpi-devel
-Summary:	File utilities designed for scalability and performance.
+Summary:	File utilities designed for scalability and performance
 Requires: %{name}-openmpi%{_isa} = %version-%release
 
 %description openmpi-devel
-Development files for %{name}-openmpi.
+mpiFileUtils provides both a library called libmfu and a suite of MPI-based
+tools to manage large datasets, which may vary from large directory trees
+to large files.
 %endif
 
 %if %{with_openmpi3}
 %package openmpi3
-Summary:	File utilities designed for scalability and performance.
+Summary:	File utilities designed for scalability and performance
 BuildRequires: openmpi3-devel
 BuildRequires: dtcmp-openmpi3-devel
 BuildRequires: libcircle-openmpi3-devel
 BuildRequires: hdf5-vol-daos-openmpi3-devel
 
 %description openmpi3
-File utilities designed for scalability and performance.
+mpiFileUtils provides both a library called libmfu and a suite of MPI-based
+tools to manage large datasets, which may vary from large directory trees
+to large files.
 
 %if (0%{?suse_version} >= 1500)
 %package -n libmfu0-openmpi3
-Summary:	File utilities designed for scalability and performance.
+Summary:	File utilities designed for scalability and performance
 
 %description -n libmfu0-openmpi3
-Shared libraries for %{name}-openmpi3.
+Shared libraries for %{name}-openmpi3, file utilities designed for 
+scalability and performance.
 %endif
 
 %package openmpi3-devel
-Summary:	File utilities designed for scalability and performance.
+Summary:	File utilities designed for scalability and performance
 %if (0%{?suse_version} >= 1500)
 Requires: libmfu0-openmpi3%{_isa} = %version-%release
 %else
@@ -132,30 +145,34 @@ Requires: %{name}-openmpi3%{_isa} = %version-%release
 %endif
 
 %description openmpi3-devel
-Development files for %{name}-openmpi3.
+Development files for %{name}-openmpi3 which provides file utilities 
+designed for scalability and performance.
 %endif
 
 %if %{with_mpich}
 %package mpich
-Summary:	File utilities designed for scalability and performance.
+Summary:	File utilities designed for scalability and performance
 BuildRequires: mpich-devel
 BuildRequires: dtcmp-mpich-devel
 BuildRequires: libcircle-mpich-devel
 BuildRequires: hdf5-vol-daos-mpich-devel
 
 %description mpich
-File utilities designed for scalability and performance.
+mpiFileUtils provides both a library called libmfu and a suite of MPI-based 
+tools to manage large datasets, which may vary from large directory trees 
+to large files.
 
 %if (0%{?suse_version} >= 1500)
 %package -n libmfu0-mpich
-Summary:	File utilities designed for scalability and performance.
+Summary:	File utilities designed for scalability and performance
 
 %description -n libmfu0-mpich
-Shared libraries for %{name}-mpich.
+Shared libraries for %{name}-mpich, file utilities designed for
+scalability and performance.
 %endif
 
 %package mpich-devel
-Summary:	File utilities designed for scalability and performance.
+Summary:	File utilities designed for scalability and performance
 %if (0%{?suse_version} >= 1500)
 Requires: libmfu0-mpich%{_isa} = %version-%release
 %else
@@ -163,7 +180,8 @@ Requires: %{name}-mpich%{_isa} = %version-%release
 %endif
 
 %description mpich-devel
-Development files for %{name}-mpich.
+Development files for %{name}-mpich which provides file utilities 
+designed for scalability and performance.
 %endif
 
 
@@ -171,37 +189,39 @@ Development files for %{name}-mpich.
 %autosetup -p1
 
 %build
+export CFLAGS="%{optflags} -fPIC -pie"
+export CXXFLAGS="%{optflags} -fPIC -pie"
 for mpi in %{?mpi_list}; do
-  mkdir $mpi
-  pushd $mpi
-  %module_load $mpi
-  %cmake ../ -DCMAKE_C_FLAGS="${RPM_OPT_FLAGS}"                                   \
-             -DCMAKE_CXX_FLAGS="${RPM_OPT_FLAGS}"                                 \
-             -DENABLE_DAOS=ON                                                     \
-             -DENABLE_LIBARCHIVE=OFF                                              \
-             -DENABLE_HDF5=ON                                                     \
-             -DDTCMP_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}        \
-             -DDTCMP_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libdtcmp.so      \
-             -DLibCircle_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}    \
-             -DLibCircle_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libcircle.so \
-             -DHDF5_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}         \
-             -DHDF5_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libhdf5.so        \
-             -DWITH_DAOS_PREFIX=/usr                                              \
-             -DCMAKE_INSTALL_INCLUDEDIR=%{mpi_includedir}/$mpi%{mpi_include_ext}  \
-             -DCMAKE_INSTALL_PREFIX=%{mpi_libdir}/$mpi                            \
-             -DCMAKE_INSTALL_LIBDIR=%{mpi_lib_ext}
+	mkdir $mpi
+	pushd $mpi
+	%module_load $mpi
+	%cmake ../ -DENABLE_DAOS=ON							\
+		-DENABLE_LIBARCHIVE=OFF							\
+		-DENABLE_HDF5=ON							\
+		-DDTCMP_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}		\
+		-DDTCMP_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libdtcmp.so		\
+		-DLibCircle_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}	\
+		-DLibCircle_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libcircle.so	\
+		-DHDF5_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}		\
+		-DHDF5_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libhdf5.so		\
+		-DWITH_DAOS_PREFIX=/usr							\
+		-DCMAKE_INSTALL_INCLUDEDIR=%{mpi_includedir}/$mpi%{mpi_include_ext}	\
+		-DCMAKE_INSTALL_PREFIX=%{mpi_libdir}/$mpi				\
+		-DCMAKE_INSTALL_LIBDIR=%{mpi_lib_ext}
 
-  make
-  module purge
-  popd
+	make
+	module purge
+	popd
 done
 
 %install
 rm -rf %{buildroot}
 for mpi in %{?mpi_list}; do
-  %module_load $mpi
-  make install -C $mpi DESTDIR=%{buildroot}
-  module purge
+	%module_load $mpi
+	make install -C $mpi DESTDIR=%{buildroot}
+	rm %{buildroot}%{mpi_libdir}/${mpi}/%{mpi_lib_ext}/libmfu.a
+	find %{buildroot}%{mpi_libdir}/${mpi}/share/man -type f -exec gzip -9 -n {} \;
+	module purge
 done
 
 %if %{with_openmpi}
@@ -214,7 +234,6 @@ done
 %files openmpi-devel
 %{mpi_includedir}/openmpi%{mpi_include_ext}/*
 %{mpi_libdir}/openmpi/%{mpi_lib_ext}/lib*.so
-%{mpi_libdir}/openmpi/%{mpi_lib_ext}/lib*.a
 %endif
 
 %if %{with_openmpi3}
@@ -230,7 +249,6 @@ done
 %files openmpi3-devel
 %{mpi_includedir}/openmpi3%{mpi_include_ext}/*
 %{mpi_libdir}/openmpi3/%{mpi_lib_ext}/lib*.so
-%{mpi_libdir}/openmpi3/%{mpi_lib_ext}/lib*.a
 %endif
 
 %if %{with_mpich}
@@ -246,10 +264,12 @@ done
 %files mpich-devel
 %{mpi_includedir}/mpich%{mpi_include_ext}/*
 %{mpi_libdir}/mpich/%{mpi_lib_ext}/lib*.so
-%{mpi_libdir}/mpich/%{mpi_lib_ext}/lib*.a
 %endif
 
 %changelog
+* Fri Oct 21 2022 Dalton A. Bohning <dalton.bohning@intel.com> - 0.11.1-3
+- Rebuilt for breaking DAOS API change
+
 * Mon Mar 14 2022 Mohamad Chaarawi <mohamad.chaarawi@intel.com> - 0.11.1-2
 - Update to build with HDF5 1.13.1
 
