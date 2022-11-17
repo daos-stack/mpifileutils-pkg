@@ -270,6 +270,7 @@ done
 %changelog
 * Thu Nov 17 2022 Lei Huang <lei.huang@intel.com> - 0.11.1-4
 - Update to patch 6230ed2 to support empty container label
+- Update to patch 98017cf to fix obj_open
 
 * Fri Oct 21 2022 Dalton A. Bohning <dalton.bohning@intel.com> - 0.11.1-3
 - Rebuilt for breaking DAOS API change
