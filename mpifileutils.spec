@@ -50,7 +50,7 @@
 
 Name:		mpifileutils
 Version:	0.11.1
-Release:	3%{?commit:.g%{shortcommit}}%{?dist}
+Release:	4%{?commit:.g%{shortcommit}}%{?dist}
 Summary:	File utilities designed for scalability and performance
 
 Group:		System Environment/Libraries
@@ -267,6 +267,9 @@ done
 %endif
 
 %changelog
+* Thu Nov 17 2022 Dalton A. Bohning <dalton.bohning@intel.com> - 0.11.1-4
+- Update to patch 98017cf8c38ae99d47cb3d507d69e7cf87fa6f26
+
 * Fri Oct 21 2022 Dalton A. Bohning <dalton.bohning@intel.com> - 0.11.1-3
 - Rebuilt for breaking DAOS API change
 
