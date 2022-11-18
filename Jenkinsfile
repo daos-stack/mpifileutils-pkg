@@ -42,4 +42,3 @@
 
 packageBuildingPipelineDAOSTest(['distros' : ['el8', 'leap15'],
                                  'test-tag': 'mpifileutils copy_procs dcp dsync dserialize'])
-

@@ -50,7 +50,7 @@
 
 Name:		mpifileutils
 Version:	0.11.1
-Release:	3%{?commit:.g%{shortcommit}}%{?dist}
+Release:	4%{?commit:.g%{shortcommit}}%{?dist}
 Summary:	File utilities designed for scalability and performance
 
 Group:		System Environment/Libraries
@@ -83,7 +83,7 @@ BuildRequires: libfabric1 >= 1.12.0
 
 %if (0%{?suse_version} > 0)
 %global __debug_package 1
-%global _debuginfo_subpackages 0
+%global _debuginfo_subpackages 1
 %debug_package
 %endif
 
@@ -110,8 +110,9 @@ Summary:	File utilities designed for scalability and performance
 Requires: %{name}-openmpi%{_isa} = %version-%release
 
 %description openmpi-devel
-Development files for %{name}-openmpi which provides file utilities 
-designed for scalability and performance.
+mpiFileUtils provides both a library called libmfu and a suite of MPI-based
+tools to manage large datasets, which may vary from large directory trees
+to large files.
 %endif
 
 %if %{with_openmpi3}
@@ -267,8 +268,11 @@ done
 %endif
 
 %changelog
-* Wed Jun 01 2022 Lei Huang <lei.huang@intel.com> - 0.11.1-3
+* Thu Nov 17 2022 Lei Huang <lei.huang@intel.com> - 0.11.1-4
 - Update to patch 6230ed2 to support empty container label
+
+* Fri Oct 21 2022 Dalton A. Bohning <dalton.bohning@intel.com> - 0.11.1-3
+- Rebuilt for breaking DAOS API change
 
 * Mon Mar 14 2022 Mohamad Chaarawi <mohamad.chaarawi@intel.com> - 0.11.1-2
 - Update to build with HDF5 1.13.1
