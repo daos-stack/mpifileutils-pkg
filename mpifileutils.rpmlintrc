@@ -1,0 +1,6 @@
+# This line is mandatory to access the configuration functions
+from Config import *
+
+addFilter(r'mpifileutils-.+-devel\..+: W: only-non-binary-in-usr-lib')
+addFilter(r'mpifileutils-.+: W: no-documentation')
+

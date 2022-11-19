@@ -229,8 +229,9 @@ done
 %files openmpi
 %defattr(-,root,root,-)
 %{mpi_libdir}/openmpi/bin/*
-%{mpi_libdir}/openmpi/share/man/*
 %{mpi_libdir}/openmpi/%{mpi_lib_ext}/libmfu.so.*
+
+%doc %{mpi_libdir}/openmpi/share/man/*
 
 %files openmpi-devel
 %{mpi_includedir}/openmpi%{mpi_include_ext}/*
@@ -241,7 +242,9 @@ done
 %files openmpi3
 %defattr(-,root,root,-)
 %{mpi_libdir}/openmpi3/bin/*
-%{mpi_libdir}/openmpi3/share/man/*
+
+%doc %{mpi_libdir}/openmpi3/share/man/*
+
 %if (0%{?suse_version} >= 1500)
 %files -n libmfu0-openmpi3
 %endif
@@ -256,7 +259,9 @@ done
 %files mpich
 %defattr(-,root,root,-)
 %{mpi_libdir}/mpich/bin/*
-%{mpi_libdir}/mpich/share/man/*
+
+%doc %{mpi_libdir}/mpich/share/man/*
+
 %if (0%{?suse_version} >= 1500)
 %files -n libmfu0-mpich
 %endif
