@@ -236,6 +236,7 @@ done
 %files openmpi-devel
 %{mpi_includedir}/openmpi%{mpi_include_ext}/*
 %{mpi_libdir}/openmpi/%{mpi_lib_ext}/lib*.so
+%doc %{mpi_libdir}/openmpi/share/man/*
 %endif
 
 %if %{with_openmpi3}
@@ -253,6 +254,7 @@ done
 %files openmpi3-devel
 %{mpi_includedir}/openmpi3%{mpi_include_ext}/*
 %{mpi_libdir}/openmpi3/%{mpi_lib_ext}/lib*.so
+%doc %{mpi_libdir}/openmpi3/share/man/*
 %endif
 
 %if %{with_mpich}
@@ -270,6 +272,7 @@ done
 %files mpich-devel
 %{mpi_includedir}/mpich%{mpi_include_ext}/*
 %{mpi_libdir}/mpich/%{mpi_lib_ext}/lib*.so
+%doc %{mpi_libdir}/mpich/share/man/*
 %endif
 
 %changelog
