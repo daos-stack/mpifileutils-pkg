@@ -1,0 +1,6 @@
+# This line is mandatory to access the configuration functions
+from Config import *
+
+# https://github.com/rpm-software-management/rpmlint/issues/73
+addFilter(r'mpifileutils-.+-devel\..+: W: only-non-binary-in-usr-lib')
+

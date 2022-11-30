@@ -50,7 +50,7 @@
 
 Name:		mpifileutils
 Version:	0.11.1
-Release:	3%{?commit:.g%{shortcommit}}%{?dist}
+Release:	4%{?commit:.g%{shortcommit}}%{?dist}
 Summary:	File utilities designed for scalability and performance
 
 Group:		System Environment/Libraries
@@ -101,8 +101,9 @@ BuildRequires: libcircle-openmpi-devel
 BuildRequires: hdf5-vol-daos-openmpi-devel
 
 %description openmpi
-File utilities designed for scalability and performance.
-
+mpiFileUtils provides both a library called libmfu and a suite of MPI-based
+tools to manage large datasets, which may vary from large directory trees
+to large files.
 
 %package openmpi-devel
 Summary:	File utilities designed for scalability and performance
@@ -228,19 +229,23 @@ done
 %files openmpi
 %defattr(-,root,root,-)
 %{mpi_libdir}/openmpi/bin/*
-%{mpi_libdir}/openmpi/share/man/*
 %{mpi_libdir}/openmpi/%{mpi_lib_ext}/libmfu.so.*
+
+%doc %{mpi_libdir}/openmpi/share/man/*
 
 %files openmpi-devel
 %{mpi_includedir}/openmpi%{mpi_include_ext}/*
 %{mpi_libdir}/openmpi/%{mpi_lib_ext}/lib*.so
+%doc %{mpi_libdir}/openmpi/share/man/*
 %endif
 
 %if %{with_openmpi3}
 %files openmpi3
 %defattr(-,root,root,-)
 %{mpi_libdir}/openmpi3/bin/*
-%{mpi_libdir}/openmpi3/share/man/*
+
+%doc %{mpi_libdir}/openmpi3/share/man/*
+
 %if (0%{?suse_version} >= 1500)
 %files -n libmfu0-openmpi3
 %endif
@@ -249,13 +254,16 @@ done
 %files openmpi3-devel
 %{mpi_includedir}/openmpi3%{mpi_include_ext}/*
 %{mpi_libdir}/openmpi3/%{mpi_lib_ext}/lib*.so
+%doc %{mpi_libdir}/openmpi3/share/man/*
 %endif
 
 %if %{with_mpich}
 %files mpich
 %defattr(-,root,root,-)
 %{mpi_libdir}/mpich/bin/*
-%{mpi_libdir}/mpich/share/man/*
+
+%doc %{mpi_libdir}/mpich/share/man/*
+
 %if (0%{?suse_version} >= 1500)
 %files -n libmfu0-mpich
 %endif
@@ -264,9 +272,14 @@ done
 %files mpich-devel
 %{mpi_includedir}/mpich%{mpi_include_ext}/*
 %{mpi_libdir}/mpich/%{mpi_lib_ext}/lib*.so
+%doc %{mpi_libdir}/mpich/share/man/*
 %endif
 
 %changelog
+* Thu Nov 17 2022 Lei Huang <lei.huang@intel.com> - 0.11.1-4
+- Update to patch 6230ed2 to support empty container label
+- Update to patch 98017cf to fix obj_open
+
 * Fri Oct 21 2022 Dalton A. Bohning <dalton.bohning@intel.com> - 0.11.1-3
 - Rebuilt for breaking DAOS API change
 
