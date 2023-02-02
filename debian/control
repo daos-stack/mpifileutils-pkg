@@ -11,7 +11,8 @@ Build-Depends: debhelper-compat (= 12),
                libattr1-dev,
                libdtcmp-mpich-dev,
                libcircle-mpich-dev,
-               libhdf5-vol-daos-mpich-dev
+               libhdf5-vol-daos-mpich-dev,
+               libmpich-dev
 Standards-Version: 4.4.1.0
 Vcs-Browser: https://github.com/hpc/mpifileutils
 Vcs-Git: https://github.com/hpc/mpifileutils.git
