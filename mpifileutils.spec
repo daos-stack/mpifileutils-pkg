@@ -50,7 +50,7 @@
 
 Name:		mpifileutils
 Version:	0.11.1
-Release:	4%{?commit:.g%{shortcommit}}%{?dist}
+Release:	5%{?commit:.g%{shortcommit}}%{?dist}
 Summary:	File utilities designed for scalability and performance
 
 Group:		System Environment/Libraries
@@ -276,6 +276,9 @@ done
 %endif
 
 %changelog
+* Tue Jul 04 2023 Brian J. Murrell <brian.murrell@intel.com> - 0.11.1-5
+- Rebuild for EL9
+
 * Thu Nov 17 2022 Lei Huang <lei.huang@intel.com> - 0.11.1-4
 - Update to patch 6230ed2 to support empty container label
 - Update to patch 98017cf to fix obj_open
