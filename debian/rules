@@ -1,0 +1,20 @@
+#! /usr/bin/make -f
+
+export DH_VERBOSE=1
+
+DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	dh_auto_configure -- -DENABLE_DAOS=ON							                          \
+		                 -DENABLE_LIBARCHIVE=OFF							                  \
+		                 -DENABLE_HDF5=ON                                                     \
+		                 -DHDF5_INCLUDE_DIRS=/usr/include/hdf5/mpich                          \
+		                 -DHDF5_LIBRARIES=/usr/lib/x86_64-linux-gnu/hdf5/mpich/libhdf5.so
+
+override_dh_auto_install-arch:
+	dh_auto_install
+	chrpath -d debian/tmp/usr/lib/*/*.so* debian/tmp/usr/bin/*
+	rm -f debian/tmp/usr/lib/*/*.la

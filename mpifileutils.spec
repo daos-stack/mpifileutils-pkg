@@ -78,7 +78,7 @@ BuildRequires: libattr-devel
 
 
 %if (0%{?suse_version} >= 1500)
-BuildRequires: libfabric1 >= 1.12.0
+BuildRequires: libfabric1 >= 1.12.0, libfabric1 < 1.18
 %endif
 
 %if (0%{?suse_version} > 0)

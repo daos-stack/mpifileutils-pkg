@@ -1,0 +1,69 @@
+Source: mpifileutils
+Maintainer: DAOS <daos@daos.io>
+Uploaders: Brian J. Murrell <brian.murrell@intel.com>
+Section: devel
+Priority: optional
+Build-Depends: debhelper-compat (= 12),
+               cmake,
+               chrpath,
+               libbz2-dev,
+               libssl-dev,
+               uuid-dev,
+               libattr1-dev,
+               libdtcmp-mpich-dev,
+               libcircle-mpich-dev,
+               libhdf5-vol-daos-mpich-dev,
+               libhdf5-mpich-dev,
+               libmpich-dev,
+               libdaos-dev
+Standards-Version: 4.4.1.0
+Vcs-Browser: https://github.com/hpc/mpifileutils
+Vcs-Git: https://github.com/hpc/mpifileutils.git
+Homepage: https://github.com/hpc/mpifileutils.git
+
+Package: mpifileutils
+Architecture: any
+Multi-Arch: foreign
+Depends: ${misc:Depends},
+         ${shlibs:Depends}
+Description: mpiFileUtils provides both a library called libmfu and a suite of MPI-based
+ tools to manage large datasets, which may vary from large directory trees to
+ large files. High-performance computing users often generate large datasets
+ with parallel applications that run with many processes (millions in some
+ cases). However those users are then stuck with single-process tools like cp
+ and rm to manage their datasets. This suite provides MPI-based tools to handle
+ typical jobs like copy, remove, and compare for such datasets, providing
+ speedups of up to 20-30x. It also provides a library that simplifies the
+ creation of new tools or can be used in applications.
+
+Package: libmfu4-mpich
+Architecture: linux-any
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: mpiFileUtils provides both a library called libmfu and a suite of MPI-based
+ tools to manage large datasets, which may vary from large directory trees to
+ large files. High-performance computing users often generate large datasets
+ with parallel applications that run with many processes (millions in some
+ cases). However those users are then stuck with single-process tools like cp
+ and rm to manage their datasets. This suite provides MPI-based tools to handle
+ typical jobs like copy, remove, and compare for such datasets, providing
+ speedups of up to 20-30x. It also provides a library that simplifies the
+ creation of new tools or can be used in applications.
+ .
+ This package contains the shared libraries for use with MPICH2.
+
+Package: libmfu-mpich-dev
+Section: libdevel
+Architecture: linux-any
+Depends: libmfu4-mpich (= ${binary:Version}), ${misc:Depends}
+Description: mpiFileUtils provides both a library called libmfu and a suite of MPI-based
+ tools to manage large datasets, which may vary from large directory trees to
+ large files. High-performance computing users often generate large datasets
+ with parallel applications that run with many processes (millions in some
+ cases). However those users are then stuck with single-process tools like cp
+ and rm to manage their datasets. This suite provides MPI-based tools to handle
+ typical jobs like copy, remove, and compare for such datasets, providing
+ speedups of up to 20-30x. It also provides a library that simplifies the
+ creation of new tools or can be used in applications.
+ .
+ This package is needed to compile programs against libmfu4-mpich.
+ It contains the header files and links needed for compiling.
