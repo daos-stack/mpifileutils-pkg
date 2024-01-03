@@ -50,7 +50,7 @@
 
 Name:		mpifileutils
 Version:	0.11.1
-Release:	5%{?commit:.g%{shortcommit}}%{?dist}
+Release:	6%{?commit:.g%{shortcommit}}%{?dist}
 Summary:	File utilities designed for scalability and performance
 
 Group:		System Environment/Libraries
@@ -276,6 +276,9 @@ done
 %endif
 
 %changelog
+* Wed Jan 03 2024 Ryon Jensen <ryon.jensen@intel.com> - 0.11.1-6
+- Update to patch 3975d84 to support additional container property
+
 * Tue Jul 04 2023 Brian J. Murrell <brian.murrell@intel.com> - 0.11.1-5
 - Rebuild for EL9
 
