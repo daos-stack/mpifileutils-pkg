@@ -1,6 +1,7 @@
 # This line is mandatory to access the configuration functions
 from Config import *
 
-# https://github.com/rpm-software-management/rpmlint/issues/73
-addFilter(r'mpifileutils-.+-devel\..+: W: only-non-binary-in-usr-lib')
+# https://github.com/hpc/mpifileutils/issues/567
+addFilter(r'mpifileutils-.+\.x86_64: E: missing-call-to-setgroups-before-setuid \/usr\/lib64\/.+/bin/dcp')
+
 
