@@ -276,8 +276,8 @@ done
 %endif
 
 %changelog
-* Fri Feb 16 2024 Ryon Jensen <ryon.jensen@intel.com> - 0.11.1-6
-- Update to patch 3975d84 to support additional container property
+* Thu Feb 22 2024 Ryon Jensen <ryon.jensen@intel.com> - 0.11.1-6
+- Update to patch 9acb07a to support additional container property
 
 * Tue Jul 04 2023 Brian J. Murrell <brian.murrell@intel.com> - 0.11.1-5
 - Rebuild for EL9
