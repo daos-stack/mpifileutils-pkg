@@ -290,7 +290,7 @@ index 108f0fb..dcf7de8 100644
  #include "mfu_bz2.h"
  
 diff --git a/src/common/mfu_daos.c b/src/common/mfu_daos.c
-index 8f53133..a8154df 100644
+index 8f53133..2dbf8cf 100644
 --- a/src/common/mfu_daos.c
 +++ b/src/common/mfu_daos.c
 @@ -210,13 +210,11 @@ static int daos_check_args(
@@ -728,7 +728,7 @@ index 8f53133..a8154df 100644
              goto out;
          }
 +        /* If using the DAOS API, we need to elevate permissions to RW for creating a snapshot */
-+        if (mfu_src_file->type = DAOS) {
++        if (mfu_src_file->type == DAOS) {
 +            MPI_Barrier(MPI_COMM_WORLD);
 +
 +            tmp_rc = daos_cont_close(da->src_coh, NULL);
