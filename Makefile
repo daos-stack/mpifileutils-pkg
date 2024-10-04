@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: BSD-2-Clause-Patent
-# Copyright (C) 2019-2024 Intel Corporation
+# Copyright (c) 2020-2024 Intel Corporation
 
 NAME      := mpifileutils
 SRC_EXT   := gz
