@@ -50,7 +50,7 @@
 
 Name:		mpifileutils
 Version:	0.11.1
-Release:	7%{?commit:.g%{shortcommit}}%{?dist}
+Release:	8%{?commit:.g%{shortcommit}}%{?dist}
 Summary:	File utilities designed for scalability and performance
 
 Group:		System Environment/Libraries
@@ -276,6 +276,9 @@ done
 %endif
 
 %changelog
+* Tue Nov 26 2024 Dalton A. Bohning <dalton.bohning@intel.com> - 0.11.1-8
+- Update to patch b65c188
+
 * Thu Apr 11 2024 Dalton A. Bohning <dalton.bohning@intel.com> - 0.11.1-7
 - Update to patch 0a4c530
 
