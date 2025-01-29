@@ -193,6 +193,18 @@ index 047ba87..b042d15 100644
 -The other way to use spack is to create a "view" to the installed dependencies.
 +The other way to use Spack is to create a "view" to the installed dependencies.
  Details on this are coming soon.
+diff --git a/doc/rst/conf.py b/doc/rst/conf.py
+index 8c0b9d5..4d7ef74 100644
+--- a/doc/rst/conf.py
++++ b/doc/rst/conf.py
+@@ -159,6 +159,7 @@ man_pages = [
+     ('dcmp.1', 'dcmp', u'distributed compare',[author], 1),
+     ('dcp.1', 'dcp', u'distributed copy',[author], 1),
+     ('ddup.1', 'ddup', u'report files with identical content',[author], 1),
++    ('dfilemaker.1', 'dfilemaker', u'generate random files',[author], 1),
+     ('dfind.1', 'dfind', u'distributed file filtering',[author], 1),
+     ('dreln.1', 'dreln', u'distributed relink',[author], 1),
+     ('drm.1', 'drm', u'distributed remove',[author], 1),
 diff --git a/doc/rst/dcmp.1.rst b/doc/rst/dcmp.1.rst
 index acf51c6..397c301 100644
 --- a/doc/rst/dcmp.1.rst
@@ -264,6 +276,75 @@ index 33e0313..d47bc98 100644
  .. option:: -d, --debug LEVEL
  
     Set verbosity level.  LEVEL can be one of: fatal, err, warn, info, dbg.
+diff --git a/doc/rst/dfilemaker.1.rst b/doc/rst/dfilemaker.1.rst
+index 85f04c6..c7d6bdf 100644
+--- a/doc/rst/dfilemaker.1.rst
++++ b/doc/rst/dfilemaker.1.rst
+@@ -4,31 +4,19 @@ dfilemaker
+ SYNOPSIS
+ --------
+ 
+-**dfilemaker <nitems> <nlevels> <maxflen>**
++**dfilemaker <destination_path>**
+ 
+ DESCRIPTION
+ -----------
+ 
+-dfilemaker creates a random directory tree with files having random data
+-that is useful for testing.
++dfilemaker creates a number of random directory trees with subdirectories and
++files of various sizes, that is useful for testing.
+ 
+-Files and directories are created in the current working directory where the tool is executed.
+-dfilemaker takes three positional parameters:
++Directory trees are created under destination_path, which must be a directory.
+ 
+-.. option:: nitems
++.. option:: destination_path
+ 
+-   Total number of items to create.
+-
+-.. option:: nlevels
+-
+-   Maximum depth to create in directory level (relative to current path).
+-
+-.. option:: maxflen
+-
+-   Maximum number of bytes to write to a file.
+-
+-
+-The following options are planned in future releases, but they are not yet implemented.
++   Directory under which the new directory tree will be created.
+ 
+ OPTIONS
+ -------
+@@ -48,12 +36,6 @@ OPTIONS
+    ``alternate`` will fill the file with a 0xAA pattern. The default
+    fill is ``random``.
+ 
+-.. option:: -r, --ratio=*min*-*max*
+-
+-   Specify the ratio of files to directories as a percentage. The ratio
+-   will be chosen at random within the bounds of min and max. The
+-   default ratio is 5% min to 20% max.
+-
+ .. option:: -i, --seed=*integer*
+ 
+    Specify the seed to use for random number generation. This can be
+@@ -66,13 +48,6 @@ OPTIONS
+    random random within the bounds of min and max. The default file
+    size is set from 1MB to 5MB.
+ 
+-.. option:: -w, --width=*min*-*max*
+-
+-   Specify the width of the file system tree to generate. The width
+-   will be selected at random within the bounds of min and max. The
+-   width of the tree is determined by counting directories. The default
+-   width is set to 10 min, 20 max.
+-
+ .. option:: -h, --help
+ 
+    Print a brief message listing the *dfilemaker(1)* options and usage.
 diff --git a/doc/rst/dsync.1.rst b/doc/rst/dsync.1.rst
 index 402ee05..248bf43 100644
 --- a/doc/rst/dsync.1.rst
@@ -294,6 +375,21 @@ index 5fa4e19..f732037 100644
  .. option:: --fsync
  
     Call fsync before closing files after writing.
+diff --git a/doc/rst/dwalk.1.rst b/doc/rst/dwalk.1.rst
+index 0e54f93..c213ba8 100644
+--- a/doc/rst/dwalk.1.rst
++++ b/doc/rst/dwalk.1.rst
+@@ -70,6 +70,10 @@ OPTIONS
+ 
+    Print files to the screen.
+ 
++.. option:: --no-atime
++
++   Must be used with --lite option. Do not update last file access time.
++
+ .. option:: -L, --dereference
+ 
+    Dereference symbolic links and walk the target file or directory
 diff --git a/doc/rst/proj-design.rst b/doc/rst/proj-design.rst
 index b404696..cb18b90 100644
 --- a/doc/rst/proj-design.rst
@@ -307,6 +403,196 @@ index b404696..cb18b90 100644
  and efficient across multiple file systems. Tool and library users can rely on
  mpiFileUtils to provide portable and performant implementations.
  
+diff --git a/doc/rst/tools.rst b/doc/rst/tools.rst
+index 2269a71..f3f4b9d 100644
+--- a/doc/rst/tools.rst
++++ b/doc/rst/tools.rst
+@@ -13,6 +13,7 @@ invocation of the tool has sufficient time to complete before it is killed.
+ - :doc:`dcmp <dcmp.1>` - Compare contents between directories or files.
+ - :doc:`dcp <dcp.1>` - Copy files.
+ - :doc:`ddup <ddup.1>` - Find duplicate files.
++- :doc:`dfilemaker <dfilemaker.1>` - Generate random files.
+ - :doc:`dfind <dfind.1>` - Filter files.
+ - :doc:`dreln <dreln.1>` - Update symlinks to point to a new path.
+ - :doc:`drm <drm.1>` - Remove files.
+@@ -32,7 +33,6 @@ who are interested in developing them further or to provide additional examples.
+ - dgrep - Run grep on files in parallel.
+ - dparallel - Perform commands in parallel.
+ - dsh - List and remove files with interactive commands.
+-- dfilemaker - Generate random files.
+ 
+ ==============================
+ Usage tips
+diff --git a/man/CMakeLists.txt b/man/CMakeLists.txt
+index 41da583..7721307 100644
+--- a/man/CMakeLists.txt
++++ b/man/CMakeLists.txt
+@@ -5,6 +5,7 @@ LIST(APPEND man_pages
+   dcp.1
+   ddup.1
+   dbz2.1
++  dfilemaker.1
+   dfind.1
+   dreln.1
+   drm.1
+diff --git a/man/dfilemaker.1 b/man/dfilemaker.1
+new file mode 100644
+index 0000000..7882f70
+--- /dev/null
++++ b/man/dfilemaker.1
+@@ -0,0 +1,114 @@
++.\" Man page generated from reStructuredText.
++.
++.TH "DFILEMAKER" "1" "Dec 05, 2024" "0.11.1" "mpiFileUtils"
++.SH NAME
++dfilemaker \- generate random files
++.
++.nr rst2man-indent-level 0
++.
++.de1 rstReportMargin
++\\$1 \\n[an-margin]
++level \\n[rst2man-indent-level]
++level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
++-
++\\n[rst2man-indent0]
++\\n[rst2man-indent1]
++\\n[rst2man-indent2]
++..
++.de1 INDENT
++.\" .rstReportMargin pre:
++. RS \\$1
++. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
++. nr rst2man-indent-level +1
++.\" .rstReportMargin post:
++..
++.de UNINDENT
++. RE
++.\" indent \\n[an-margin]
++.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
++.nr rst2man-indent-level -1
++.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
++.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
++..
++.SH SYNOPSIS
++.sp
++\fBdfilemaker <destination_path>\fP
++.SH DESCRIPTION
++.sp
++dfilemaker creates a number of random directory tree with subdirectories and
++files of various sizes, that is useful for testing.
++.sp
++Directory trees are created under destination_path, which must be a directory,
++where the tool is executed.
++.INDENT 0.0
++.TP
++.B destination_path
++Directory under which the new directory tree will be created.
++.UNINDENT
++.SH OPTIONS
++.INDENT 0.0
++.TP
++.B \-d, \-\-depth=*min*\-*max*
++Specify the depth of the file system tree to generate. The depth
++will be selected at random within the bounds of min and max. The
++default depth is set to 10 min, 20 max.
++.UNINDENT
++.INDENT 0.0
++.TP
++.B \-f, \-\-fill=*type*
++Specify the fill pattern of the file. Current options available are:
++\fBrandom\fP, \fBtrue\fP, \fBfalse\fP, and \fBalternate\fP\&. \fBrandom\fP will
++fill the file using \fBurandom(4)\fP\&. \fBtrue\fP will fill the file
++with a 0xFF pattern. \fBfalse\fP will fill the file with a 0x00 pattern.
++\fBalternate\fP will fill the file with a 0xAA pattern. The default
++fill is \fBrandom\fP\&.
++.UNINDENT
++.INDENT 0.0
++.TP
++.B \-r, \-\-ratio=*min*\-*max*  (not yet implemented)
++Specify the ratio of files to directories as a percentage. The ratio
++will be chosen at random within the bounds of min and max. The
++default ratio is 5% min to 20% max.
++.UNINDENT
++.INDENT 0.0
++.TP
++.B \-i, \-\-seed=*integer*
++Specify the seed to use for random number generation. This can be
++used to create reproducible test runs. The default is to generate a
++random seed.
++.UNINDENT
++.INDENT 0.0
++.TP
++.B \-s, \-\-size=*min*\-*max*
++Specify the file sizes to generate. The file size will be chosen at
++random random within the bounds of min and max. The default file
++size is set from 1MB to 5MB.
++.UNINDENT
++.INDENT 0.0
++.TP
++.B \-w, \-\-width=*min*\-*max*  (not yet implemented)
++Specify the width of the file system tree to generate. The width
++will be selected at random within the bounds of min and max. The
++width of the tree is determined by counting directories. The default
++width is set to 10 min, 20 max.
++.UNINDENT
++.INDENT 0.0
++.TP
++.B \-h, \-\-help
++Print a brief message listing the \fIdfilemaker(1)\fP options and usage.
++.UNINDENT
++.INDENT 0.0
++.TP
++.B \-v, \-\-version
++Print version information and exit.
++.UNINDENT
++.SH SEE ALSO
++.sp
++The mpiFileUtils source code and all documentation may be downloaded
++from <\fI\%https://github.com/hpc/mpifileutils\fP>
++.SH AUTHOR
++HPC
++.SH COPYRIGHT
++2022, LLNL/LANL/UT-Battelle/DDN
++.\" Generated by docutils manpage writer.
++.
+diff --git a/man/dwalk.1 b/man/dwalk.1
+index 3f58d2d..fd36bed 100644
+--- a/man/dwalk.1
++++ b/man/dwalk.1
+@@ -103,6 +103,11 @@ Print files to the screen.
+ .UNINDENT
+ .INDENT 0.0
+ .TP
++.B \-\-no\-atime
++Must be used with the \-\-lite option. Do not update the file last access time.
++.UNINDENT
++.INDENT 0.0
++.TP
+ .B \-L, \-\-dereference
+ Dereference symbolic links and walk the target file or directory
+ that each symbolic link refers to.
+diff --git a/man/mpifileutils.1 b/man/mpifileutils.1
+index bc9ab3d..263ce21 100644
+--- a/man/mpifileutils.1
++++ b/man/mpifileutils.1
+@@ -363,6 +363,8 @@ dcp \- Copy files.
+ .IP \(bu 2
+ ddup \- Find duplicate files.
+ .IP \(bu 2
++dfilemaker \- Generate random files.
++.IP \(bu 2
+ dfind \- Filter files.
+ .IP \(bu 2
+ dreln \- Update symlinks to point to a new path.
+@@ -389,8 +391,6 @@ dgrep \- Run grep on files in parallel.
+ dparallel \- Perform commands in parallel.
+ .IP \(bu 2
+ dsh \- List and remove files with interactive commands.
+-.IP \(bu 2
+-dfilemaker \- Generate random files.
+ .UNINDENT
+ .SS Usage tips
+ .sp
 diff --git a/mpifileutils.spec b/mpifileutils.spec
 index b3a0f81..94619f0 100644
 --- a/mpifileutils.spec
@@ -330,6 +616,27 @@ index b3a0f81..94619f0 100644
  
  
  %files
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 775c70f..03c3ce8 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -9,7 +9,7 @@ ADD_SUBDIRECTORY(dcmp)
+ ADD_SUBDIRECTORY(dcp)
+ ADD_SUBDIRECTORY(dcp1)
+ ADD_SUBDIRECTORY(ddup)
+-ADD_SUBDIRECTORY(dfilemaker1)
++ADD_SUBDIRECTORY(dfilemaker)
+ ADD_SUBDIRECTORY(dfind)
+ ADD_SUBDIRECTORY(dreln)
+ ADD_SUBDIRECTORY(drm)
+@@ -29,7 +29,6 @@ IF(ENABLE_EXPERIMENTAL)
+   IF(ENABLE_DAOS)
+     ADD_SUBDIRECTORY(daos-gen)
+   ENDIF(ENABLE_DAOS)
+-  ADD_SUBDIRECTORY(dfilemaker)
+   ADD_SUBDIRECTORY(dgrep)
+   ADD_SUBDIRECTORY(dparallel)
+   ADD_SUBDIRECTORY(dsh)
 diff --git a/src/common/CMakeLists.txt b/src/common/CMakeLists.txt
 index 509ba35..5178c1a 100644
 --- a/src/common/CMakeLists.txt
@@ -1153,6 +1460,20 @@ index 86624c0..ab7ec66 100644
    bool require_new_cont,
    bool preserve,
    mfu_file_t* mfu_src_file,
+diff --git a/src/common/mfu_flist.c b/src/common/mfu_flist.c
+index a0071f1..9b13a3a 100644
+--- a/src/common/mfu_flist.c
++++ b/src/common/mfu_flist.c
+@@ -67,6 +67,9 @@ mfu_walk_opts_t* mfu_walk_opts_new(void)
+     /* Don't dereference symbolic links by default */
+     opts->dereference = 0;
+ 
++    /* Don't update the file last access time */
++    opts->no_atime = 0;
++
+     return opts;
+ }
+ 
 diff --git a/src/common/mfu_flist.h b/src/common/mfu_flist.h
 index dd02888..58dc0c4 100644
 --- a/src/common/mfu_flist.h
@@ -1549,18 +1870,19 @@ index f5acaab..1e724fe 100644
      opts->sparse = false;
  
 diff --git a/src/common/mfu_flist_walk.c b/src/common/mfu_flist_walk.c
-index 120976e..85190bc 100644
+index 120976e..7a5ce6e 100644
 --- a/src/common/mfu_flist_walk.c
 +++ b/src/common/mfu_flist_walk.c
-@@ -51,6 +51,7 @@ static flist_t* CURRENT_LIST;
+@@ -51,6 +51,8 @@ static flist_t* CURRENT_LIST;
  static int SET_DIR_PERMS;
  static int REMOVE_FILES;
  static int DEREFERENCE;
 +static int WALK_RESULT = 0;
++static int NO_ATIME;
  static mfu_file_t** CURRENT_PFILE;
  
  /****************************************
-@@ -116,6 +117,7 @@ static int build_path(char* path, size_t path_len, const char* dir, const char*
+@@ -116,6 +118,7 @@ static int build_path(char* path, size_t path_len, const char* dir, const char*
      if (new_len > path_len) {
          MFU_LOG(MFU_LOG_ERR, "Path name is too long, %lu chars exceeds limit %lu: '%s/%s'",
                  new_len, path_len, dir, name);
@@ -1568,7 +1890,20 @@ index 120976e..85190bc 100644
          return -1;
      }
  
-@@ -188,6 +190,7 @@ static void walk_getdents_process_dir(const char* dir, CIRCLE_handle* handle)
+@@ -180,14 +183,19 @@ struct linux_dirent {
+ 
+ static void walk_getdents_process_dir(const char* dir, CIRCLE_handle* handle)
+ {
++    int flags = O_RDONLY | O_DIRECTORY;
+     char buf[BUF_SIZE];
+ 
++    if (NO_ATIME)
++        flags |= O_NOATIME;
++
+     /* TODO: may need to try these functions multiple times */
+     mfu_file_t* mfu_file = *CURRENT_PFILE;
+-    mfu_file_open(dir, O_RDONLY | O_DIRECTORY, mfu_file);
++    mfu_file_open(dir, flags, mfu_file);
      if (mfu_file->fd == -1) {
          /* print error */
          MFU_LOG(MFU_LOG_ERR, "Failed to open directory for reading: `%s' (errno=%d %s)", dir, errno, strerror(errno));
@@ -1576,7 +1911,7 @@ index 120976e..85190bc 100644
          return;
      }
  
-@@ -200,6 +203,7 @@ static void walk_getdents_process_dir(const char* dir, CIRCLE_handle* handle)
+@@ -200,6 +208,7 @@ static void walk_getdents_process_dir(const char* dir, CIRCLE_handle* handle)
          int nread = syscall(SYS_getdents, mfu_file->fd, buf, (int) BUF_SIZE);
          if (nread == -1) {
              MFU_LOG(MFU_LOG_ERR, "syscall to getdents failed when reading `%s' (errno=%d %s)", dir, errno, strerror(errno));
@@ -1584,15 +1919,57 @@ index 120976e..85190bc 100644
              break;
          }
  
-@@ -289,6 +293,7 @@ static void walk_getdents_create(CIRCLE_handle* handle)
-         if (status != 0) {
-             MFU_LOG(MFU_LOG_ERR, "Failed to stat: '%s' (errno=%d %s)",
-                     path, errno, strerror(errno));
-+            WALK_RESULT = -1;
-             return;
-         }
+@@ -275,49 +284,6 @@ static void walk_getdents_process_dir(const char* dir, CIRCLE_handle* handle)
+     return;
+ }
  
-@@ -347,6 +352,7 @@ static void walk_readdir_process_dir(const char* dir, CIRCLE_handle* handle)
+-/** Call back given to initialize the dataset. */
+-static void walk_getdents_create(CIRCLE_handle* handle)
+-{
+-    uint64_t i;
+-    for (i = 0; i < CURRENT_NUM_DIRS; i++) {
+-        const char* path = CURRENT_DIRS[i];
+-
+-        /* stat top level item */
+-        struct stat st;
+-        mfu_file_t* mfu_file = *CURRENT_PFILE;
+-        int status = mfu_file_lstat(path, &st, mfu_file);
+-        if (status != 0) {
+-            MFU_LOG(MFU_LOG_ERR, "Failed to stat: '%s' (errno=%d %s)",
+-                    path, errno, strerror(errno));
+-            return;
+-        }
+-
+-        /* increment our item count */
+-        reduce_items++;
+-
+-        /* record item info */
+-        mfu_flist_insert_stat(CURRENT_LIST, path, st.st_mode, &st);
+-
+-        /* recurse into directory */
+-        if (S_ISDIR(st.st_mode)) {
+-            walk_getdents_process_dir(path, handle);
+-        }
+-    }
+-
+-    return;
+-}
+-
+-/** Callback given to process the dataset. */
+-static void walk_getdents_process(CIRCLE_handle* handle)
+-{
+-    /* in this case, only items on queue are directories */
+-    char path[CIRCLE_MAX_STRING_LEN];
+-    handle->dequeue(path);
+-    walk_getdents_process_dir(path, handle);
+-    reduce_items++;
+-    return;
+-}
+-
+ /****************************************
+  * Walk directory tree using stat at top level and readdir
+  ***************************************/
+@@ -347,6 +313,7 @@ static void walk_readdir_process_dir(const char* dir, CIRCLE_handle* handle)
      if (! dirp) {
          MFU_LOG(MFU_LOG_ERR, "Failed to open directory with opendir: '%s' (errno=%d %s)",
                  dir, errno, strerror(errno));
@@ -1600,7 +1977,7 @@ index 120976e..85190bc 100644
      }
      else {
          /* Read all directory entries */
-@@ -398,6 +404,7 @@ static void walk_readdir_process_dir(const char* dir, CIRCLE_handle* handle)
+@@ -398,6 +365,7 @@ static void walk_readdir_process_dir(const char* dir, CIRCLE_handle* handle)
                          else {
                              MFU_LOG(MFU_LOG_ERR, "Failed to stat: '%s' (errno=%d %s)",
                                      newpath, errno, strerror(errno));
@@ -1608,7 +1985,16 @@ index 120976e..85190bc 100644
                          }
                      }
  
-@@ -433,6 +440,7 @@ static void walk_readdir_create(CIRCLE_handle* handle)
+@@ -420,7 +388,7 @@ static void walk_readdir_process_dir(const char* dir, CIRCLE_handle* handle)
+ }
+ 
+ /** Call back given to initialize the dataset. */
+-static void walk_readdir_create(CIRCLE_handle* handle)
++static void walk_create(CIRCLE_handle* handle)
+ {
+     uint64_t i;
+     for (i = 0; i < CURRENT_NUM_DIRS; i++) {
+@@ -433,6 +401,7 @@ static void walk_readdir_create(CIRCLE_handle* handle)
          if (status != 0) {
              MFU_LOG(MFU_LOG_ERR, "Failed to stat: '%s' (errno=%d %s)",
                      path, errno, strerror(errno));
@@ -1616,7 +2002,43 @@ index 120976e..85190bc 100644
              return;
          }
  
-@@ -475,6 +483,7 @@ static void walk_stat_process_dir(char* dir, CIRCLE_handle* handle)
+@@ -444,7 +413,13 @@ static void walk_readdir_create(CIRCLE_handle* handle)
+ 
+         /* recurse into directory */
+         if (S_ISDIR(st.st_mode)) {
+-            walk_readdir_process_dir(path, handle);
++            if (NO_ATIME) {
++                // walk directories without updating the file last access time
++                walk_getdents_process_dir(path, handle);
++            } else {
++                //walk directories using file types in readdir
++                walk_readdir_process_dir(path, handle);
++            }
+         }
+     }
+ 
+@@ -452,12 +427,18 @@ static void walk_readdir_create(CIRCLE_handle* handle)
+ }
+ 
+ /** Callback given to process the dataset. */
+-static void walk_readdir_process(CIRCLE_handle* handle)
++static void walk_process(CIRCLE_handle* handle)
+ {
+     /* in this case, only items on queue are directories */
+     char path[CIRCLE_MAX_STRING_LEN];
+     handle->dequeue(path);
+-    walk_readdir_process_dir(path, handle);
++    if (NO_ATIME) {
++        // walk directories without updating the file last access time
++        walk_getdents_process_dir(path, handle);
++    } else {
++        //walk directories using file types in readdir
++        walk_readdir_process_dir(path, handle);
++    }
+     reduce_items++;
+     return;
+ }
+@@ -475,6 +456,7 @@ static void walk_stat_process_dir(char* dir, CIRCLE_handle* handle)
      if (! dirp) {
          MFU_LOG(MFU_LOG_ERR, "Failed to open directory with opendir: '%s' (errno=%d %s)",
                  dir, errno, strerror(errno));
@@ -1624,7 +2046,7 @@ index 120976e..85190bc 100644
      }
      else {
          while (1) {
-@@ -533,6 +542,7 @@ static void walk_stat_process(CIRCLE_handle* handle)
+@@ -533,6 +515,7 @@ static void walk_stat_process(CIRCLE_handle* handle)
      if (status != 0) {
          MFU_LOG(MFU_LOG_ERR, "Failed to stat: '%s' (errno=%d %s)",
                  path, errno, strerror(errno));
@@ -1632,7 +2054,7 @@ index 120976e..85190bc 100644
          return;
      }
  
-@@ -570,17 +580,16 @@ static void walk_stat_process(CIRCLE_handle* handle)
+@@ -570,17 +553,16 @@ static void walk_stat_process(CIRCLE_handle* handle)
  }
  
  /* Set up and execute directory walk */
@@ -1653,7 +2075,34 @@ index 120976e..85190bc 100644
                            mfu_walk_opts_t* walk_opts, mfu_flist bflist,
                            mfu_file_t* mfu_file)
  {
-@@ -703,11 +712,14 @@ void mfu_flist_walk_paths(uint64_t num_paths, const char** paths,
+@@ -605,6 +587,12 @@ void mfu_flist_walk_paths(uint64_t num_paths, const char** paths,
+         DEREFERENCE = 1;
+     }
+ 
++    /* if no_atime is set to 1 then set global variable */
++    NO_ATIME = 0;
++    if (walk_opts->no_atime) {
++        NO_ATIME = 1;
++    }
++
+     /* convert handle to flist_t */
+     flist_t* flist = (flist_t*) bflist;
+ 
+@@ -657,11 +645,8 @@ void mfu_flist_walk_paths(uint64_t num_paths, const char** paths,
+         CIRCLE_cb_process(&walk_stat_process);
+     }
+     else {
+-        /* walk directories using file types in readdir */
+-        CIRCLE_cb_create(&walk_readdir_create);
+-        CIRCLE_cb_process(&walk_readdir_process);
+-        //        CIRCLE_cb_create(&walk_getdents_create);
+-        //        CIRCLE_cb_process(&walk_getdents_process);
++        CIRCLE_cb_create(&walk_create);
++        CIRCLE_cb_process(&walk_process);
+     }
+ 
+     /* prepare callbacks and initialize variables for reductions */
+@@ -703,11 +688,14 @@ void mfu_flist_walk_paths(uint64_t num_paths, const char** paths,
      /* hold procs here until summary is printed */
      MPI_Barrier(MPI_COMM_WORLD);
  
@@ -1670,7 +2119,7 @@ index 120976e..85190bc 100644
                                  const mfu_param_path* params,
                                  mfu_walk_opts_t* walk_opts,
                                  mfu_flist flist,
-@@ -715,13 +727,14 @@ void mfu_flist_walk_param_paths(uint64_t num,
+@@ -715,13 +703,14 @@ void mfu_flist_walk_param_paths(uint64_t num,
  {
      /* allocate memory to hold a list of paths */
      const char** path_list = (const char**) MFU_MALLOC(num * sizeof(char*));
@@ -1686,7 +2135,7 @@ index 120976e..85190bc 100644
          }
      }
  #endif
-@@ -734,12 +747,12 @@ void mfu_flist_walk_param_paths(uint64_t num,
+@@ -734,12 +723,12 @@ void mfu_flist_walk_param_paths(uint64_t num,
      }
  
      /* walk file tree and record stat data for each file */
@@ -1701,7 +2150,7 @@ index 120976e..85190bc 100644
  }
  
  /* Given an input file list, stat each file and enqueue details
-@@ -806,6 +819,7 @@ void mfu_flist_stat(
+@@ -806,6 +795,7 @@ void mfu_flist_stat(
              if (status != 0) {
                  MFU_LOG(MFU_LOG_ERR, "mfu_file_stat() failed: '%s' rc=%d (errno=%d %s)",
                          name, status, errno, strerror(errno));
@@ -1709,7 +2158,7 @@ index 120976e..85190bc 100644
                  continue;
              }
          } else {
-@@ -814,6 +828,7 @@ void mfu_flist_stat(
+@@ -814,6 +804,7 @@ void mfu_flist_stat(
              if (status != 0) {
                  MFU_LOG(MFU_LOG_ERR, "mfu_file_lstat() failed: '%s' rc=%d (errno=%d %s)",
                          name, status, errno, strerror(errno));
@@ -1770,10 +2219,18 @@ index 488d4f2..44da9e6 100644
  
      /* compute number of components to keep */
 diff --git a/src/common/mfu_param_path.h b/src/common/mfu_param_path.h
-index 156be26..04b2d51 100644
+index 156be26..f660046 100644
 --- a/src/common/mfu_param_path.h
 +++ b/src/common/mfu_param_path.h
-@@ -135,6 +135,7 @@ typedef struct {
+@@ -113,6 +113,7 @@ typedef struct {
+     int remove;         /* flag option to remove files during walk */
+     int use_stat;       /* flag option on whether or not to stat files during walk */
+     int dereference;    /* flag option to dereference symbolic links */
++    int no_atime;       /* flag option to not update the file last acess time */
+ } mfu_walk_opts_t;
+ 
+ typedef enum {
+@@ -135,6 +136,7 @@ typedef struct {
                                      * this is not a perfect opposite of no_dereference */
      int          no_dereference;   /* if true, don't dereference source symbolic links */
      bool         direct;           /* whether to use O_DIRECT */
@@ -2717,7 +3174,7 @@ index 582ea30..05515dc 100644
  
              /* update the SHA256 context for this file */
 diff --git a/src/dfilemaker/dfilemaker.c b/src/dfilemaker/dfilemaker.c
-index 1e0d2a4..59ea90c 100644
+index 1e0d2a4..3ef23f4 100644
 --- a/src/dfilemaker/dfilemaker.c
 +++ b/src/dfilemaker/dfilemaker.c
 @@ -2,6 +2,7 @@
@@ -2775,15 +3232,17 @@ index 1e0d2a4..59ea90c 100644
          }
      }
  
-@@ -187,7 +193,7 @@ void fillelem(mfu_flist flist, uint64_t index, char* fname, long int flen, mfu_f
+@@ -187,8 +193,8 @@ void fillelem(mfu_flist flist, uint64_t index, char* fname, long int flen, mfu_f
          fmode = S_IFLNK;
      }
      else  {
 -        printf("from fillelem ftype = %ld is not legal value\n", ftype);
+-        exit(0);
 +        MFU_LOG(MFU_LOG_ERR,"In fillelem() ftype = %ld is not legal value", ftype);
-         exit(0);
++        exit(EINVAL);
      }
  
+     //----------------------------------
 @@ -244,17 +250,46 @@ int getnum(const char* fname)
  }
  
@@ -2923,22 +3382,20 @@ index 1e0d2a4..59ea90c 100644
      }
  
      int i;
-@@ -506,15 +541,61 @@ void lnamunsort(char** buff, char** tarray, int* lind, int nitems)
+@@ -506,28 +541,73 @@ void lnamunsort(char** buff, char** tarray, int* lind, int nitems)
      }
  }
  
 +/*---------------------------------------------------------------------
 +*  shortopts below are followed by a colon if they take an argument
 +*---------------------------------------------------------------------*/
-+static char *short_options = "i:f:d:n:r:s:w:vh";
++static char *short_options = "i:f:d:n:s:vh";
 +static struct option long_options[] = {
 +    {"seed",     1, 0, 'i'},
 +    {"fill",     1, 0, 'f'},
 +    {"depth",    1, 0, 'd'},
 +    {"nitems",   1, 0, 'n'},
-+    {"ratio",    1, 0, 'r'},
 +    {"size",     1, 0, 's'},
-+    {"width",    1, 0, 'w'},
 +    {"verbose",  0, 0, 'v'},
 +    {"help",     0, 0, 'h'},
 +    {0, 0, 0, 0}
@@ -2950,16 +3407,16 @@ index 1e0d2a4..59ea90c 100644
 +static void print_usage(void)
 +{
 +    printf("\n");
-+    printf("Usage: dfilemaker [options] \n");
++    printf("Usage: dfilemaker [options] <parent_path> \n");
++    printf("\n");
++    printf("*parent_path*               - path to directory where dfilemaker will create files");
 +    printf("\n");
 +    printf("Options:\n");
 +    printf("  -i, --seed=*integer*      - seed to use for random number generation\n");
 +    printf("  -f, --fill=*filltype*     - filltype = random, true, false, or alternate\n");
 +    printf("  -d, --depth=*min*-*max*   - directory depth, integers min and max\n");
 +    printf("  -n, --nitems=*min*-*max*  - number of items, integers min and max (subs for -r and -w)\n");
-+    printf("  -r, --ratio=*min*-*max*   - ratio of files to directories as a percent (not implemented)\n");
 +    printf("  -s, --size=*min*-*max*    - file size, integers min and max followed by MB or GB\n");
-+    printf("  -w, --width=*min*-*max*   - directory width, integers min and max (not implemented)\n");
 +    printf("  -v, --verbose             - increase verbosity of output; default is INFO\n");
 +    printf("  -h, --help                - print usage\n");
 +    printf("\n");
@@ -2990,7 +3447,9 @@ index 1e0d2a4..59ea90c 100644
   *
   ****************************************************************/
  int main(int narg, char** arg)
-@@ -523,11 +604,11 @@ int main(int narg, char** arg)
+ {
++    char* parent_path;
+     char* cbuff;
      uint64_t i, j, ifst, ilst;
      int namlen;
      long int* ftypes, *flens;
@@ -3005,7 +3464,7 @@ index 1e0d2a4..59ea90c 100644
      int outlevels, outmin;
      mfu_flist* outlists;
      char* cp;
-@@ -556,7 +637,7 @@ int main(int narg, char** arg)
+@@ -556,7 +636,7 @@ int main(int narg, char** arg)
      char** larray;
      char** tarray;
      char* lnames; // global lists of link names
@@ -3014,23 +3473,22 @@ index 1e0d2a4..59ea90c 100644
      int nlink, *linksg;
      int nitem, *itemsg;
      uint64_t* targIDs;  // global indices of things that links point to for a dir level
-@@ -565,6 +646,15 @@ int main(int narg, char** arg)
+@@ -565,6 +645,14 @@ int main(int narg, char** arg)
      char* tnamelist; // list of path names of items associated with targIDs
      int* lind; // list of ints in order to resort things
      int initsum, noff;
 +    static filltype_t filltype = ft_random; // what data to put into files
 +    unsigned long long sizeminl,sizemaxl;  // for mfu_abtoul
 +    uint64_t sizemin=0,sizemax=0;
-+    double ratio=0.;
 +    int longind=0;
 +    char *minterm,*maxterm;
 +    int depmin=0,depmax=0;
 +    int nmin=0,nmax=0;
-+    int widmin=0,widmax=0;
++    int rc=0;
  
      /*--------------------------
       * initialize mfu and MPI
-@@ -572,7 +662,7 @@ int main(int narg, char** arg)
+@@ -572,7 +660,7 @@ int main(int narg, char** arg)
      MPI_Init(&narg, &arg);
      DTCMP_Init();
      mfu_init();
@@ -3039,7 +3497,7 @@ index 1e0d2a4..59ea90c 100644
  
      int rank, nrank;
      MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-@@ -580,26 +670,114 @@ int main(int narg, char** arg)
+@@ -580,27 +668,115 @@ int main(int narg, char** arg)
      MPI_Datatype dirname_type;
      MPI_Datatype tname_type;
  
@@ -3047,9 +3505,6 @@ index 1e0d2a4..59ea90c 100644
 -     * get nfiles = number of files to create basic
 -     *----------------------------------------------*/
 -    if (narg < 4) {
--        if (rank == 0) {
--            printf("Usage: dfilemaker <ntotal> <nlevels> <maxflen> [-i seed]\n");
--            printf("       where ntotal > (levels * (nlevels + 1) /2)\n");
 +   /*---------------------
 +    *  loop over options
 +    *---------------------*/
@@ -3073,8 +3528,8 @@ index 1e0d2a4..59ea90c 100644
 +                 if (rank==0) {
 +                     MFU_LOG(MFU_LOG_ERR,"%s not a fill option",optarg);
 +                 }
-+                 MPI_Finalize();
-+                 exit(1);
++                 rc = EINVAL;
++                 goto dfilemaker_cleanup_all;
 +             }
 +             break;
 +           case 'd':
@@ -3089,12 +3544,6 @@ index 1e0d2a4..59ea90c 100644
 +              nmin=atoi(minterm);
 +              nmax=atoi(maxterm);
 +              break;
-+            case 'r':
-+              ratio = atof(optarg);
-+              if (rank == 0) {
-+                  MFU_LOG(MFU_LOG_DBG,"ratio = %f",ratio);
-+              }
-+              break;
 +            case 's':
 +              // range for maxflen
 +              mmparse(optarg,&minterm,&maxterm);
@@ -3104,25 +3553,18 @@ index 1e0d2a4..59ea90c 100644
 +                if (rank == 0) {
 +                  MFU_LOG(MFU_LOG_ERR,"Could not interpret %s as file size", minterm);
 +                }
-+                mfu_finalize();
-+                MPI_Finalize();
-+                return 1;
++                rc = EINVAL;
++                goto dfilemaker_cleanup_all;
 +              }
 +              sizemin=(uint64_t)sizeminl;
 +              if (mfu_abtoull(maxterm, &sizemaxl) != MFU_SUCCESS) {
 +                if (rank == 0) {
 +                  MFU_LOG(MFU_LOG_ERR,"Could not interpret %s as file size", maxterm);
 +                }
-+                mfu_finalize();
-+                MPI_Finalize();
-+                return 1;
++                rc = EINVAL;
++                goto dfilemaker_cleanup_all;
 +              }
 +              sizemax=(uint64_t)sizemaxl;
-+              break;
-+            case 'w':
-+              mmparse(optarg,&minterm,&maxterm);
-+              widmin=atoi(minterm);
-+              widmax=atoi(maxterm);
 +              break;
 +            case 'v':
 +              if (mfu_debug_level < MFU_LOG_DBG) {
@@ -3133,18 +3575,28 @@ index 1e0d2a4..59ea90c 100644
 +              if (rank == 0) {
 +                  print_usage();
 +              }
-+              mfu_finalize();
-+              MPI_Finalize();
-+              exit(0);
-+              break;
++              rc = 0;
++              goto dfilemaker_cleanup_all;
 +            default:
 +              /* unrecognized option */
 +              if (rank == 0) {
 +                  print_usage();
 +              }
-+              mfu_finalize();
-+              MPI_Finalize();
-+              exit(1);
++              rc = EINVAL;
++              goto dfilemaker_cleanup_all;
++        }
++     }
++
++    if ((narg-optind) != 1) {
+         if (rank == 0) {
+-            printf("Usage: dfilemaker <ntotal> <nlevels> <maxflen> [-i seed]\n");
+-            printf("       where ntotal > (levels * (nlevels + 1) /2)\n");
++            if (optind == narg) {
++                MFU_LOG(MFU_LOG_ERR,"missing required argument parent_path");
++            } else {
++                MFU_LOG(MFU_LOG_ERR,"too many arguments");
++            }
++            print_usage();
          }
 -        MPI_Finalize();
 -        exit(0);
@@ -3157,8 +3609,12 @@ index 1e0d2a4..59ea90c 100644
 -    {
 -       if (c=='i') jseed = atoi(optarg);
 -       if (jseed) iseed=jseed;
--    }
-+     }
++
++        rc = EINVAL;
++        goto dfilemaker_cleanup_all;
+     }
+ 
++    parent_path=arg[optind];
 +
 +     srand(iseed);
 +     if (nmax > 0) {
@@ -3170,21 +3626,25 @@ index 1e0d2a4..59ea90c 100644
 +     if (sizemax > 0) {
 +         maxflen=sizemin+rand()%(1+sizemax-sizemin);
 +     }
- 
++
      /*-------------------------------------------------------
       * each level has nfiles[0] more than the one above
-@@ -610,11 +788,18 @@ int main(int narg, char** arg)
+      * on this first pass
+@@ -610,11 +786,19 @@ int main(int narg, char** arg)
      nfiles[0] = ntotal / nsum;
      if (nfiles[0] < 1) {
          if (rank == 0) {
 -            printf("ntotal must be greater than (levels * (nlevels + 1) /2)\n");
 +            MFU_LOG(MFU_LOG_ERR,"ntotal must be greater than (levels * (nlevels + 1) /2)");
          }
-         MPI_Finalize();
-         exit(0);
+-        MPI_Finalize();
+-        exit(0);
++        rc = EINVAL;
++        goto dfilemaker_cleanup_all;
      }
 +
 +    if (rank == 0 ) {
++        MFU_LOG(MFU_LOG_VERBOSE, "parent_path = %s", parent_path);
 +        MFU_LOG(MFU_LOG_VERBOSE, "ntotal = %d",ntotal);
 +        MFU_LOG(MFU_LOG_VERBOSE, "nlevels = %d",nlevels);
 +        MFU_LOG(MFU_LOG_VERBOSE, "maxflen = %d",maxflen);
@@ -3193,7 +3653,25 @@ index 1e0d2a4..59ea90c 100644
      for (ilev = 1; ilev < nlevels; ilev++) {
          nfiles[ilev] = (ilev + 1) * nfiles[0];
      }
-@@ -670,7 +855,6 @@ int main(int narg, char** arg)
+@@ -647,6 +831,17 @@ int main(int narg, char** arg)
+     //-----------------------
+     buf = MFU_MALLOC(bufsize);
+ 
++    /* change directory, and check that all processes succeeded */
++    int chdir_rc = chdir(parent_path);
++    if (! mfu_alltrue(chdir_rc == 0, MPI_COMM_WORLD)) {
++        /* at least one process failed, so bail out */
++        if (rank == 0) {
++            MFU_LOG(MFU_LOG_ERR, "Failed to change directory to '%s'", parent_path);
++        }
++        rc = EINVAL;
++        goto dfilemaker_cleanup_all;
++    }
++
+     //-----------------------------------
+     // get depth of './' or top
+     //-----------------------------------
+@@ -670,7 +865,6 @@ int main(int narg, char** arg)
      //------------------------------------------------------
      ftypes = (long int*) MFU_MALLOC(nfiles[0] * sizeof(long int));
      flens  = (long int*) MFU_MALLOC(nfiles[0] * sizeof(long int));
@@ -3201,7 +3679,7 @@ index 1e0d2a4..59ea90c 100644
      for (i = 0; i < ifst; i++) {
          rand();
      }
-@@ -697,7 +881,8 @@ int main(int narg, char** arg)
+@@ -697,7 +891,8 @@ int main(int narg, char** arg)
      //-----------------------------
      MPI_Barrier(MPI_COMM_WORLD);
      mfu_flist_summarize(mybflist);
@@ -3211,7 +3689,7 @@ index 1e0d2a4..59ea90c 100644
      MPI_Barrier(MPI_COMM_WORLD);
      mfu_free(&ftypes);
      mfu_free(&flens);
-@@ -709,9 +894,6 @@ int main(int narg, char** arg)
+@@ -709,9 +904,6 @@ int main(int narg, char** arg)
      lndirs = (int*) MFU_MALLOC(nrank * sizeof(int));
      ddispls = (int*) MFU_MALLOC(nrank * sizeof(int));
      for (ilev = 1; ilev < nlevels; ilev++) {
@@ -3221,17 +3699,19 @@ index 1e0d2a4..59ea90c 100644
          nfsum += nfiles[ilev - 1];
          ifrac = (nfiles[ilev] + nrank - 1) / nrank;
          ifst = rank * ifrac;
-@@ -784,7 +966,8 @@ int main(int narg, char** arg)
+@@ -784,8 +976,9 @@ int main(int narg, char** arg)
          MPI_Type_contiguous(dnamlen, MPI_CHAR, &dirname_type);
          MPI_Type_commit(&dirname_type);
          if (DTCMP_Op_create(dirname_type, &dnamcomp, &op_dnamcomp) != DTCMP_SUCCESS) {
 -            printf("Failed to create string sort\n");
+-            exit(0);
 +            MFU_LOG(MFU_LOG_ERR, "Failed to create string sort");
-+            MPI_Finalize();
-             exit(0);
++            rc = ENOMEM;
++            goto dfilemaker_cleanup_all;
          }
          DTCMP_Sort_local(DTCMP_IN_PLACE, dnames, dirtot, dirname_type, dirname_type, op_dnamcomp, DTCMP_FLAG_NONE);
-@@ -803,7 +986,6 @@ int main(int narg, char** arg)
+         DTCMP_Op_free(&op_dnamcomp);
+@@ -803,7 +996,6 @@ int main(int narg, char** arg)
          for (i = 0; i < rank + 1; i++) {
              dlast += ndirs[i];    // index of last dir for proc
          }
@@ -3239,7 +3719,7 @@ index 1e0d2a4..59ea90c 100644
          randir = (uint64_t*)  MFU_MALLOC(nfiles[ilev] * sizeof(uint64_t));
          ftypes = (long int*) MFU_MALLOC(nfiles[ilev] * sizeof(long int));
          flens  = (long int*) MFU_MALLOC(nfiles[ilev] * sizeof(long int));
-@@ -861,7 +1043,7 @@ int main(int narg, char** arg)
+@@ -861,7 +1053,7 @@ int main(int narg, char** arg)
          total_unknown = 0;
          total_bytes   = 0;
          mfu_flist_summarize(mybflist);
@@ -3248,7 +3728,7 @@ index 1e0d2a4..59ea90c 100644
          MPI_Barrier(MPI_COMM_WORLD);
          mfu_free(&randir);
          mfu_free(&ftypes);
-@@ -883,7 +1065,8 @@ int main(int narg, char** arg)
+@@ -883,7 +1075,8 @@ int main(int narg, char** arg)
      mfu_create_opts_t* create_opts = mfu_create_opts_new();
      mfu_flist_mkdir(mybflist, create_opts);
      mfu_flist_mknod(mybflist, create_opts);
@@ -3258,7 +3738,7 @@ index 1e0d2a4..59ea90c 100644
      mfu_create_opts_delete(&create_opts);
  
      //------------------------------------
-@@ -905,6 +1088,7 @@ int main(int narg, char** arg)
+@@ -905,6 +1098,7 @@ int main(int narg, char** arg)
      //
      //*****************************************************************************
      char* itemnames; // local to proc
@@ -3266,16 +3746,19 @@ index 1e0d2a4..59ea90c 100644
      tnames = (char**) MFU_MALLOC(nlevels * sizeof(char*));
      itemsg = (int*) MFU_MALLOC(nrank * sizeof(int));
      const char* item_name = (char*) MFU_MALLOC(PATH_MAX + 1);
-@@ -959,7 +1143,7 @@ int main(int narg, char** arg)
+@@ -959,8 +1153,9 @@ int main(int narg, char** arg)
          MPI_Type_contiguous(tnamlen, MPI_CHAR, &tname_type);
          MPI_Type_commit(&tname_type);
          if (DTCMP_Op_create(tname_type, &tnamcomp, &op_tnamcomp) != DTCMP_SUCCESS) {
 -            printf("Failed to create string sort\n");
+-            exit(0);
 +            MFU_LOG(MFU_LOG_ERR,"Failed to create string sort");
-             exit(0);
++            rc = ENOMEM;
++            goto dfilemaker_cleanup_all;
          }
          DTCMP_Sort_local(DTCMP_IN_PLACE, tnames[ilev], nitot, tname_type, tname_type, op_tnamcomp, DTCMP_FLAG_NONE);
-@@ -988,10 +1172,6 @@ int main(int narg, char** arg)
+         DTCMP_Op_free(&op_tnamcomp);
+@@ -988,10 +1183,6 @@ int main(int narg, char** arg)
      //--------------------------------
      mfu_flist_array_by_depth(mybflist, &outlevels, &outmin, &outlists);
      for (ilev = 0; ilev < nlevels; ilev++) {
@@ -3286,7 +3769,7 @@ index 1e0d2a4..59ea90c 100644
          //------------------------------------------------
          // list items at this level for each processor
          //------------------------------------------------
-@@ -1115,7 +1295,7 @@ int main(int narg, char** arg)
+@@ -1115,7 +1306,7 @@ int main(int narg, char** arg)
          /*---------------------------------*/
          /* write links with targets        */
          /*---------------------------------*/
@@ -3295,9 +3778,17 @@ index 1e0d2a4..59ea90c 100644
  
          mfu_free(&linknames);
          mfu_free(&tnamelist);
-@@ -1143,3 +1323,5 @@ int main(int narg, char** arg)
+@@ -1137,9 +1328,12 @@ int main(int narg, char** arg)
+      *------------*/
+     mfu_flist_free((void**)&mybflist);
  
-     return 0;
++dfilemaker_cleanup_all:
+     mfu_finalize();
+     DTCMP_Finalize();
+     MPI_Finalize();
+ 
+-    return 0;
++    return rc;
  }
 +
 +//  vim: et ts=4 :
@@ -3325,6 +3816,190 @@ index d629ea7..0000000
 -	${MPCC} -c -DHAVE_BYTESWAP_H dfilemaker.c -I../common -I ${INCLOC} -I/usr/include
 -clean: dfilemaker
 -	rm dfilemaker
+diff --git a/src/dfilemaker1/CMakeLists.txt b/src/dfilemaker1/CMakeLists.txt
+deleted file mode 100644
+index b776231..0000000
+--- a/src/dfilemaker1/CMakeLists.txt
++++ /dev/null
+@@ -1 +0,0 @@
+-MFU_ADD_TOOL(dfilemaker1)
+diff --git a/src/dfilemaker1/dfilemaker1.c b/src/dfilemaker1/dfilemaker1.c
+deleted file mode 100644
+index e37d8e5..0000000
+--- a/src/dfilemaker1/dfilemaker1.c
++++ /dev/null
+@@ -1,171 +0,0 @@
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <errno.h>
+-#include <sys/types.h>
+-#include <sys/stat.h>
+-#include <fcntl.h>
+-#include "mpi.h"
+-
+-#include "mfu.h"
+-
+-static void print_usage(void)
+-{
+-  printf("\n");
+-  printf("Usage: dfilemaker1 <#files> <size>\n");
+-  printf("\n");
+-  printf("Example: dfilemaker1 1024 1MB\n");
+-  printf("\n");
+-  fflush(stdout);
+-  return;
+-}
+-
+-int main(int argc, char* argv[])
+-{
+-  /* init our environment */
+-  MPI_Init(&argc, &argv);
+-  mfu_init();
+-
+-  /* get our rank and the number of ranks in the job */
+-  int rank, ranks;
+-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+-  MPI_Comm_size(MPI_COMM_WORLD, &ranks);
+-
+-  /* verbose by default */
+-  mfu_debug_level = MFU_LOG_VERBOSE;
+-
+-  /* process command line arguments */
+-  int usage = 0;
+-
+-  /* check arguments */
+-  int files;
+-  unsigned long long size_ull;
+-  if (argc != 3) {
+-    /* should have exactly 3 arguments */
+-    usage = 1;
+-  } else {
+-    /* read number of files */
+-    files = atoi(argv[1]);
+-
+-    /* read file size */
+-    const char* size_str = argv[2];
+-    if (mfu_abtoull(size_str, &size_ull) != MFU_SUCCESS) {
+-      /* just have rank 0 print the error */
+-      if (rank == 0) {
+-        printf("Could not interpret argument as file size: %s\n", size_str);
+-        fflush(stdout);
+-      }
+-
+-      usage = 1;
+-    }
+-  }
+-
+-  /* print usage and exit */
+-  if (usage) {
+-    if (rank == 0) {
+-      print_usage();
+-    }
+-    mfu_finalize();
+-    MPI_Finalize();
+-    return 1;
+-  }
+-
+-  /* assume we'll exit with success */
+-  int rc = 0;
+-
+-  /* convert file size to size_t */
+-  size_t size = (size_t) size_ull;
+-
+-  /* tell user what we're doing */
+-  if (rank == 0) {
+-    printf("Generating data: files = %d, size = %llu\n", files, (unsigned long long) size);
+-    fflush(stdout);
+-  }
+-
+-  /* compute number of files per process */
+-  int myfiles = files / ranks;
+-  int remainder = files - ranks * myfiles;
+-
+-  /* compute our offset into the set of files */
+-  int offset = rank * myfiles;
+-  if (remainder > 0) {
+-    if (rank < remainder) {
+-      /* if we don't evenly divide, give extras to lower ranks */
+-      myfiles++;
+-      offset = rank * myfiles;
+-    } else {
+-      offset = remainder * (myfiles+1) + (rank - remainder) * myfiles;
+-    }
+-  }
+-
+-  mfu_flist flist = mfu_flist_new();
+-  mfu_flist_set_detail(flist, 1);
+-
+-  int files_per_dir = 100;
+-
+-  /* loop over each file we need to create */
+-  int i;
+-  for (i = 0; i < myfiles; i++) {
+-    /* get index within file set */
+-    int idx = offset + i;
+-
+-#if 0
+-    int diridx = idx / files_per_dir;
+-
+-    /* define directory name */
+-    char dirname[256];
+-    sprintf(dirname, "dir_%d", diridx);
+-
+-    if (idx % files_per_dir == 0) {
+-        uint64_t fidx = mfu_flist_file_create(flist);
+-        mfu_flist_file_set_name(flist, fidx, dirname);
+-        mfu_flist_file_set_type(flist, fidx, MFU_TYPE_DIR);
+-        mfu_flist_file_set_mode(flist, fidx, DCOPY_DEF_PERMS_DIR | S_IFDIR);
+-    }
+-
+-    /* create a file name */
+-    char file[256];
+-    sprintf(file, "%s/file_%d.dat", dirname, idx);
+-#else
+-    /* create a file name */
+-    char file[256];
+-    sprintf(file, "file_%d.dat", idx);
+-#endif
+-
+-    uint64_t fidx = mfu_flist_file_create(flist);
+-    mfu_flist_file_set_name(flist, fidx, file);
+-    mfu_flist_file_set_type(flist, fidx, MFU_TYPE_FILE);
+-    mfu_flist_file_set_size(flist, fidx, size);
+-    mfu_flist_file_set_mode(flist, fidx, DCOPY_DEF_PERMS_FILE | S_IFREG);
+-  }
+-
+-  mfu_flist_summarize(flist);
+-
+-  /* pointer to mfu_copy opts */
+-  mfu_copy_opts_t* mfu_copy_opts = mfu_copy_opts_new();
+-
+-  /* create new mfu_file objects */
+-  mfu_file_t* mfu_file = mfu_file_new();
+-
+-  mfu_create_opts_t* create_opts = mfu_create_opts_new();
+-  mfu_flist_mkdir(flist, create_opts);
+-  mfu_flist_mknod(flist, create_opts);
+-  mfu_flist_fill(flist, mfu_copy_opts, mfu_file);
+-  //mfu_flist_setmeta()
+-
+-  mfu_create_opts_delete(&create_opts);
+-
+-  mfu_flist_free(&flist);
+-
+-  /* free the copy options */
+-  mfu_copy_opts_delete(&mfu_copy_opts);
+-
+-  /* delete file objects */
+-  mfu_file_delete(&mfu_file);
+-
+-  /* shut down */
+-  mfu_finalize();
+-  MPI_Finalize();
+-
+-  return rc;
+-}
 diff --git a/src/dfind/dfind.c b/src/dfind/dfind.c
 index 2cfe20e..c652d10 100644
 --- a/src/dfind/dfind.c
@@ -3378,10 +4053,20 @@ index a3f280c..d0befc0 100644
      /* filter down our list to files which don't meet our striping requirements */
      mfu_flist filtered = filter_list(flist, stripes, stripe_size, min_size, &create_prog_count_total, &stripe_prog_bytes_total);
 diff --git a/src/dsync/dsync.c b/src/dsync/dsync.c
-index ac98e14..6b940bf 100644
+index ac98e14..3dbb027 100644
 --- a/src/dsync/dsync.c
 +++ b/src/dsync/dsync.c
-@@ -72,6 +72,7 @@ static void print_usage(void)
+@@ -48,6 +48,9 @@
+ #include "mfu_daos.h"
+ #endif
+ 
++/* True if both src and dest file systems support nsec field in mtime */
++static bool comp_mtime_nsec = true;
++
+ /* Print a usage message */
+ static void print_usage(void)
+ {
+@@ -72,6 +75,7 @@ static void print_usage(void)
      printf("  -L, --dereference       - copy original files instead of links\n");
      printf("  -P, --no-dereference    - don't follow links in source\n"); 
      printf("  -s, --direct            - open files with O_DIRECT\n");
@@ -3389,7 +4074,60 @@ index ac98e14..6b940bf 100644
      printf("      --link-dest <DIR>   - hardlink to files in DIR when unchanged\n");
      printf("  -S, --sparse            - create sparse files when possible\n");
      printf("      --progress <N>      - print progress every N seconds\n");
-@@ -2967,6 +2968,7 @@ dsync_daos_out:
+@@ -1151,7 +1155,7 @@ static void dsync_strmap_compare_lite_link_dest(
+ 
+         /* if size and mtime are the same, we assume the file contents are same */
+         if ((src_size == dst_size) &&
+-            (src_mtime == dst_mtime) && (src_mtime_nsec == dst_mtime_nsec))
++            (src_mtime == dst_mtime) && (comp_mtime_nsec ? (src_mtime_nsec == dst_mtime_nsec):true))
+         {
+             mfu_flist_file_copy(link_compare_list, idx, link_same_list);
+         }
+@@ -1199,12 +1203,12 @@ static int dsync_strmap_compare_lite(
+ 
+         /* if size or mtime is different, we assume the file contents are different */
+         if ((src_size != dst_size) ||
+-            (src_mtime != dst_mtime) || (src_mtime_nsec != dst_mtime_nsec))
++            (src_mtime != dst_mtime) || (comp_mtime_nsec ? (src_mtime_nsec != dst_mtime_nsec):false))
+         {
+             /* update to say contents of the files were found to be different */
+             dsync_strmap_item_update(src_map, name, DCMPF_CONTENT, DCMPS_DIFFER);
+             dsync_strmap_item_update(dst_map, name, DCMPF_CONTENT, DCMPS_DIFFER);
+-
++            
+             /* mark file to be deleted from destination, copied from source */
+             if (!options.dry_run || use_hardlinks) {
+                 mfu_flist_file_copy(dst_compare_list, idx, dst_remove_list);
+@@ -2410,7 +2414,10 @@ static void dsync_disjunction_free(struct dsync_disjunction* disjunction)
+ {
+     struct dsync_conjunction *conjunction;
+     struct dsync_conjunction *n;
+-
++    
++    if (!disjunction) {
++        return;
++    }
+     assert(list_empty(&disjunction->linkage));
+     list_for_each_entry_safe(conjunction,
+                              n,
+@@ -2964,9 +2971,24 @@ dsync_daos_out:
+ }
+ #endif
+ 
++static bool is_mtime_nsec_used(char *srcpath, char *dstpath)
++{
++    struct stat srcpath_stat, dstpath_stat;
++    if (stat(srcpath, &srcpath_stat) == 0 && stat(dstpath, &dstpath_stat) == 0) {
++        if (srcpath_stat.st_mtim.tv_nsec == 0 || dstpath_stat.st_mtim.tv_nsec == 0) {
++           return false; 
++        } else {
++            return true;
++        }
++    } else {
++        return true;
++    }
++}
++
  int main(int argc, char **argv)
  {
      int rc = 0;
@@ -3397,7 +4135,7 @@ index ac98e14..6b940bf 100644
  
      /* initialize MPI and mfu libraries */
      MPI_Init(&argc, &argv);
-@@ -3022,13 +3024,13 @@ int main(int argc, char **argv)
+@@ -3022,13 +3044,13 @@ int main(int argc, char **argv)
          {"bufsize",        1, 0, 'B'},
          {"chunksize",      1, 0, 'k'},
          {"xattrs",         1, 0, 'X'},
@@ -3412,7 +4150,7 @@ index ac98e14..6b940bf 100644
          {"output",         1, 0, 'o'}, // undocumented
          {"debug",          0, 0, 'd'}, // undocumented
          {"link-dest",      1, 0, 'l'},
-@@ -3096,9 +3098,6 @@ int main(int argc, char **argv)
+@@ -3096,9 +3118,6 @@ int main(int argc, char **argv)
              }
              break;
  #ifdef DAOS_SUPPORT
@@ -3422,7 +4160,7 @@ index ac98e14..6b940bf 100644
          case 'y':
              if (daos_parse_api_str(optarg, &daos_args->api) != 0) {
                  MFU_LOG(MFU_LOG_ERR, "Failed to parse --daos-api");
-@@ -3134,6 +3133,12 @@ int main(int argc, char **argv)
+@@ -3134,12 +3153,17 @@ int main(int argc, char **argv)
                  MFU_LOG(MFU_LOG_INFO, "Using O_DIRECT");
              }
              break;
@@ -3435,7 +4173,78 @@ index ac98e14..6b940bf 100644
          case 'l':
              options.link_dest = MFU_STRDUP(optarg);
              break;
-@@ -3283,12 +3288,45 @@ int main(int argc, char **argv)
+         case 'o':
+-            ret = dsync_option_output_parse(optarg, 0);
+-            if (ret) {
++            if (dsync_option_output_parse(optarg, 0)) {
+                 usage = 1;
+             }
+             break;
+@@ -3181,23 +3205,7 @@ int main(int argc, char **argv)
+         }
+         usage = 1;
+     }
+-
+-    /* Generate default output */
+-    if (list_empty(&options.outputs)) {
+-        /*
+-         * If -o option is not given,
+-         * we want to add default output,
+-         * in case there is no output at all.
+-         */
+-        for (i = 0; ; i++) {
+-            if (dsync_default_outputs[i] == NULL) {
+-                break;
+-            }
+-            dsync_option_output_parse(dsync_default_outputs[i], 1);
+-            assert(ret == 0);
+-        }
+-    }
+-
++    
+     /* we should have two arguments left, source and dest paths */
+     int numargs = argc - optind;
+ 
+@@ -3216,6 +3224,23 @@ int main(int argc, char **argv)
+         rc = 1;
+         goto dsync_common_cleanup;
+     }
++    
++    /* Generate default output */
++    if (list_empty(&options.outputs) ) {
++        /*
++         * If -o option is not given,
++         * we want to add default output,
++         * in case there is no output at all.
++         */
++        for (i = 0; ; i++) {
++            if (dsync_default_outputs[i] == NULL) {
++                break;
++            }
++            dsync_option_output_parse(dsync_default_outputs[i], 1);
++            assert(ret == 0);
++        }
++    }
++
+ 
+     /* pointer to path arguments */
+     char** argpaths = &argv[optind];
+@@ -3246,9 +3271,14 @@ int main(int argc, char **argv)
+     mfu_param_path* srcpath  = &paths[0];
+     mfu_param_path* destpath = &paths[1];
+ 
++    
+     /* process each path */
+     mfu_param_path_set((const char*)argpaths[0], srcpath,  mfu_src_file, true);
+     mfu_param_path_set((const char*)argpaths[1], destpath, mfu_dst_file, false);
++    /* some filesystem don't support 
++     * nanosecond in mtime time stamp aavoid the comp if 
++     * it is the case */
++    comp_mtime_nsec = is_mtime_nsec_used(srcpath->path, destpath->path);
+ 
+     /* advance to next set of options */
+     optind += numargs;
+@@ -3283,12 +3313,45 @@ int main(int argc, char **argv)
              flist_tmp_link = mfu_flist_new();
          }
      }
@@ -3482,7 +4291,7 @@ index ac98e14..6b940bf 100644
  
      /* check that we actually got something so that we don't delete
       * an entire target directory because of a typo on the source dir */
-@@ -3314,14 +3352,14 @@ int main(int argc, char **argv)
+@@ -3314,14 +3377,14 @@ int main(int argc, char **argv)
      if (rank == 0) {
          MFU_LOG(MFU_LOG_INFO, "Walking destination path");
      }
@@ -3499,7 +4308,7 @@ index ac98e14..6b940bf 100644
      }
  
      /* reset the dereference flag */
-@@ -3415,7 +3453,7 @@ dsync_common_cleanup:
+@@ -3415,7 +3478,7 @@ dsync_common_cleanup:
      if (rank == 0) {
          MFU_LOG(MFU_LOG_INFO, "Completed sync");
      }
@@ -3548,10 +4357,45 @@ index 82d5d89..76809c1 100644
          /* we may need to add parent directories between the cwd
           * and the source paths the user specified */
 diff --git a/src/dwalk/dwalk.c b/src/dwalk/dwalk.c
-index 3676c62..c6860bc 100644
+index 3676c62..61f1677 100644
 --- a/src/dwalk/dwalk.c
 +++ b/src/dwalk/dwalk.c
-@@ -654,7 +654,7 @@ daos_setup_done:
+@@ -319,6 +319,7 @@ static void print_usage(void)
+     printf("  -d, --distribution <field>:<separators> \n                          - print distribution by field\n");
+     printf("  -f, --file_histogram    - print default size distribution of items\n");
+     printf("  -p, --print             - print files to screen\n");
++    printf("      --no-atime          - use with -l; do not update the file last access time\n");
+     printf("  -L, --dereference       - follow symbolic links\n");
+     printf("      --progress <N>      - print progress every N seconds\n");
+     printf("  -v, --verbose           - verbose output\n");
+@@ -390,6 +391,7 @@ int main(int argc, char** argv)
+         {"distribution",   1, 0, 'd'},
+         {"file_histogram", 0, 0, 'f'},
+         {"print",          0, 0, 'p'},
++        {"no-atime",       0, 0, 'n'},
+         {"dereference",    0, 0, 'L'},
+         {"progress",       1, 0, 'R'},
+         {"verbose",        0, 0, 'v'},
+@@ -401,7 +403,7 @@ int main(int argc, char** argv)
+     int usage = 0;
+     while (1) {
+         int c = getopt_long(
+-                    argc, argv, "i:o:tls:d:fpLvqh",
++                    argc, argv, "i:o:tls:d:fpLvqhn",
+                     long_options, &option_index
+                 );
+ 
+@@ -432,6 +434,9 @@ int main(int argc, char** argv)
+             case 'p':
+                 print = 1;
+                 break;
++            case 'n':
++                walk_opts->no_atime = 1;
++                break;
+             case 'L':
+                 walk_opts->dereference = 1;
+                 break;
+@@ -654,7 +659,7 @@ daos_setup_done:
  
      if (walk) {
          /* walk list of input paths */
@@ -3561,11 +4405,11 @@ index 3676c62..c6860bc 100644
      else {
          /* read data from cache file */
 diff --git a/test/tests/test_dsync/test_data.sh b/test/tests/test_dsync/test_data.sh
-new file mode 100644
-index 0000000..a1aaa9a
+new file mode 100755
+index 0000000..3ae7a45
 --- /dev/null
 +++ b/test/tests/test_dsync/test_data.sh
-@@ -0,0 +1,31 @@
+@@ -0,0 +1,180 @@
 +#!/bin/bash
 +
 +##############################################################################
@@ -3584,25 +4428,174 @@ index 0000000..a1aaa9a
 +# Turn on verbose output
 +#set -x
 +
-+DSYNC_TEST_BIN=${DSYNC_TEST_BIN:-${1}}
-+DSYNC_SRC_DIR=${DSYNC_SRC_DIR:-${2}}
-+DSYNC_DEST_DIR=${DSYNC_DEST_DIR:-${3}}
-+DSYNC_TMP_FILE=${DSYNC_TMP_FILE:-${4}}
++MFU_TEST_BIN=${MFU_TEST_BIN:-${1}}
++DSYNC_SRC_BASE=${DSYNC_SRC_BASE:-${2}}
++DSYNC_DEST_BASE=${DSYNC_DEST_BASE:-${3}}
++DSYNC_TREE_NAME=${DSYNC_TREE_NAME:-${4}}
 +
-+echo "Using dsync binary at: $DSYNC_TEST_BIN"
-+echo "Using src directory at: $DSYNC_SRC_DIR"
-+echo "Using dest directory at: $DSYNC_DEST_DIR"
-+echo "Using directory tree: $DSYNC_TMP_FILE"
++mpirun=$(which mpirun 2>/dev/null)
++mpirun_opts=""
++if [[ -n $mpirun ]]; then
++	procs=$(( $(nproc ) / 8 ))
++	if [[ $procs -gt 16 ]]; then
++		procs=16
++	fi
++	mpirun_opts="-c $procs"
 +
-+# tests not yet implemented
++	echo "Using mpirun: $mpirun $mpirun_opts"
++fi
++
++echo "Using MFU binaries at: $MFU_TEST_BIN"
++echo "Using src parent directory at: $DSYNC_SRC_BASE"
++echo "Using dest parent directory at: $DSYNC_DEST_BASE"
++
++DSYNC_SRC_DIR=$(mktemp --directory ${DSYNC_SRC_BASE}/${DSYNC_TREE_NAME}.XXXXX)
++DSYNC_DEST_DIR=$(mktemp --directory ${DSYNC_DEST_BASE}/${DSYNC_TREE_NAME}.XXXXX)
++
++function fs_type()
++{
++	fname=$1
++	df -T ${fname} | awk '$1 != "Filesystem" {print $2}'
++}
++
++#
++# In resulting file, field 1 is sum, field 2 is filename
++#
++function sum_all_files()
++{
++	pushd $1 >/dev/null
++	find . -type f -print0 | xargs --no-run-if-empty -0 md5sum | sort -k2
++	popd >/dev/null
++}
++
++function sync_and_verify()
++{
++	local srcdir=$1
++	local destdir=$2
++	local name=$3
++	local expectation=$4
++
++	local result=0
++	local dest_type=""
++
++	src_sum=$(mktemp /tmp/sync_and_verify.src.XXXXX)
++	sum_all_files $srcdir > $src_sum
++
++	dest_sum=$(mktemp /tmp/sync_and_verify.dest.XXXXX)
++	sum_all_files $destdir > $dest_sum
++
++	dest_type=$(fs_type $destdir)
++
++	quiet_opt="--quiet"
++	contents_opt=""
++
++	if [[ $name = "with_contents" ]]; then
++		contents_opt="--contents"
++	fi
++
++	if [[ -n $mpirun ]]; then
++		$mpirun $mpirun_opts ${MFU_TEST_BIN}/dsync $quiet_opt $contents_opt $srcdir $destdir
++	else
++		${MFU_TEST_BIN}/dsync $quiet_opt $contents_opt $srcdir $destdir
++	fi
++	rc=$?
++
++	if [[ $rc -ne 0 ]]; then
++		echo "dsync failed with rc $rc"
++		result=1
++	fi
++
++	if [[ $result -eq 0 ]]; then
++		after_sum=$(mktemp /tmp/sync_and_verify.after.XXXXX)
++		sum_all_files $destdir > $after_sum
++
++		expected_sum=$(mktemp /tmp/sync_and_verify.expected.XXXXX)
++
++		case $expectation in
++		  "union")
++		        # need to keep the md5sum from dest for files that existed there but not src, before sync
++			cat $src_sum > $expected_sum
++			cat $dest_sum | while read csum fname; do
++				if ! grep -w "$fname" $expected_sum >/dev/null 2>&1; then
++					echo "$csum  $fname" >> $expected_sum
++				fi
++			done
++			;;
++		  "src_exactly")
++			cat $src_sum > $expected_sum
++			;;
++		  "dest_exactly")
++			cat $dest_sum > $expected_sum
++			;;
++		esac
++
++		diff $after_sum $expected_sum
++		result=$?
++	fi
++
++	if [ "$result" -eq 0 ]; then
++		echo "PASSED verify of option $name for $destdir type $dest_type"
++	else
++		echo "FAILED verify of option $name for $destdir type $dest_type - sets differ"
++		echo =======================
++		echo "before: src_sum"
++		cat $src_sum
++		echo
++		echo "before: dest_sum"
++		cat $dest_sum
++		echo
++		echo "after: after_sum:"
++		cat $after_sum
++		echo
++		echo "expected:"
++		cat $expected_sum
++		echo =======================
++	fi
++
++	rm $src_sum $dest_sum $after_sum $expected_sum
++
++	return $result
++}
++
++# verify file data is identical after a copy
++rm -fr $DSYNC_SRC_DIR/stuff
++rm -fr $DSYNC_DEST_DIR/stuff
++mkdir $DSYNC_SRC_DIR/stuff
++mkdir $DSYNC_DEST_DIR/stuff
++$MFU_TEST_BIN/dfilemaker --nitems 1000-2000 --depth 5-6 --size 1MB-25MB $DSYNC_SRC_DIR/stuff
++
++sync_and_verify  $DSYNC_SRC_DIR/stuff $DSYNC_DEST_DIR/stuff checksums_verified union
++
++# verify file with same type, size, owner, mtime, but differing data is NOT copied by default
++rm -fr $DSYNC_SRC_DIR/stuff
++rm -fr $DSYNC_DEST_DIR/stuff
++mkdir $DSYNC_SRC_DIR/stuff
++mkdir $DSYNC_DEST_DIR/stuff
++
++$MFU_TEST_BIN/dfilemaker --nitems 50-100 --depth 2-3 --size 1MB-25MB $DSYNC_SRC_DIR/stuff
++cp -a $DSYNC_SRC_DIR/stuff/* $DSYNC_DEST_DIR/stuff
++find $DSYNC_DEST_DIR/stuff -type f -print | while read fname; do
++	dd if=/dev/urandom of=$fname bs=1K count=1 conv=notrunc seek=$((RANDOM % 64))
++done
++find $DSYNC_SRC_DIR/stuff -type f -print0 | xargs -0 touch --date="2004-02-29 16:21:42"
++find $DSYNC_DEST_DIR/stuff -type f -print0 | xargs -0 touch --date="2004-02-29 16:21:42"
++
++sync_and_verify $DSYNC_SRC_DIR/stuff $DSYNC_DEST_DIR/stuff no_contents dest_exactly
++
++# verify file with same type, size, owner, mtime, but differing data IS copied if --contents arg is used
++sync_and_verify  $DSYNC_SRC_DIR/stuff $DSYNC_DEST_DIR/stuff with_contents src_exactly
++
++# clean up
++rm -fr $DSYNC_SRC_DIR/stuff
++rm -fr $DSYNC_DEST_DIR/stuff
 +
 +exit 0
 diff --git a/test/tests/test_dsync/test_existence.sh b/test/tests/test_dsync/test_existence.sh
 new file mode 100755
-index 0000000..69e842f
+index 0000000..0cc1bd5
 --- /dev/null
 +++ b/test/tests/test_dsync/test_existence.sh
-@@ -0,0 +1,186 @@
+@@ -0,0 +1,183 @@
 +#!/bin/bash
 +
 +. utility/set_funcs.sh
@@ -3627,12 +4620,10 @@ index 0000000..69e842f
 +# Turn on verbose output
 +#set -x
 +
-+DSYNC_TEST_BIN=${DSYNC_TEST_BIN:-${1}}
++MFU_TEST_BIN=${MFU_TEST_BIN:-${1}}
 +DSYNC_SRC_BASE=${DSYNC_SRC_BASE:-${2}}
 +DSYNC_DEST_BASE=${DSYNC_DEST_BASE:-${3}}
 +DSYNC_TREE_NAME=${DSYNC_TREE_NAME:-${4}}
-+
-+DSYNC_TREE_DATA=/usr/include/c++
 +
 +mpirun=$(which mpirun 2>/dev/null)
 +mpirun_opts=""
@@ -3646,10 +4637,9 @@ index 0000000..69e842f
 +	echo "Using mpirun: $mpirun $mpirun_opts"
 +fi
 +
-+echo "Using dsync binary at: $DSYNC_TEST_BIN"
++echo "Using MFU binaries at: $MFU_TEST_BIN"
 +echo "Using src parent directory at: $DSYNC_SRC_BASE"
 +echo "Using dest parent directory at: $DSYNC_DEST_BASE"
-+echo "Using test data from: $DSYNC_TREE_DATA"
 +
 +DSYNC_SRC_DIR=$(mktemp --directory ${DSYNC_SRC_BASE}/${DSYNC_TREE_NAME}.XXXXX)
 +DSYNC_DEST_DIR=$(mktemp --directory ${DSYNC_DEST_BASE}/${DSYNC_TREE_NAME}.XXXXX)
@@ -3700,9 +4690,9 @@ index 0000000..69e842f
 +	fi
 +
 +	if [[ -n $mpirun ]]; then
-+		$mpirun $mpirun_opts $DSYNC_TEST_BIN $quiet_opt $delete_opt $srcdir $destdir
++		$mpirun $mpirun_opts ${MFU_TEST_BIN}/dsync $quiet_opt $delete_opt $srcdir $destdir
 +	else
-+		$DSYNC_TEST_BIN $quiet_opt $delete_opt $srcdir $destdir
++		${MFU_TEST_BIN}/dsync $quiet_opt $delete_opt $srcdir $destdir
 +	fi
 +	rc=$?
 +
@@ -3761,7 +4751,7 @@ index 0000000..69e842f
 +rm -fr $DSYNC_DEST_DIR/stuff
 +mkdir $DSYNC_SRC_DIR/stuff
 +mkdir $DSYNC_DEST_DIR/stuff
-+cp -a $DSYNC_TREE_DATA $DSYNC_DEST_DIR/stuff
++${MFU_TEST_BIN}/dfilemaker --depth 5-10 --nitems 100-300 --size 1MB-10MB $DSYNC_DEST_DIR/stuff
 +sync_and_verify  $DSYNC_SRC_DIR/stuff $DSYNC_DEST_DIR/stuff empty_source union
 +
 +# non-empty source, but empty destination
@@ -3770,7 +4760,7 @@ index 0000000..69e842f
 +rm -fr $DSYNC_SRC_DIR/stuff
 +rm -fr $DSYNC_DEST_DIR/stuff
 +mkdir $DSYNC_SRC_DIR/stuff
-+cp -a $DSYNC_TREE_DATA $DSYNC_SRC_DIR/stuff
++${MFU_TEST_BIN}/dfilemaker --depth 5-10 --nitems 100-300 --size 1MB-10MB $DSYNC_SRC_DIR/stuff
 +sync_and_verify  $DSYNC_SRC_DIR/stuff $DSYNC_DEST_DIR/stuff empty_destination union
 +
 +# directories on destination, but not source, are removed with --delete
@@ -3779,7 +4769,7 @@ index 0000000..69e842f
 +rm -fr $DSYNC_DEST_DIR/stuff
 +mkdir $DSYNC_SRC_DIR/stuff
 +mkdir $DSYNC_DEST_DIR/stuff
-+cp -a $DSYNC_TREE_DATA $DSYNC_SRC_DIR/stuff
++${MFU_TEST_BIN}/dfilemaker --depth 5-10 --nitems 100-300 --size 1MB-10MB $DSYNC_SRC_DIR/stuff
 +mkdir $DSYNC_DEST_DIR/stuff/destdir
 +touch $DSYNC_DEST_DIR/stuff/destfile
 +sync_and_verify  $DSYNC_SRC_DIR/stuff $DSYNC_DEST_DIR/stuff delete src_exactly
@@ -3791,7 +4781,7 @@ index 0000000..69e842f
 +exit 0
 diff --git a/test/tests/test_dsync/test_expectfail.sh b/test/tests/test_dsync/test_expectfail.sh
 new file mode 100755
-index 0000000..9a04d8d
+index 0000000..f7b1ca4
 --- /dev/null
 +++ b/test/tests/test_dsync/test_expectfail.sh
 @@ -0,0 +1,75 @@
@@ -3813,12 +4803,12 @@ index 0000000..9a04d8d
 +# Turn on verbose output
 +#set -x
 +
-+DSYNC_TEST_BIN=${DSYNC_TEST_BIN:-${1}}
++MFU_TEST_BIN=${MFU_TEST_BIN:-${1}}
 +DSYNC_SRC_BASE=${DSYNC_SRC_BASE:-${2}}
 +DSYNC_DEST_BASE=${DSYNC_DEST_BASE:-${3}}
 +DSYNC_TREE_NAME=${DSYNC_TREE_NAME:-${4}}
 +
-+echo "Using dsync binary at: $DSYNC_TEST_BIN"
++echo "Using MFU binaries at: $MFU_TEST_BIN"
 +echo "Using src parent directory at: $DSYNC_SRC_BASE"
 +echo "Using dest parent directory at: $DSYNC_DEST_BASE"
 +
@@ -3837,7 +4827,7 @@ index 0000000..9a04d8d
 +
 +	quiet_opt="--quiet"
 +
-+	$DSYNC_TEST_BIN $quiet_opt $delete_opt $srcdir $destdir
++	${MFU_TEST_BIN}/dsync $quiet_opt $delete_opt $srcdir $destdir
 +	rc=$?
 +	echo "dsync failed with rc $rc"
 +
@@ -3872,7 +4862,7 @@ index 0000000..9a04d8d
 +exit 0
 diff --git a/test/tests/test_dsync/test_metadata.sh b/test/tests/test_dsync/test_metadata.sh
 new file mode 100755
-index 0000000..d01b6f8
+index 0000000..89f2626
 --- /dev/null
 +++ b/test/tests/test_dsync/test_metadata.sh
 @@ -0,0 +1,30 @@
@@ -3893,12 +4883,12 @@ index 0000000..d01b6f8
 +# Turn on verbose output
 +#set -x
 +
-+DSYNC_TEST_BIN=${DSYNC_TEST_BIN:-${1}}
++MFU_TEST_BIN=${MFU_TEST_BIN:-${1}}
 +DSYNC_SRC_DIR=${DSYNC_SRC_DIR:-${2}}
 +DSYNC_DEST_DIR=${DSYNC_DEST_DIR:-${3}}
 +DSYNC_TMP_FILE=${DSYNC_TMP_FILE:-${4}}
 +
-+echo "Using dsync binary at: $DSYNC_TEST_BIN"
++echo "Using MFU binaries at: $MFU_TEST_BIN"
 +echo "Using src directory at: $DSYNC_SRC_DIR"
 +echo "Using dest directory at: $DSYNC_DEST_DIR"
 +echo "Using directory tree: $DSYNC_TMP_FILE"
@@ -3906,12 +4896,212 @@ index 0000000..d01b6f8
 +# tests not yet implemented
 +
 +exit 0
+diff --git a/test/tests/test_dsync/test_multiple_syncs.sh b/test/tests/test_dsync/test_multiple_syncs.sh
+new file mode 100755
+index 0000000..7aab1d4
+--- /dev/null
++++ b/test/tests/test_dsync/test_multiple_syncs.sh
+@@ -0,0 +1,194 @@
++#!/bin/bash
++
++. utility/set_funcs.sh
++
++##############################################################################
++# Description:
++#
++#   Check sequential syncs for unexpected changes
++#     - after dsync between src and dest, a second dsync copies nothing
++#     - after rsync between src and dest, a dsync copies nothing
++#     - after dsync between src and dest, a rsync copies nothing
++#
++# Notes:
++#
++##############################################################################
++
++# Turn on verbose output
++#set -x
++
++MFU_TEST_BIN=${MFU_TEST_BIN:-${1}}
++DSYNC_SRC_BASE=${DSYNC_SRC_BASE:-${2}}
++DSYNC_DEST_BASE=${DSYNC_DEST_BASE:-${3}}
++DSYNC_TREE_NAME=${DSYNC_TREE_NAME:-${4}}
++
++rsync=$(which rsync 2>/dev/null)
++if [[ -z $rsync ]]; then
++	echo "test_rsync.sh: unable to find rsync in path, exiting"
++	exit 1
++fi
++
++mpirun=$(which mpirun 2>/dev/null)
++mopts=""
++if [[ -n $mpirun ]]; then
++	procs=$(( $(nproc ) / 8 ))
++	if [[ $procs -gt 16 ]]; then
++		procs=16
++	fi
++	mopts="-c $procs"
++
++	echo "Using mpirun: $mpirun $mopts"
++fi
++
++echo "Using MFU binaries at: $MFU_TEST_BIN"
++echo "Using src parent directory at: $DSYNC_SRC_BASE"
++echo "Using dest parent directory at: $DSYNC_DEST_BASE"
++echo "Using rsync at: $rsync"
++
++DSYNC_SRC=$(mktemp --directory ${DSYNC_SRC_BASE}/${DSYNC_TREE_NAME}.XXXXX)
++DSYNC_DEST=$(mktemp --directory ${DSYNC_DEST_BASE}/${DSYNC_TREE_NAME}.XXXXX)
++
++function fs_type()
++{
++	fname=$1
++	df -T ${fname} | awk '$1 != "Filesystem" {print $2}'
++}
++
++function list_all_files()
++{
++	find $1 -printf '%P\n' | sort | grep -v '^$'
++}
++
++function dsync_and_verify()
++{
++	local src=$1
++	local dest=$2
++	local name=$3
++	local expectation=$4
++
++	local rc=0
++	local result=0
++	local dest_type=""
++
++	dsync_output=$(mktemp /tmp/test_multiple_syncs.dsync_output.XXXXX)
++	if [[ -n $mpirun ]]; then
++		$mpirun $mopts ${MFU_TEST_BIN}/dsync --delete $src $dest > $dsync_output 2>&1
++	else
++		${MFU_TEST_BIN}/dsync --delete $src $dest > $dsync_output 2>&1
++	fi
++	rc=$?
++
++	if [[ $rc -ne 0 ]]; then
++		echo "dsync failed with rc $rc"
++		result=1
++	fi
++
++	if [[ $expectation = "initial_sync" ]]; then
++		rm $dsync_output
++		return $result
++	fi
++
++	unexpected_changes=$(mktemp /tmp/test_multiple_syncs.unexpected.XXXXX)
++	if [[ $rc -eq 0 ]]; then
++		grep -E -e "Creating [0-9][0-9]* (files|directories)" \
++			-e "Copy data:" \
++			-e "Updated [0-9][0-9]* items" \
++			$dsync_output > $unexpected_changes
++		if [[ $? -eq 0 ]]; then
++			result=1
++		fi
++	fi
++
++	if [ "$result" -eq 0 ]; then
++		echo "PASSED verify of option $name for $dest type $dest_type"
++	else
++		echo "FAILED verify of option $name for $dest type $dest_type"
++		echo =======================
++		echo "unexpected changes:"
++		cat $unexpected_changes
++		echo =======================
++	fi
++
++	rm $dsync_output $unexpected_changes
++
++	return $result
++}
++
++function rsync_and_verify()
++{
++	local src=$1
++	local dest=$2
++	local name=$3
++	local expectation=$4
++
++	local rc=0
++	local result=0
++	local dest_type=""
++
++	rsync_output=$(mktemp /tmp/test_multiple_syncs.rsync_output.XXXXX)
++	$rsync -av -HAX $src $dest > $rsync_output 2>&1
++	rc=$?
++
++	if [[ $rc -ne 0 ]]; then
++		echo "rsync failed with rc $rc"
++		result=1
++	fi
++
++	if [[ $expectation = "initial_sync" ]]; then
++		rm $rsync_output
++		return $result
++	fi
++
++	unexpected_changes=$(mktemp /tmp/test_multiple_syncs.unexpected.XXXXX)
++	if [[ $rc -eq 0 ]]; then
++		grep -v -e "^sending incremental" \
++			-e "^sent [1-9][0-9,]* bytes" \
++			-e "^total size is" \
++			-e "^$" \
++			$rsync_output > $unexpected_changes
++		if [[ $? -eq 0 ]]; then
++			result=1
++		fi
++	fi
++
++	if [ "$result" -eq 0 ]; then
++		echo "PASSED verify of option $name for $dest type $dest_type"
++	else
++		echo "FAILED verify of option $name for $dest type $dest_type"
++		echo =======================
++		echo "unexpected changes:"
++		cat $unexpected_changes
++		echo =======================
++	fi
++
++	rm $rsync_output $unexpected_changes
++
++	return $result
++}
++
++# generate test data
++# dfilemaker options: -d/--depth , -s/--size, -n/--nitems
++rm -fr $DSYNC_SRC/stuff
++mkdir $DSYNC_SRC/stuff
++${MFU_TEST_BIN}/dfilemaker -d 5-10 -n 100-300 -s 1MB-10MB $DSYNC_SRC/stuff
++
++# after dsync between src and dest, a second dsync copies nothing
++rm -fr $DSYNC_DEST/stuff
++dsync_and_verify  $DSYNC_SRC/stuff $DSYNC_DEST/stuff multi-dsync initial_sync
++dsync_and_verify  $DSYNC_SRC/stuff $DSYNC_DEST/stuff multi-dsync no_change
++
++# after rsync between src and dest, a dsync copies nothing
++rm -fr $DSYNC_DEST/stuff
++rsync_and_verify  $DSYNC_SRC/stuff/ $DSYNC_DEST/stuff rsync_then_dsync initial_sync
++dsync_and_verify  $DSYNC_SRC/stuff $DSYNC_DEST/stuff rsync_then_dsync no_change
++
++# after dsync between src and dest, a rsync copies nothing
++rm -fr $DSYNC_DEST/stuff
++dsync_and_verify  $DSYNC_SRC/stuff $DSYNC_DEST/stuff dsync_then_rsync initial_sync
++rsync_and_verify  $DSYNC_SRC/stuff/ $DSYNC_DEST/stuff dsync_then_rsync no_change
++
++# clean up
++rm -fr $DSYNC_SRC/stuff
++rm -fr $DSYNC_DEST/stuff
++
++exit 0
 diff --git a/test/tests/test_dsync/test_walkfail.sh b/test/tests/test_dsync/test_walkfail.sh
 new file mode 100755
-index 0000000..0b9cccf
+index 0000000..a5f1721
 --- /dev/null
 +++ b/test/tests/test_dsync/test_walkfail.sh
-@@ -0,0 +1,194 @@
+@@ -0,0 +1,191 @@
 +#!/bin/bash
 +
 +. utility/set_funcs.sh
@@ -3934,12 +5124,10 @@ index 0000000..0b9cccf
 +# Turn on verbose output
 +#set -x
 +
-+DSYNC_TEST_BIN=${DSYNC_TEST_BIN:-${1}}
++MFU_TEST_BIN=${MFU_TEST_BIN:-${1}}
 +DSYNC_SRC_BASE=${DSYNC_SRC_BASE:-${2}}
 +DSYNC_DEST_BASE=${DSYNC_DEST_BASE:-${3}}
 +DSYNC_TREE_NAME=${DSYNC_TREE_NAME:-${4}}
-+
-+DSYNC_TREE_DATA=/usr/include/c++
 +
 +mpirun=$(which mpirun 2>/dev/null)
 +mpirun_opts=""
@@ -3953,10 +5141,9 @@ index 0000000..0b9cccf
 +	echo "Using mpirun: $mpirun $mpirun_opts"
 +fi
 +
-+echo "Using dsync binary at: $DSYNC_TEST_BIN"
++echo "Using MFU binaries at: $MFU_TEST_BIN"
 +echo "Using src parent directory at: $DSYNC_SRC_BASE"
 +echo "Using dest parent directory at: $DSYNC_DEST_BASE"
-+echo "Using test data from: $DSYNC_TREE_DATA"
 +
 +DSYNC_SRC_DIR=$(mktemp --directory ${DSYNC_SRC_BASE}/${DSYNC_TREE_NAME}.XXXXX)
 +DSYNC_DEST_DIR=$(mktemp --directory ${DSYNC_DEST_BASE}/${DSYNC_TREE_NAME}.XXXXX)
@@ -4007,9 +5194,9 @@ index 0000000..0b9cccf
 +	fi
 +
 +	if [[ -n $mpirun ]]; then
-+		$mpirun $mpirun_opts $DSYNC_TEST_BIN $quiet_opt $delete_opt $srcdir $destdir
++		$mpirun $mpirun_opts ${MFU_TEST_BIN}/dsync $quiet_opt $delete_opt $srcdir $destdir
 +	else
-+		$DSYNC_TEST_BIN $quiet_opt $delete_opt $srcdir $destdir
++		${MFU_TEST_BIN}/dsync $quiet_opt $delete_opt $srcdir $destdir
 +	fi
 +	rc=$?
 +
@@ -4119,9 +5306,24 @@ index a4021ff..0bc2196 100644
            dsync_src_dir, dsync_dest_dir, dsync_test_file)], shell=True,
            executable="/bin/bash").communicate()
 diff --git a/test/tests/test_dsync/test_xattr.sh b/test/tests/test_dsync/test_xattr.sh
-index 694c623..1d45c94 100755
+index 694c623..2330191 100755
 --- a/test/tests/test_dsync/test_xattr.sh
 +++ b/test/tests/test_dsync/test_xattr.sh
+@@ -10,12 +10,12 @@
+ # Turn on verbose output
+ #set -x
+ 
+-DSYNC_TEST_BIN=${DSYNC_TEST_BIN:-${1}}
++MFU_TEST_BIN=${MFU_TEST_BIN:-${1}}
+ DSYNC_SRC_DIR=${DSYNC_SRC_DIR:-${2}}
+ DSYNC_DEST_DIR=${DSYNC_DEST_DIR:-${3}}
+ DSYNC_TMP_FILE=${DSYNC_TMP_FILE:-${4}}
+ 
+-echo "Using dsync binary at: $DSYNC_TEST_BIN"
++echo "Using MFU binaries at: $MFU_TEST_BIN"
+ echo "Using src directory at: $DSYNC_SRC_DIR"
+ echo "Using dest directory at: $DSYNC_DEST_DIR"
+ echo "Using temp file name: $DSYNC_TMP_FILE"
 @@ -50,7 +50,7 @@ function list_all_xattrs()
  	fname=$1
  
@@ -4143,11 +5345,18 @@ index 694c623..1d45c94 100755
 +		xattropt="--xattrs=$opt"
 +	fi
 +
-+	$DSYNC_TEST_BIN --quiet $xattropt $srcdir $destdir
++	${MFU_TEST_BIN}/dsync --quiet $xattropt $srcdir $destdir
  
  	if [ $opt = "libattr" ]; then
  		sed --in-place "/^user.sync_and_verify_test/d" /etc/xattr.conf
-@@ -151,6 +158,7 @@ set +e
+@@ -145,12 +152,13 @@ set_other_xattrs $DSYNC_SRC_DIR/aaa
+ 
+ # Make sure the short option is accepted; rest of tests use long option
+ set -e
+-$DSYNC_TEST_BIN --quiet -X all $DSYNC_SRC_DIR $DSYNC_DEST_DIR
++${MFU_TEST_BIN}/dsync --quiet -X all $DSYNC_SRC_DIR $DSYNC_DEST_DIR
+ set +e
+ 
  # Sync and verify
  echo
  echo Testing dsync
