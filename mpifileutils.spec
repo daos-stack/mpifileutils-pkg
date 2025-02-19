@@ -49,8 +49,8 @@
 %global shortcommit %(c=%{commit};echo ${c:0:7})
 
 Name:		mpifileutils
-Version:	0.11.1
-Release:	8%{?commit:.g%{shortcommit}}%{?dist}
+Version:	0.12
+Release:	2%{?commit:.g%{shortcommit}}%{?dist}
 Summary:	File utilities designed for scalability and performance
 
 Group:		System Environment/Libraries
@@ -72,6 +72,7 @@ BuildRequires: Lmod
 BuildRequires: bzip2-devel
 BuildRequires: openssl-devel
 %endif
+BuildRequires: daos-devel
 BuildRequires: gcc-c++
 BuildRequires: libuuid-devel
 BuildRequires: libattr-devel
@@ -276,6 +277,12 @@ done
 %endif
 
 %changelog
+* Wed Apr 09 2025 Dalton A. Bohning <dalton.bohning@hpe.com> - 0.12-2
+- Update to patch 11ac264 to fix drm
+
+* Wed Feb 19 2025 Dalton A. Bohning <dalton.bohning@hpe.com> - 0.12-1
+- Update to v0.12
+
 * Tue Nov 26 2024 Dalton A. Bohning <dalton.bohning@intel.com> - 0.11.1-8
 - Update to patch b65c188
 
