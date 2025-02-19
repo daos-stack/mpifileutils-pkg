@@ -4,3 +4,5 @@ from Config import *
 # https://github.com/rpm-software-management/rpmlint/issues/73
 addFilter(r'mpifileutils-.+-devel\..+: W: only-non-binary-in-usr-lib')
 
+# Ignore spelling for libmfu
+addFilter(r'mpifileutils.+: E: spelling-error.+\'libmfu\'')

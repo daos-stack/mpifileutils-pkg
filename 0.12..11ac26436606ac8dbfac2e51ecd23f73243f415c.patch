@@ -1,0 +1,125 @@
+diff --git a/doc/.readthedocs.yaml b/doc/.readthedocs.yaml
+new file mode 100644
+index 0000000..9ae6d19
+--- /dev/null
++++ b/doc/.readthedocs.yaml
+@@ -0,0 +1,35 @@
++# Read the Docs configuration file for Sphinx projects
++# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
++
++# Required
++version: 2
++
++# Set the OS, Python version and other tools you might need
++build:
++  os: ubuntu-22.04
++  tools:
++    python: "3.12"
++    # You can also specify other tool versions:
++    # nodejs: "20"
++    # rust: "1.70"
++    # golang: "1.20"
++
++# Build documentation in the "docs/" directory with Sphinx
++sphinx:
++  configuration: doc/rst/conf.py
++  # You can configure Sphinx to use a different builder, for instance use the dirhtml builder for simpler URLs
++  # builder: "dirhtml"
++  # Fail on all warnings to avoid broken references
++  # fail_on_warning: true
++
++# Optionally build your docs in additional formats such as PDF and ePub
++# formats:
++#   - pdf
++#   - epub
++
++# Optional but recommended, declare the Python requirements required
++# to build your documentation
++# See https://docs.readthedocs.io/en/stable/guides/reproducible-builds.html
++# python:
++#   install:
++#     - requirements: docs/requirements.txt
+diff --git a/src/common/mfu_daos.c b/src/common/mfu_daos.c
+index 2dbf8cf..64471fd 100644
+--- a/src/common/mfu_daos.c
++++ b/src/common/mfu_daos.c
+@@ -1344,7 +1344,6 @@ daos_args_t* daos_args_new(void)
+     memset(da->dst_pool, '\0', DAOS_PROP_LABEL_MAX_LEN + 1);
+     memset(da->dst_cont, '\0', DAOS_PROP_LABEL_MAX_LEN + 1);
+ 
+-    /* By default, try to automatically determine the API */
+     /* By default, try to automatically determine the API */
+     da->api = DAOS_API_AUTO;
+ 
+@@ -1362,6 +1361,10 @@ daos_args_t* daos_args_new(void)
+     da->daos_preserve = false;
+     da->daos_preserve_path = NULL;
+ 
++    /* in most cases source only needs RO and destination needs RW */
++    da->default_src_cont_open_flags = DAOS_COO_RO;
++    da->default_dst_cont_open_flags = DAOS_COO_RW;
++
+     return da;
+ }
+ 
+@@ -1576,9 +1579,9 @@ int daos_setup(
+ 
+     /* For POSIX containers, the source only needs read, but the destination needs read and write.
+      * For DAOS (object-level), both containers need read and write.
+-     * Open the source with RO first, then elevate to RW if needed below. */
+-    unsigned int src_cont_open_flags = DAOS_COO_RO;
+-    unsigned int dst_cont_open_flags = DAOS_COO_RW;
++     * If needed, the source container will be elevated to RW. */
++    unsigned int src_cont_open_flags = da->default_src_cont_open_flags;
++    unsigned int dst_cont_open_flags = da->default_dst_cont_open_flags;
+ 
+     bool create_cont = false;
+     bool require_new_cont = false;
+@@ -1617,7 +1620,7 @@ int daos_setup(
+             goto out;
+         }
+         /* If using the DAOS API, we need to elevate permissions to RW for creating a snapshot */
+-        if (mfu_src_file->type == DAOS) {
++        if (mfu_src_file->type == DAOS && src_cont_open_flags == DAOS_COO_RO) {
+             MPI_Barrier(MPI_COMM_WORLD);
+ 
+             tmp_rc = daos_cont_close(da->src_coh, NULL);
+diff --git a/src/common/mfu_daos.h b/src/common/mfu_daos.h
+index ab7ec66..47816d8 100644
+--- a/src/common/mfu_daos.h
++++ b/src/common/mfu_daos.h
+@@ -50,6 +50,8 @@ typedef struct {
+     enum daos_cont_props dst_cont_type; /* type of the destination container */
+     bool daos_preserve;                 /* preserve daos cont props and user attrs */
+     char *daos_preserve_path;           /* set path to write daos props and user attrs */
++    unsigned int default_src_cont_open_flags; /* default flags for container open */
++    unsigned int default_dst_cont_open_flags; /* default flags for container close */
+ } daos_args_t;
+ 
+ /* struct for holding statistics */
+diff --git a/src/drm/drm.c b/src/drm/drm.c
+index 7e227fc..be533b4 100644
+--- a/src/drm/drm.c
++++ b/src/drm/drm.c
+@@ -93,6 +93,9 @@ int main(int argc, char** argv)
+ #ifdef DAOS_SUPPORT
+     /* DAOS vars */
+     daos_args_t* daos_args = daos_args_new();
++
++    /* Deleting always requires write permission */
++    daos_args->default_src_cont_open_flags = DAOS_COO_RW;
+ #endif
+ 
+     /* with drm, we don't stat files on walk by default,
+diff --git a/src/dsync/dsync.c b/src/dsync/dsync.c
+index 0db4951..2b4276f 100644
+--- a/src/dsync/dsync.c
++++ b/src/dsync/dsync.c
+@@ -3171,6 +3171,7 @@ int main(int argc, char **argv)
+             copy_opts->dereference = 1;
+             walk_opts->dereference = 1;
+             copy_opts->no_dereference = 0;
++            break;
+         case 'P':
+             /* turn on no_dereference.
+              * turn off dereference */
