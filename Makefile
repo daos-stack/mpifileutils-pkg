@@ -4,7 +4,7 @@
 NAME      := mpifileutils
 SRC_EXT   := gz
 REPO_NAME := mpifileutils-pkg
-PKG_GIT_COMMIT := b65c188e82f2514faafe4633586e38957755a7b1
+PKG_GIT_COMMIT := 11ac26436606ac8dbfac2e51ecd23f73243f415c
 GITHUB_PROJECT := hpc/$(NAME)
 
 TEST_PACKAGES := $(NAME)-mpich-devel $(NAME)-openmpi3-devel
