@@ -50,7 +50,7 @@
 
 Name:		mpifileutils
 Version:	0.12
-Release:	2%{?commit:.g%{shortcommit}}%{?dist}
+Release:	3%{?commit:.g%{shortcommit}}%{?dist}
 Summary:	File utilities designed for scalability and performance
 
 Group:		System Environment/Libraries
