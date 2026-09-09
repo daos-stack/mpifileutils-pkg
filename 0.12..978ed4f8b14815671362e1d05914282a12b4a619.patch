@@ -1,0 +1,2817 @@
+diff --git a/.gitignore b/.gitignore
+index f93aa54..415f7e4 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -17,11 +17,23 @@
+ *.exe
+ *.out
+ *.app
++src/dbcast/dbcast
++src/dbz2/dbz2
++src/dchmod/dchmod
+ src/dcmp/dcmp
+ src/dcp/dcp
++src/dcp1/dcp1
+ src/dcp2/dcp2
++src/ddup/ddup
+ src/dfilemaker/dfilemaker
++src/dfilemaker1/
++src/dfind/dfind
++src/dreln/dreln
++src/drm/drm
+ src/dsh/dsh
++src/dstripe/dstripe
++src/dsync/dsync
++src/dtar/dtar
+ src/dwalk/dwalk
+ 
+ .pc
+@@ -77,3 +89,12 @@ spack.lock
+ 
+ # source indexing/tagging
+ tags
++
++# CMake files
++CMakeCache.txt
++CMakeFiles
++cmake_install.cmake
++install_manifest.txt
++
++# Python tests files
++__pycache__/
+diff --git a/.gitlab-ci.yml b/.gitlab-ci.yml
+new file mode 100644
+index 0000000..6639730
+--- /dev/null
++++ b/.gitlab-ci.yml
+@@ -0,0 +1,26 @@
++include: [component: $CI_SERVER_FQDN/lc-components/id_tokens/id_tokens-component@main]
++# This workflow is written to work with the CI infrastructure at LLNL and 
++# likely will not work at other sites that use gitlab.      
++
++build-job:
++  tags:
++    - oslic
++    - shell
++  script:
++    - echo "Starting build stage for mpifileutils"
++  stage: build
++  script:
++    - pwd
++    - module --force purge
++    - module load openmpi-gnu
++    - cd ..
++    - ./mpifileutils/scripts/prepmfubuild.sh
++    - rm -fr build
++    - mkdir build
++    - cd build
++    - cmake ../mpifileutils -DWITH_DTCMP_PREFIX=../install \n
++                            -DWITH_LibCircle_PREFIX=../install \n
++                            -DWITH_LibArchive_PREFIX=../install \n
++                            -DCMAKE_INSTALL_PREFIX=../install
++    - make -j install
++
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index a559722..cc0cda6 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -153,9 +153,6 @@ IF(LibCap_FOUND)
+   LIST(APPEND MFU_EXTERNAL_LIBS ${LibCap_LIBRARIES})
+ ENDIF(LibCap_FOUND)
+ 
+-## OPENSSL for ddup
+-FIND_PACKAGE(OpenSSL)
+-
+ # Setup Installation
+ 
+ INCLUDE(GNUInstallDirs)
+@@ -202,5 +199,9 @@ INCLUDE(MFU_ADD_TOOL)
+ INCLUDE_DIRECTORIES(BEFORE ${CMAKE_CURRENT_SOURCE_DIR}/src/common)
+ 
+ ADD_SUBDIRECTORY(src)
++
++# enable CTest so tests registered under test/ run via `make test` / ctest
++ENABLE_TESTING()
+ ADD_SUBDIRECTORY(test)
++
+ ADD_SUBDIRECTORY(man)
+diff --git a/dist/CMakeLists.txt b/dist/CMakeLists.txt
+index 102d1b5..dce815b 100644
+--- a/dist/CMakeLists.txt
++++ b/dist/CMakeLists.txt
+@@ -143,9 +143,6 @@ IF(LibCap_FOUND)
+   LIST(APPEND MFU_EXTERNAL_LIBS ${LibCap_LIBRARIES})
+ ENDIF(LibCap_FOUND)
+ 
+-## OPENSSL for ddup
+-FIND_PACKAGE(OpenSSL)
+-
+ # Setup Installation
+ 
+ INCLUDE(GNUInstallDirs)
+@@ -263,6 +260,7 @@ LIST(APPEND libmfu_install_headers
+   mpifileutils/src/common/mfu_param_path.h
+   mpifileutils/src/common/mfu_path.h
+   mpifileutils/src/common/mfu_pred.h
++  mpifileutils/src/common/mfu_proc.h
+   mpifileutils/src/common/mfu_progress.h
+   mpifileutils/src/common/mfu_util.h
+   )
+@@ -280,6 +278,7 @@ LIST(APPEND libmfu_srcs
+   mpifileutils/src/common/mfu_bz2_static.c
+   mpifileutils/src/common/mfu_compress_bz2_libcircle.c
+   mpifileutils/src/common/mfu_decompress_bz2_libcircle.c
++  mpifileutils/src/common/mfu_proc.c
+   mpifileutils/src/common/mfu_flist.c
+   mpifileutils/src/common/mfu_flist_chunk.c
+   mpifileutils/src/common/mfu_flist_copy.c
+diff --git a/dist/builddist b/dist/builddist
+index a58c250..69e1981 100755
+--- a/dist/builddist
++++ b/dist/builddist
+@@ -23,7 +23,7 @@ if [ "$1" == "main" ] ; then
+         "libcircle"    "hpc"  "master"
+         "mpifileutils" "hpc"  "master"
+     )
+-elif [ "$1" == "v0.11.1" ] ; then
++elif [ "$1" == "v0.12" ] ; then
+     # to build from latest branch of all repos
+     ORGS=(
+         "lwgrp"        "llnl" "v1.0.6"
+diff --git a/doc/.readthedocs.yaml b/doc/.readthedocs.yaml
+new file mode 100644
+index 0000000..9ae6d19
+--- /dev/null
++++ b/doc/.readthedocs.yaml
+@@ -0,0 +1,35 @@
++# Read the Docs configuration file for Sphinx projects
++# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
++
++# Required
++version: 2
++
++# Set the OS, Python version and other tools you might need
++build:
++  os: ubuntu-22.04
++  tools:
++    python: "3.12"
++    # You can also specify other tool versions:
++    # nodejs: "20"
++    # rust: "1.70"
++    # golang: "1.20"
++
++# Build documentation in the "docs/" directory with Sphinx
++sphinx:
++  configuration: doc/rst/conf.py
++  # You can configure Sphinx to use a different builder, for instance use the dirhtml builder for simpler URLs
++  # builder: "dirhtml"
++  # Fail on all warnings to avoid broken references
++  # fail_on_warning: true
++
++# Optionally build your docs in additional formats such as PDF and ePub
++# formats:
++#   - pdf
++#   - epub
++
++# Optional but recommended, declare the Python requirements required
++# to build your documentation
++# See https://docs.readthedocs.io/en/stable/guides/reproducible-builds.html
++# python:
++#   install:
++#     - requirements: docs/requirements.txt
+diff --git a/doc/rst/dwalk.1.rst b/doc/rst/dwalk.1.rst
+index c213ba8..536c6a9 100644
+--- a/doc/rst/dwalk.1.rst
++++ b/doc/rst/dwalk.1.rst
+@@ -54,7 +54,7 @@ OPTIONS
+    bytes, between 1-80 bytes, between 81-99 bytes, and 100 bytes or
+    greater.
+ 
+-.. option:: -f, --file-histogram
++.. option:: -f, --file_histogram, --file-histogram
+ 
+    Creates a file histogram without requiring the user to provide
+    the bin sizes. The bins are created dynamically based on the
+diff --git a/mpifileutils.spec b/mpifileutils.spec
+index acd3290..fffe47d 100644
+--- a/mpifileutils.spec
++++ b/mpifileutils.spec
+@@ -8,7 +8,7 @@ License:	Copyright and BSD License
+ URL:		https://hpc.github.io/mpifileutils
+ Source:		%{name}-%{version}.tar.gz
+ BuildRoot:      %_topdir/BUILDROOT
+-Requires: libcircle, lwgrp, dtcmp, libarchive, openssl, openssl-devel
++Requires: libcircle, lwgrp, dtcmp, libarchive
+ 
+ %description
+ File utilities designed for scalability and performance.
+diff --git a/scripts/prepmfubuild.sh b/scripts/prepmfubuild.sh
+new file mode 100755
+index 0000000..2154ca4
+--- /dev/null
++++ b/scripts/prepmfubuild.sh
+@@ -0,0 +1,53 @@
++#!/bin/bash
++mkdir install
++installdir=`pwd`/install
++
++mkdir deps
++cd deps
++
++  urls=(     https://github.com/hpc/libcircle/releases/download/v0.3/libcircle-0.3.0.tar.gz
++             https://github.com/llnl/lwgrp/releases/download/v1.0.6/lwgrp-1.0.6.tar.gz
++             https://github.com/llnl/dtcmp/releases/download/v1.1.5/dtcmp-1.1.5.tar.gz
++             https://github.com/libarchive/libarchive/releases/download/v3.7.7/libarchive-3.7.7.tar.gz
++  )
++
++  rc=0
++  for url in ${urls[*]}; do
++      if [[ rc -eq 0 ]]; then
++          wget $url
++          rc=$?
++          if [[ $rc -ne 0 ]]; then
++              echo
++              echo FAILED getting $url
++              echo check for releases under $(echo $url | sed 's/releases.*/releases\//')
++          fi
++      fi
++  done
++
++  if [[ rc -eq 0 ]]; then
++      tar -zxf libcircle-0.3.0.tar.gz
++      cd libcircle-0.3.0
++        ./configure --prefix=$installdir
++        make install
++      cd ..
++
++      tar -zxf lwgrp-1.0.6.tar.gz
++      cd lwgrp-1.0.6
++        ./configure --prefix=$installdir
++        make install
++      cd ..
++
++      tar -zxf dtcmp-1.1.5.tar.gz
++      cd dtcmp-1.1.5
++        ./configure --prefix=$installdir --with-lwgrp=$installdir
++        make install
++      cd ..
++
++      tar -zxf libarchive-3.7.7.tar.gz
++      cd libarchive-3.7.7
++        ./configure --prefix=$installdir
++        make install
++      cd ..
++    fi
++cd ..
++
+diff --git a/src/common/CMakeLists.txt b/src/common/CMakeLists.txt
+index 5178c1a..f840ac7 100644
+--- a/src/common/CMakeLists.txt
++++ b/src/common/CMakeLists.txt
+@@ -17,6 +17,7 @@ LIST(APPEND libmfu_install_headers
+   mfu_pred.h
+   mfu_proc.h
+   mfu_progress.h
++  mfu_sha256.h
+   mfu_util.h
+   )
+ if(ENABLE_DAOS)
+@@ -49,6 +50,7 @@ LIST(APPEND libmfu_srcs
+   mfu_pred.c
+   mfu_proc.c
+   mfu_progress.c
++  mfu_sha256.c
+   mfu_util.c
+   strmap.c
+   )
+diff --git a/src/common/mfu_daos.c b/src/common/mfu_daos.c
+index 2dbf8cf..594c0d3 100644
+--- a/src/common/mfu_daos.c
++++ b/src/common/mfu_daos.c
+@@ -1344,7 +1344,6 @@ daos_args_t* daos_args_new(void)
+     memset(da->dst_pool, '\0', DAOS_PROP_LABEL_MAX_LEN + 1);
+     memset(da->dst_cont, '\0', DAOS_PROP_LABEL_MAX_LEN + 1);
+ 
+-    /* By default, try to automatically determine the API */
+     /* By default, try to automatically determine the API */
+     da->api = DAOS_API_AUTO;
+ 
+@@ -1362,6 +1361,10 @@ daos_args_t* daos_args_new(void)
+     da->daos_preserve = false;
+     da->daos_preserve_path = NULL;
+ 
++    /* in most cases source only needs RO and destination needs RW */
++    da->default_src_cont_open_flags = DAOS_COO_RO;
++    da->default_dst_cont_open_flags = DAOS_COO_RW;
++
+     return da;
+ }
+ 
+@@ -1576,9 +1579,9 @@ int daos_setup(
+ 
+     /* For POSIX containers, the source only needs read, but the destination needs read and write.
+      * For DAOS (object-level), both containers need read and write.
+-     * Open the source with RO first, then elevate to RW if needed below. */
+-    unsigned int src_cont_open_flags = DAOS_COO_RO;
+-    unsigned int dst_cont_open_flags = DAOS_COO_RW;
++     * If needed, the source container will be elevated to RW. */
++    unsigned int src_cont_open_flags = da->default_src_cont_open_flags;
++    unsigned int dst_cont_open_flags = da->default_dst_cont_open_flags;
+ 
+     bool create_cont = false;
+     bool require_new_cont = false;
+@@ -1617,7 +1620,7 @@ int daos_setup(
+             goto out;
+         }
+         /* If using the DAOS API, we need to elevate permissions to RW for creating a snapshot */
+-        if (mfu_src_file->type == DAOS) {
++        if (mfu_src_file->type == DAOS && src_cont_open_flags == DAOS_COO_RO) {
+             MPI_Barrier(MPI_COMM_WORLD);
+ 
+             tmp_rc = daos_cont_close(da->src_coh, NULL);
+@@ -1881,6 +1884,7 @@ int daos_cleanup(
+  * returns -1 on error, 0 if same, 1 if different. */
+ static int mfu_daos_obj_sync_recx_single(
+     daos_key_t *dkey,
++    daos_handle_t th,
+     daos_handle_t *src_oh,
+     daos_handle_t *dst_oh,
+     daos_iod_t *iod,
+@@ -1902,7 +1906,7 @@ static int mfu_daos_obj_sync_recx_single(
+     d_iov_set(&src_iov, src_buf, src_buf_len);
+ 
+     /* Fetch the source */
+-    rc = daos_obj_fetch(*src_oh, DAOS_TX_NONE, 0, dkey, 1, iod, &src_sgl, NULL, NULL);
++    rc = daos_obj_fetch(*src_oh, th, 0, dkey, 1, iod, &src_sgl, NULL, NULL);
+     if (rc != 0) {
+         MFU_LOG(MFU_LOG_ERR, "DAOS object fetch returned with errors "DF_RC, DP_RC(rc));
+         goto out_err;
+@@ -1964,55 +1968,17 @@ out_err:
+     return -1;
+ }
+ 
+-/* Free a buffer created with alloc_iov_buf */
+-static void free_iov_buf(
+-    uint32_t    number, /* buffer length */
+-    char**      buf)    /* pointer to static buffer */
+-{
+-    if (buf != NULL) {
+-        for (uint32_t i = 0; i < number; i++) {
+-            mfu_free(&buf[i]);
+-        }
+-    }
+-}
+-
+-/* Create a buffer based on recxs and set iov for each index */
+-static int alloc_iov_buf(
+-    uint32_t        number, /* number of recxs, iovs, and buffer */
+-    daos_size_t     size,   /* size of each record */
+-    daos_recx_t*    recxs,  /* array of recxs */
+-    d_iov_t*        iov,    /* array of iovs */
+-    char**          buf,    /* pointer to static buffer */
+-    uint64_t*       buf_len)/* pointer to static buffer lengths */
+-{
+-    for (uint32_t i = 0; i < number; i++) {
+-        buf_len[i] = recxs[i].rx_nr * size;
+-        buf[i] = calloc(buf_len[i], sizeof(void*));
+-        if (buf[i] == NULL) {
+-            free_iov_buf(number, buf);
+-            return -1;
+-        }
+-        d_iov_set(&iov[i], buf[i], buf_len[i]);
+-    }
+-
+-    return 0;
+-}
+-
+-/* Sum an array of uint64_t */
+-static uint64_t sum_uint64_t(uint32_t number, uint64_t* buf)
+-{
+-    uint64_t sum = 0;
+-    for (uint32_t i = 0; i < number; i++) {
+-        sum += buf[i];
+-    }
+-    return sum;
+-}
+-
+ /* Copy all array recx from a src obj to dst obj for a given dkey/akey.
++ *
++ * The extents reported by daos_obj_list_recx() are only a superset of the data: for an EC object
++ * they are derived from the parity and are therefore stripe granular. The io map returned by the
++ * fetch is what actually holds data, so only that is compared and written.
++ *
+  * returns -1 on error, 0 if same, 1 if different */
+ static int mfu_daos_obj_sync_recx_array(
+     daos_key_t *dkey,
+     daos_key_t *akey,
++    daos_handle_t th,
+     daos_handle_t *src_oh,
+     daos_handle_t *dst_oh,
+     daos_iod_t *iod,
+@@ -2022,31 +1988,64 @@ static int mfu_daos_obj_sync_recx_array(
+ {
+     bool        all_dst_equal = true;   /* equal until found otherwise */
+     uint32_t    max_number = 5;         /* max recxs per fetch */
+-    char*       src_buf[max_number];    /* src buffer data */
+-    uint64_t    src_buf_len[max_number];/* src buffer lengths */
+-    d_sg_list_t src_sgl;
+     daos_recx_t recxs[max_number];
+-    daos_size_t size;
+     daos_epoch_range_t eprs[max_number];
++    daos_size_t size;
++    uint32_t    number;
++
++    char*       src_buf = NULL;         /* every listed extent, packed */
++    uint64_t    src_buf_len = 0;        /* bytes the listed extents add up to */
++    uint64_t    src_buf_alloc = 0;
++    char*       dst_buf = NULL;         /* the io map extents of the dst, packed */
++    uint64_t    dst_buf_alloc = 0;
++    d_iov_t*    map_iov = NULL;         /* one iov per io map extent */
++    uint32_t    map_iov_alloc = 0;
++    uint64_t    map_bytes;              /* bytes the io map actually covers */
++    daos_iom_t  iom = {0};              /* extents that actually hold data */
++    uint32_t    iom_nr_alloc = 0;
+ 
++    d_sg_list_t src_sgl;
++    d_iov_t     src_iov;
+     daos_anchor_t recx_anchor = {0};
+-    int rc;
++    int         rc;
++    int         ret = -1;
++
+     while (!daos_anchor_is_eof(&recx_anchor)) {
+         /* list all recx for this dkey/akey */
+-        uint32_t number = max_number;
+-        rc = daos_obj_list_recx(*src_oh, DAOS_TX_NONE, dkey, akey,
++        number = max_number;
++        rc = daos_obj_list_recx(*src_oh, th, dkey, akey,
+                                 &size, &number, recxs, eprs,
+                                 &recx_anchor, true, NULL);
+         if (rc != 0) {
+             MFU_LOG(MFU_LOG_ERR, "DAOS daos_obj_list_recx returned with errors "DF_RC, DP_RC(rc));
+-            goto out_err;
++            goto out;
+         }
+ 
+         /* if no recx is returned for this dkey/akey move on */
+         if (number == 0) 
+             continue;
+ 
+-        d_iov_t src_iov[number];
++        /* the extents and the record size come from the source, so the buffer size they add up
++         * to has to be range checked before anything is derived from it */
++        uint64_t rec_nr = 0;
++        for (uint32_t i = 0; i < number; i++) {
++            if (__builtin_add_overflow(rec_nr, recxs[i].rx_nr, &rec_nr)) {
++                MFU_LOG(MFU_LOG_ERR, "DAOS source listed %u extents whose length overflows",
++                        number);
++                goto out;
++            }
++        }
++        if (__builtin_mul_overflow(rec_nr, size, &src_buf_len)) {
++            MFU_LOG(MFU_LOG_ERR, "DAOS source listed %llu records of size %llu, which overflows",
++                    (unsigned long long) rec_nr, (unsigned long long) size);
++            goto out;
++        }
++
++        if (src_buf_len > src_buf_alloc) {
++            mfu_free(&src_buf);
++            src_buf = (char*) MFU_CALLOC(src_buf_len, 1);
++            src_buf_alloc = src_buf_len;
++        }
+ 
+         /* set iod values */
+         (*iod).iod_type  = DAOS_IOD_ARRAY;
+@@ -2054,104 +2053,174 @@ static int mfu_daos_obj_sync_recx_array(
+         (*iod).iod_recxs = recxs;
+         (*iod).iod_size  = size;
+ 
+-        /* set src_sgl values */
++        /* set src_sgl values, the fetch packs every listed extent into the one buffer */
++        src_sgl.sg_nr     = 1;
+         src_sgl.sg_nr_out = 0;
+-        src_sgl.sg_iovs   = src_iov;
+-        src_sgl.sg_nr     = number;
++        src_sgl.sg_iovs   = &src_iov;
++        d_iov_set(&src_iov, src_buf, src_buf_len);
+ 
+-        /* allocate and setup src_buf */
+-        if (alloc_iov_buf(number, size, recxs, src_iov, src_buf, src_buf_len) != 0) {
+-            MFU_LOG(MFU_LOG_ERR, "DAOS failed to allocate source buffer.");
+-            goto out_err;
++        /* a listed extent can be split by the fetch, overshoot so the refetch below is rare */
++        if (iom_nr_alloc < number * 2) {
++            mfu_free(&iom.iom_recxs);
++            iom.iom_recxs = (daos_recx_t*) MFU_CALLOC(number * 2, sizeof(daos_recx_t));
++            iom_nr_alloc = number * 2;
+         }
+-
+-        bool recx_equal = false;
+-        uint64_t total_bytes = sum_uint64_t(number, src_buf_len);
++        iom.iom_flags  = DAOS_IOMF_DETAIL;
++        iom.iom_nr     = iom_nr_alloc;
++        iom.iom_nr_out = 0;
+ 
+         /* fetch recx values from source */
+-        rc = daos_obj_fetch(*src_oh, DAOS_TX_NONE, 0, dkey, 1, iod,
+-                            &src_sgl, NULL, NULL);
++        rc = daos_obj_fetch(*src_oh, th, 0, dkey, 1, iod, &src_sgl, &iom, NULL);
+         if (rc != 0) {
+             MFU_LOG(MFU_LOG_ERR, "DAOS object fetch returned with errors "DF_RC, DP_RC(rc));
+-            goto out_err;
++            goto out;
+         }
+ 
+-        /* Sanity check */
+-        if (src_sgl.sg_nr_out != number) {
+-            MFU_LOG(MFU_LOG_ERR, "Failed to fetch array recxs.");
+-            goto out_err;
++        if (iom.iom_nr_out > iom.iom_nr) {
++            /* the map was truncated, iom_nr_out is the exact count needed */
++            mfu_free(&iom.iom_recxs);
++            iom.iom_recxs  = (daos_recx_t*) MFU_CALLOC(iom.iom_nr_out, sizeof(daos_recx_t));
++            iom_nr_alloc   = iom.iom_nr_out;
++            iom.iom_nr     = iom_nr_alloc;
++            iom.iom_nr_out = 0;
++            src_sgl.sg_nr_out = 0;
++
++            rc = daos_obj_fetch(*src_oh, th, 0, dkey, 1, iod, &src_sgl, &iom, NULL);
++            if (rc != 0) {
++                MFU_LOG(MFU_LOG_ERR, "DAOS object fetch returned with errors "DF_RC, DP_RC(rc));
++                goto out;
++            }
++            if (iom.iom_nr_out > iom.iom_nr) {
++                MFU_LOG(MFU_LOG_ERR, "DAOS source io map grew from %u to %u extents",
++                        iom.iom_nr, iom.iom_nr_out);
++                goto out;
++            }
++        }
++
++        /* the listed extents hold no data at this epoch, nothing to copy */
++        if (iom.iom_nr_out == 0)
++            continue;
++
++        if (map_iov_alloc < iom.iom_nr_out) {
++            mfu_free(&map_iov);
++            map_iov = (d_iov_t*) MFU_CALLOC(iom.iom_nr_out, sizeof(d_iov_t));
++            map_iov_alloc = iom.iom_nr_out;
++        }
++
++        /* point each returned extent at its offset in the fetch buffer */
++        map_bytes = 0;
++        for (uint32_t m = 0; m < iom.iom_nr_out; m++) {
++            daos_recx_t* map = &iom.iom_recxs[m];
++            uint64_t     off = 0;
++            uint64_t     map_len = 0;
++            uint64_t     map_end = 0;
++            uint32_t     k;
++
++            /* the products below are all bounded by the rec_nr * size check above */
++            for (k = 0; k < number; k++) {
++                /* subtract rather than add, rx_idx + rx_nr can wrap */
++                if (map->rx_idx >= recxs[k].rx_idx &&
++                    map->rx_idx - recxs[k].rx_idx < recxs[k].rx_nr) {
++                    off += (map->rx_idx - recxs[k].rx_idx) * size;
++                    break;
++                }
++                off += recxs[k].rx_nr * size;
++            }
++            if (k == number || __builtin_mul_overflow(map->rx_nr, size, &map_len) ||
++                __builtin_add_overflow(off, map_len, &map_end) || map_end > src_buf_len) {
++                MFU_LOG(MFU_LOG_ERR,
++                        "DAOS source io map extent %llu/%llu is not within the listed extents",
++                        (unsigned long long) map->rx_idx, (unsigned long long) map->rx_nr);
++                goto out;
++            }
++            d_iov_set(&map_iov[m], src_buf + off, map_len);
++            map_bytes += map_len;
+         }
+ 
+-        stats->bytes_read += total_bytes;
++        stats->bytes_read += map_bytes;
++
++        /* only the io map extents hold data, so the destination is compared and written
++         * against those rather than against everything that was listed */
++        (*iod).iod_nr    = iom.iom_nr_out;
++        (*iod).iod_recxs = iom.iom_recxs;
++        (*iod).iod_size  = size;
++
++        bool recx_equal = false;
+ 
+         /* Conditionally compare the destination before writing */
+         if (compare_dst) {
+-            char*       dst_buf[number];
+-            uint64_t    dst_buf_len[number];
+             d_sg_list_t dst_sgl;
+-            d_iov_t     dst_iov[number];
+-
+-            dst_sgl.sg_nr_out = 0;
+-            dst_sgl.sg_iovs   = dst_iov;
+-            dst_sgl.sg_nr     = number;
++            d_iov_t     dst_iov;
+ 
+-            /* allocate and setup dst_buf */
+-            if (alloc_iov_buf(number, size, recxs, dst_iov, dst_buf, dst_buf_len) != 0) {
+-                MFU_LOG(MFU_LOG_ERR, "DAOS failed to allocate destination buffer.");
+-                goto out_err;
++            if (map_bytes > dst_buf_alloc) {
++                mfu_free(&dst_buf);
++                dst_buf = (char*) MFU_CALLOC(map_bytes, 1);
++                dst_buf_alloc = map_bytes;
++            } else {
++                /* the fetch leaves holes in the dst untouched, so they have to read as zeros
++                 * rather than as whatever the previous extent left behind */
++                memset(dst_buf, 0, map_bytes);
+             }
+ 
+-            rc = daos_obj_fetch(*dst_oh, DAOS_TX_NONE, 0, dkey, 1, iod,
+-                                &dst_sgl, NULL, NULL);
++            dst_sgl.sg_nr     = 1;
++            dst_sgl.sg_nr_out = 0;
++            dst_sgl.sg_iovs   = &dst_iov;
++            d_iov_set(&dst_iov, dst_buf, map_bytes);
++
++            /* the snapshot transaction belongs to the source container */
++            rc = daos_obj_fetch(*dst_oh, DAOS_TX_NONE, 0, dkey, 1, iod, &dst_sgl, NULL, NULL);
+             if (rc != 0) {
+                 MFU_LOG(MFU_LOG_ERR, "DAOS object fetch returned with errors "DF_RC, DP_RC(rc));
+-                free_iov_buf(number, dst_buf);
+-                goto out_err;
++                goto out;
+             }
+ 
+             /* Reset iod values after fetching the destination */
+-            (*iod).iod_nr    = number;
++            (*iod).iod_nr    = iom.iom_nr_out;
+             (*iod).iod_size  = size;
+ 
+             /* Determine whether all recxs in the dst are equal to the src.
+              * If any recx is different, update all recxs in dst and flag
+              * this akey as different. */
+             if (dst_sgl.sg_nr_out > 0) {
+-                stats->bytes_read += total_bytes;
++                uint64_t off = 0;
++
++                stats->bytes_read += map_bytes;
+                 recx_equal = true;
+-                for (uint32_t i = 0; i < number; i++) {
+-                    if (memcmp(src_buf[i], dst_buf[i], src_buf_len[i]) != 0) {
++                for (uint32_t m = 0; m < iom.iom_nr_out; m++) {
++                    if (memcmp(map_iov[m].iov_buf, dst_buf + off, map_iov[m].iov_len) != 0) {
+                         recx_equal = false;
+                         all_dst_equal = false;
+                         break;
+                     }
++                    off += map_iov[m].iov_len;
+                 }
+             }
+-            free_iov_buf(number, dst_buf);
+         }
+ 
+         /* Conditionally write to the destination */
+         if (write_dst && !recx_equal) {
+-            rc = daos_obj_update(*dst_oh, DAOS_TX_NONE, 0, dkey, 1, iod,
+-                                 &src_sgl, NULL);
++            src_sgl.sg_nr     = iom.iom_nr_out;
++            src_sgl.sg_nr_out = 0;
++            src_sgl.sg_iovs   = map_iov;
++
++            rc = daos_obj_update(*dst_oh, DAOS_TX_NONE, 0, dkey, 1, iod, &src_sgl, NULL);
+             if (rc != 0) {
+                 MFU_LOG(MFU_LOG_ERR, "DAOS object update returned with errors "DF_RC, DP_RC(rc));
+-                goto out_err;
++                goto out;
+             }
+-            stats->bytes_written += total_bytes;
++            stats->bytes_written += map_bytes;
+         }
+-        free_iov_buf(number, src_buf);
+     }
+ 
+     /* return 0 if equal, 1 if different */
+-    if (all_dst_equal) {
+-        return 0;
+-    }
+-    return 1;
++    ret = all_dst_equal ? 0 : 1;
+ 
+-out_err:
+-    /* return -1 on true errors */
+-    return -1;
++out:
++    mfu_free(&src_buf);
++    mfu_free(&dst_buf);
++    mfu_free(&map_iov);
++    mfu_free(&iom.iom_recxs);
++    return ret;
+ }
+ 
+ /* Copy all dkeys and akeys from a src obj to dst obj.
+@@ -2159,6 +2228,7 @@ out_err:
+ static int mfu_daos_obj_sync_keys(
+   daos_handle_t* src_oh,
+   daos_handle_t* dst_oh,
++  daos_handle_t th,
+   bool compare_dst,
+   bool write_dst,
+   mfu_daos_stats_t* stats)
+@@ -2184,7 +2254,7 @@ static int mfu_daos_obj_sync_keys(
+         d_iov_set(&dkey_iov, dkey_enum_buf, ENUM_DESC_BUF);
+ 
+         /* get dkeys */
+-        rc = daos_obj_list_dkey(*src_oh, DAOS_TX_NONE, &dkey_number, dkey_kds,
++        rc = daos_obj_list_dkey(*src_oh, th, &dkey_number, dkey_kds,
+                                 &dkey_sgl, &dkey_anchor, NULL);
+         if (rc != 0) {
+             MFU_LOG(MFU_LOG_ERR, "DAOS daos_obj_list_dkey returned with errors "DF_RC, DP_RC(rc));
+@@ -2224,7 +2294,7 @@ static int mfu_daos_obj_sync_keys(
+                 d_iov_set(&akey_iov, akey_enum_buf, ENUM_DESC_BUF);
+ 
+                 /* get akeys */
+-                rc = daos_obj_list_akey(*src_oh, DAOS_TX_NONE, &diov, &akey_number, akey_kds,
++                rc = daos_obj_list_akey(*src_oh, th, &diov, &akey_number, akey_kds,
+                                         &akey_sgl, &akey_anchor, NULL);
+                 if (rc != 0) {
+                     MFU_LOG(MFU_LOG_ERR, "DAOS daos_obj_list_akey returned with errors "DF_RC, DP_RC(rc));
+@@ -2254,7 +2324,7 @@ static int mfu_daos_obj_sync_keys(
+ 
+                     /* Do a fetch (with NULL sgl) of single value type, and if that
+                      * returns iod_size == 0, then a single value does not exist. */
+-                    rc = daos_obj_fetch(*src_oh, DAOS_TX_NONE, 0, &diov, 1, &iod, NULL, NULL, NULL);
++                    rc = daos_obj_fetch(*src_oh, th, 0, &diov, 1, &iod, NULL, NULL, NULL);
+                     if (rc != 0) {
+                         MFU_LOG(MFU_LOG_ERR, "DAOS daos_obj_fetch returned with errors "DF_RC, DP_RC(rc));
+                         goto out_err;
+@@ -2262,7 +2332,7 @@ static int mfu_daos_obj_sync_keys(
+ 
+                     /* if iod_size == 0 then this is a DAOS_IOD_ARRAY type */
+                     if ((int)iod.iod_size == 0) {
+-                        rc = mfu_daos_obj_sync_recx_array(&diov, &aiov, src_oh, dst_oh,
++                        rc = mfu_daos_obj_sync_recx_array(&diov, &aiov, th, src_oh, dst_oh,
+                                                           &iod, compare_dst, write_dst, stats);
+                         if (rc == -1) {
+                             MFU_LOG(MFU_LOG_ERR, "DAOS mfu_daos_obj_sync_recx_array returned with errors: "
+@@ -2272,7 +2342,7 @@ static int mfu_daos_obj_sync_keys(
+                             all_dst_equal = false;
+                         }
+                     } else {
+-                        rc = mfu_daos_obj_sync_recx_single(&diov, src_oh, dst_oh,
++                        rc = mfu_daos_obj_sync_recx_single(&diov, th, src_oh, dst_oh,
+                                                            &iod, compare_dst, write_dst, stats);
+                         if (rc == -1) {
+                             MFU_LOG(MFU_LOG_ERR, "DAOS mfu_daos_obj_sync_recx_single returned with errors: "
+@@ -2311,6 +2381,7 @@ static int mfu_daos_obj_sync(
+     daos_args_t* da,
+     daos_handle_t src_coh,
+     daos_handle_t dst_coh,
++    daos_handle_t th,
+     daos_obj_id_t oid,
+     bool compare_dst,             /* Whether to compare the src and dst before writing */
+     bool write_dst,               /* Whether to write to the dst */
+@@ -2337,7 +2408,7 @@ static int mfu_daos_obj_sync(
+         daos_obj_close(src_oh, NULL);
+         goto out_err;
+     }
+-    int copy_rc = mfu_daos_obj_sync_keys(&src_oh, &dst_oh, compare_dst, write_dst, stats);
++    int copy_rc = mfu_daos_obj_sync_keys(&src_oh, &dst_oh, th, compare_dst, write_dst, stats);
+     if (copy_rc == -1) {
+         MFU_LOG(MFU_LOG_ERR, "DAOS copy list keys returned with errors: " MFU_ERRF,
+                 MFU_ERRP(-MFU_ERR_DAOS));
+@@ -2366,6 +2437,7 @@ static int mfu_daos_flist_obj_sync(
+   mfu_flist bflist,
+   daos_handle_t src_coh,
+   daos_handle_t dst_coh,
++  daos_handle_t th,
+   bool compare_dst,
+   bool write_dst,
+   mfu_daos_stats_t* stats)
+@@ -2382,7 +2454,7 @@ static int mfu_daos_flist_obj_sync(
+         oid.hi = p->obj_id_hi;
+ 
+         /* Copy this object */
+-        rc = mfu_daos_obj_sync(da, src_coh, dst_coh, oid,
++        rc = mfu_daos_obj_sync(da, src_coh, dst_coh, th, oid,
+                                compare_dst, write_dst, stats);
+         if (rc == -1) {
+             MFU_LOG(MFU_LOG_ERR, "mfu_daos_obj_sync return with error");
+@@ -2504,6 +2576,9 @@ out_broadcast:
+     /* broadcast return code from rank 0 so everyone knows whether walk succeeded */
+     MPI_Bcast(&rc, 1, MPI_INT, 0, MPI_COMM_WORLD);
+ 
++    /* only rank 0 took the snapshot, but every rank reads the source at that epoch */
++    MPI_Bcast(epoch, 1, MPI_UINT64_T, 0, MPI_COMM_WORLD);
++
+     return rc;
+ }
+ 
+@@ -2528,10 +2603,25 @@ int mfu_daos_flist_sync(
+     /* evenly spread the objects across all ranks */
+     mfu_flist newflist = mfu_flist_spread(flist);
+ 
+-    /* copy object ids listed in newflist to destination in daos args */
+-    int rc = mfu_daos_flist_obj_sync(da, newflist, da->src_coh, da->dst_coh,
++    /* every read of the source must come from the snapshot, otherwise the enumeration and the
++     * fetch of what it returned can land on different epochs */
++    daos_handle_t th;
++    int rc = daos_tx_open_snap(da->src_coh, da->src_epc, &th, NULL);
++    if (rc != 0) {
++        MFU_LOG(MFU_LOG_ERR, "DAOS failed to open snapshot transaction "DF_RC, DP_RC(rc));
++        rc = -1;
++    } else {
++        /* copy object ids listed in newflist to destination in daos args */
++        rc = mfu_daos_flist_obj_sync(da, newflist, da->src_coh, da->dst_coh, th,
+                                      compare_dst, write_dst, &stats);
+ 
++        int tmp_rc = daos_tx_close(th, NULL);
++        if (tmp_rc != 0) {
++            MFU_LOG(MFU_LOG_ERR, "DAOS failed to close snapshot transaction "DF_RC, DP_RC(tmp_rc));
++            rc = -1;
++        }
++    }
++
+     /* wait until all procs are done copying,
+      * and determine whether everyone succeeded. */
+     if (! mfu_alltrue(rc != -1, MPI_COMM_WORLD)) {
+@@ -2596,6 +2686,7 @@ static inline void init_hdf5_args(struct hdf5_args *hdf5)
+ 
+ static int serialize_kv_rec(struct hdf5_args *hdf5, 
+                             daos_key_t dkey,
++                            daos_handle_t th,
+                             daos_handle_t *oh,
+                             uint64_t *dk_index,
+                             char *dkey_val,
+@@ -2607,7 +2698,7 @@ static int serialize_kv_rec(struct hdf5_args *hdf5,
+     daos_size_t size = 0;
+ 
+     /* get the size of the value */
+-    rc = daos_kv_get(*oh, DAOS_TX_NONE, 0, dkey_val, &size, buf, NULL);
++    rc = daos_kv_get(*oh, th, 0, dkey_val, &size, buf, NULL);
+     if (rc != 0) {
+         MFU_LOG(MFU_LOG_ERR, "Failed to fetch object "DF_RC, DP_RC(rc));
+         goto out;
+@@ -2618,7 +2709,7 @@ static int serialize_kv_rec(struct hdf5_args *hdf5,
+         goto out;
+     }
+ 
+-    rc = daos_kv_get(*oh, DAOS_TX_NONE, 0, dkey_val, &size, buf, NULL);
++    rc = daos_kv_get(*oh, th, 0, dkey_val, &size, buf, NULL);
+     if (rc != 0) {
+         MFU_LOG(MFU_LOG_ERR, "Failed to fetch object "DF_RC, DP_RC(rc));
+         goto out;
+@@ -2640,6 +2731,7 @@ out:
+ 
+ static int serialize_recx_single(struct hdf5_args *hdf5, 
+                                  daos_key_t *dkey,
++                                 daos_handle_t th,
+                                  daos_handle_t *oh,
+                                  daos_iod_t *iod,
+                                  uint64_t *ak_index,
+@@ -2647,7 +2739,7 @@ static int serialize_recx_single(struct hdf5_args *hdf5,
+ {
+     /* if iod_type is single value just fetch iod size from source
+      * and update in destination object */
+-    int         buf_len = (int)(*iod).iod_size;
++    uint64_t    buf_len = (*iod).iod_size;
+     void        *buf;
+     d_sg_list_t sgl;
+     d_iov_t     iov;
+@@ -2661,7 +2753,7 @@ static int serialize_recx_single(struct hdf5_args *hdf5,
+     sgl.sg_nr_out = 0;
+     sgl.sg_iovs   = &iov;
+     d_iov_set(&iov, buf, buf_len);
+-    rc = daos_obj_fetch(*oh, DAOS_TX_NONE, 0, dkey, 1, iod, &sgl,
++    rc = daos_obj_fetch(*oh, th, 0, dkey, 1, iod, &sgl,
+                         NULL, NULL);
+     if (rc != 0) {
+         MFU_LOG(MFU_LOG_ERR, "Failed to fetch object");
+@@ -2691,11 +2783,189 @@ out:
+     return rc;
+ }
+ 
++/* Write one extent of an array record to the record dataset, and store the encoded dataspace of
++ * that extent in an attribute so deserialize can place it back at the right index. */
++static int serialize_recx_write(struct hdf5_args *hdf5,
++                                uint64_t *ak_index,
++                                int attr_num,
++                                uint64_t rx_idx,
++                                uint64_t rx_nr,
++                                void *buf)
++{
++    int             rc = 0;
++    int             path_len = 0;
++    size_t          nalloc = 0;
++    unsigned char   *encode_buf = NULL;
++    hid_t           status = 0;
++    uint64_t        rx_end = 0;
++    char            attr_name[ATTR_NAME_LEN] = {0};
++    char            number_str[ATTR_NAME_LEN] = {0};
++    char            attr_num_str[ATTR_NAME_LEN] = {0};
++
++    hdf5->rx_memspace = 0;
++    hdf5->attr_dspace = 0;
++    hdf5->attr_dtype = 0;
++    hdf5->selection_attr = 0;
++
++    /* write data to record dset */
++    hdf5->mem_dims[0] = rx_nr;
++    hdf5->rx_memspace = H5Screate_simple(1, hdf5->mem_dims, hdf5->mem_dims);
++    if (hdf5->rx_memspace < 0) {
++        MFU_LOG(MFU_LOG_ERR, "Failed to create rx_memspace");
++        rc = 1;
++        goto out;
++    }
++
++    /* the extents can be sparse, so the dataset has to reach the end of this one rather than
++     * just grow by its length */
++    if (__builtin_add_overflow(rx_idx, rx_nr, &rx_end)) {
++        MFU_LOG(MFU_LOG_ERR, "Source extent %llu/%llu overflows",
++                (unsigned long long) rx_idx, (unsigned long long) rx_nr);
++        rc = 1;
++        goto out;
++    }
++    if (rx_end > hdf5->rx_dims[0]) {
++        hdf5->rx_dims[0] = rx_end;
++    }
++    status = H5Dset_extent(hdf5->rx_dset, hdf5->rx_dims);
++    if (status < 0) {
++        MFU_LOG(MFU_LOG_ERR, "Failed to extend rx_dset");
++        rc = 1;
++        goto out;
++    }
++    /* retrieve extended dataspace */
++    hdf5->rx_dspace = H5Dget_space(hdf5->rx_dset);
++    if (hdf5->rx_dspace < 0) {
++        MFU_LOG(MFU_LOG_ERR, "Failed to get rx_dspace");
++        rc = 1;
++        goto out;
++    }
++    hsize_t start = (hsize_t)rx_idx;
++    hsize_t count = (hsize_t)rx_nr;
++    status = H5Sselect_hyperslab(hdf5->rx_dspace,
++                                 H5S_SELECT_AND, &start,
++                                 NULL, &count, NULL);
++    if (status < 0) {
++        MFU_LOG(MFU_LOG_ERR, "Failed to select hyperslab");
++        rc = 1;
++        goto out;
++    }
++
++    status = H5Dwrite(hdf5->rx_dset, hdf5->rx_dtype,
++                      hdf5->rx_memspace, hdf5->rx_dspace,
++                      H5P_DEFAULT, buf);
++    if (status < 0) {
++        MFU_LOG(MFU_LOG_ERR, "Failed to write rx_dset");
++        rc = 1;
++        goto out;
++    }
++    /* get size of buffer needed
++     * from nalloc
++     */
++    status = H5Sencode1(hdf5->rx_dspace, NULL, &nalloc);
++    if (status < 0) {
++        MFU_LOG(MFU_LOG_ERR, "Failed to get size of buffer needed");
++        rc = 1;
++        goto out;
++    }
++    /* encode dataspace description
++     * in buffer then store in
++     * attribute on dataset
++     */
++    encode_buf = MFU_CALLOC(nalloc, sizeof(unsigned char));
++    if (encode_buf == NULL) {
++        rc = ENOMEM;
++        goto out;
++    }
++    status = H5Sencode1(hdf5->rx_dspace, encode_buf, &nalloc);
++    if (status < 0) {
++        MFU_LOG(MFU_LOG_ERR, "Failed to encode dataspace");
++        rc = 1;
++        goto out;
++    }
++    /* created attribute in HDF5 file with encoded
++     * dataspace for this record extent */
++    path_len = snprintf(number_str, ATTR_NAME_LEN, "%lu", (*ak_index));
++    if (path_len >= ATTR_NAME_LEN) {
++        MFU_LOG(MFU_LOG_ERR, "number_str is too long");
++        rc = 1;
++        goto out;
++    }
++    path_len = snprintf(attr_num_str, ATTR_NAME_LEN, "-%d", attr_num);
++    if (path_len >= ATTR_NAME_LEN) {
++        MFU_LOG(MFU_LOG_ERR, "attr number str is too long");
++        rc = 1;
++        goto out;
++    }
++    path_len = snprintf(attr_name, ATTR_NAME_LEN, "%s%lu%d", "A-",
++                        *ak_index, attr_num);
++    if (path_len >= ATTR_NAME_LEN) {
++        MFU_LOG(MFU_LOG_ERR, "attr name is too long");
++        rc = 1;
++        goto out;
++    }
++    hdf5->attr_dims[0] = 1;
++    hdf5->attr_dspace = H5Screate_simple(1, hdf5->attr_dims, NULL);
++    if (hdf5->attr_dspace < 0) {
++        MFU_LOG(MFU_LOG_ERR, "failed to create attr");
++        rc = 1;
++        goto out;
++    }
++    hdf5->attr_dtype = H5Tcreate(H5T_OPAQUE, nalloc);
++    if (hdf5->attr_dtype < 0) {
++        MFU_LOG(MFU_LOG_ERR, "failed to create attr dtype");
++        rc = 1;
++        goto out;
++    }
++    hdf5->selection_attr = H5Acreate2(hdf5->rx_dset,
++                                      attr_name,
++                                      hdf5->attr_dtype,
++                                      hdf5->attr_dspace,
++                                      H5P_DEFAULT,
++                                      H5P_DEFAULT);
++    if (hdf5->selection_attr < 0) {
++        MFU_LOG(MFU_LOG_ERR, "failed to create selection attr");
++        rc = 1;
++        goto out;
++    }
++    status = H5Awrite(hdf5->selection_attr, hdf5->attr_dtype, encode_buf);
++    if (status < 0) {
++        MFU_LOG(MFU_LOG_ERR, "failed to write attr");
++        rc = 1;
++        goto out;
++    }
++out:
++    if (hdf5->selection_attr > 0) {
++        H5Aclose(hdf5->selection_attr);
++        hdf5->selection_attr = 0;
++    }
++    if (hdf5->attr_dtype > 0) {
++        H5Tclose(hdf5->attr_dtype);
++        hdf5->attr_dtype = 0;
++    }
++    if (hdf5->attr_dspace > 0) {
++        H5Sclose(hdf5->attr_dspace);
++        hdf5->attr_dspace = 0;
++    }
++    if (hdf5->rx_memspace > 0) {
++        H5Sclose(hdf5->rx_memspace);
++        hdf5->rx_memspace = 0;
++    }
++    mfu_free(&encode_buf);
++    return rc;
++}
++
++/* Serialize all array recx for a given dkey/akey.
++ *
++ * The extents reported by daos_obj_list_recx() are only a superset of the data: for an EC object
++ * they are derived from the parity and are therefore stripe granular. The io map returned by the
++ * fetch is what actually holds data, so only that is written out. */
+ static int serialize_recx_array(struct hdf5_args *hdf5,
+                                 daos_key_t *dkey,
+                                 daos_key_t *akey,
+                                 char *rec_name,
+                                 uint64_t *ak_index,
++                                daos_handle_t th,
+                                 daos_handle_t *oh,
+                                 daos_iod_t *iod,
+                                 mfu_daos_stats_t* stats)
+@@ -2703,23 +2973,18 @@ static int serialize_recx_array(struct hdf5_args *hdf5,
+     int                 rc = 0;
+     int                 i = 0;
+     int                 attr_num = 0;
+-    int                 buf_len = 0;
+-    int                 path_len = 0;
++    uint64_t            buf_len = 0;
+     uint32_t            number = 5;
+-    size_t              nalloc = 0;
+     daos_anchor_t       recx_anchor = {0}; 
+     daos_anchor_t       fetch_anchor = {0}; 
+     daos_epoch_range_t  eprs[5] = {0};
+     daos_recx_t         recxs[5] = {0};
+     daos_size_t         size = 0;
+-    char                attr_name[ATTR_NAME_LEN] = {0};
+-    char                number_str[ATTR_NAME_LEN] = {0};
+-    char                attr_num_str[ATTR_NAME_LEN] = {0};
+-    unsigned char       *encode_buf = NULL;
+     d_sg_list_t         sgl = {0};
+     d_iov_t             iov = {0};
+-    hid_t               status = 0;
+     char                *buf = NULL;
++    daos_iom_t          iom = {0};  /* extents that actually hold data */
++    uint32_t            iom_nr_alloc = 0;
+ 
+     hdf5->rx_dset = 0;
+     hdf5->selection_attr = 0;
+@@ -2729,7 +2994,7 @@ static int serialize_recx_array(struct hdf5_args *hdf5,
+     /* need to do a fetch for size, so that we can
+      * create the dataset with the correct datatype size */
+     number = 1;
+-    rc = daos_obj_list_recx(*oh, DAOS_TX_NONE, dkey,
++    rc = daos_obj_list_recx(*oh, th, dkey,
+                             akey, &size, &number, NULL, eprs, &fetch_anchor,
+                             true, NULL);
+     if (rc != 0) {
+@@ -2776,7 +3041,7 @@ static int serialize_recx_array(struct hdf5_args *hdf5,
+ 
+         /* list all recx for this dkey/akey */
+         number = 5;
+-        rc = daos_obj_list_recx(*oh, DAOS_TX_NONE, dkey,
++        rc = daos_obj_list_recx(*oh, th, dkey,
+                                 akey, &size, &number, recxs, eprs, &recx_anchor,
+                                 true, NULL);
+         if (rc != 0) {
+@@ -2788,7 +3053,13 @@ static int serialize_recx_array(struct hdf5_args *hdf5,
+         if (number == 0) 
+             continue;
+         for (i = 0; i < number; i++) {
+-            buf_len = recxs[i].rx_nr * size;
++            /* the extent and the record size come from the source, so the buffer size they add
++             * up to has to be range checked before anything is derived from it */
++            if (__builtin_mul_overflow(recxs[i].rx_nr, size, &buf_len)) {
++                MFU_LOG(MFU_LOG_ERR, "Source listed an extent whose length overflows");
++                rc = 1;
++                goto out;
++            }
+             buf = MFU_CALLOC(buf_len, 1);
+ 
+             memset(&sgl, 0, sizeof(sgl));
+@@ -2806,174 +3077,94 @@ static int serialize_recx_array(struct hdf5_args *hdf5,
+             sgl.sg_iovs   = &iov;
+ 
+             d_iov_set(&iov, buf, buf_len);  
++
++            /* a listed extent can be split by the fetch, overshoot so the refetch below is rare */
++            if (iom_nr_alloc < 2) {
++                mfu_free(&iom.iom_recxs);
++                iom.iom_recxs = (daos_recx_t*) MFU_CALLOC(2, sizeof(daos_recx_t));
++                iom_nr_alloc = 2;
++            }
++            iom.iom_flags  = DAOS_IOMF_DETAIL;
++            iom.iom_nr     = iom_nr_alloc;
++            iom.iom_nr_out = 0;
++
+             /* fetch recx values from source */
+-            rc = daos_obj_fetch(*oh, DAOS_TX_NONE, 0, dkey, 1, iod,
+-                                &sgl, NULL, NULL);
++            rc = daos_obj_fetch(*oh, th, 0, dkey, 1, iod, &sgl, &iom, NULL);
+             if (rc != 0) {
+                 MFU_LOG(MFU_LOG_ERR, "Failed to fetch object "DF_RC, DP_RC(rc));
+                 goto out;
+             }
+ 
+-            /* Sanity check */
+-            if (sgl.sg_nr_out != 1) {
+-                MFU_LOG(MFU_LOG_ERR, "Failed to fetch array recxs.");
+-                rc = 1;
+-                goto out;
++            if (iom.iom_nr_out > iom.iom_nr) {
++                /* the map was truncated, iom_nr_out is the exact count needed */
++                mfu_free(&iom.iom_recxs);
++                iom.iom_recxs  = (daos_recx_t*) MFU_CALLOC(iom.iom_nr_out, sizeof(daos_recx_t));
++                iom_nr_alloc   = iom.iom_nr_out;
++                iom.iom_nr     = iom_nr_alloc;
++                iom.iom_nr_out = 0;
++                sgl.sg_nr_out  = 0;
++
++                rc = daos_obj_fetch(*oh, th, 0, dkey, 1, iod, &sgl, &iom, NULL);
++                if (rc != 0) {
++                    MFU_LOG(MFU_LOG_ERR, "Failed to fetch object "DF_RC, DP_RC(rc));
++                    goto out;
++                }
++                if (iom.iom_nr_out > iom.iom_nr) {
++                    MFU_LOG(MFU_LOG_ERR, "Source io map grew from %u to %u extents",
++                            iom.iom_nr, iom.iom_nr_out);
++                    rc = 1;
++                    goto out;
++                }
+             }
+ 
+-            stats->bytes_read += buf_len;
++            /* write out only the parts of the listed extent that hold data */
++            for (uint32_t m = 0; m < iom.iom_nr_out; m++) {
++                daos_recx_t*    map = &iom.iom_recxs[m];
++                uint64_t        off = 0;
++                uint64_t        map_len = 0;
++                uint64_t        map_end = 0;
++
++                /* subtract rather than add, rx_idx + rx_nr can wrap */
++                if (map->rx_idx < recxs[i].rx_idx ||
++                    map->rx_idx - recxs[i].rx_idx >= recxs[i].rx_nr ||
++                    __builtin_mul_overflow(map->rx_nr, size, &map_len)) {
++                    MFU_LOG(MFU_LOG_ERR,
++                            "Source io map extent %llu/%llu is not within the listed extent",
++                            (unsigned long long) map->rx_idx, (unsigned long long) map->rx_nr);
++                    rc = 1;
++                    goto out;
++                }
++                off = (map->rx_idx - recxs[i].rx_idx) * size;
++                if (__builtin_add_overflow(off, map_len, &map_end) || map_end > buf_len) {
++                    MFU_LOG(MFU_LOG_ERR,
++                            "Source io map extent %llu/%llu is not within the listed extent",
++                            (unsigned long long) map->rx_idx, (unsigned long long) map->rx_nr);
++                    rc = 1;
++                    goto out;
++                }
+ 
+-            /* write data to record dset */
+-            hdf5->mem_dims[0] = recxs[i].rx_nr;
+-            hdf5->rx_memspace = H5Screate_simple(1, hdf5->mem_dims,
+-                                                 hdf5->mem_dims);
+-            if (hdf5->rx_memspace < 0) {
+-                MFU_LOG(MFU_LOG_ERR, "Failed to create rx_memspace");
+-                rc = 1;
+-                goto out;
+-            }
+-            /* extend dataset */
+-            hdf5->rx_dims[0] += recxs[i].rx_nr;
+-            status = H5Dset_extent(hdf5->rx_dset, hdf5->rx_dims);
+-            if (status < 0) {
+-                MFU_LOG(MFU_LOG_ERR, "Failed to extend rx_dset");
+-                rc = 1;
+-                goto out;
+-            }
+-            /* retrieve extended dataspace */
+-            hdf5->rx_dspace = H5Dget_space(hdf5->rx_dset);
+-            if (hdf5->rx_dspace < 0) {
+-                MFU_LOG(MFU_LOG_ERR, "Failed to get rx_dspace");
+-                rc = 1;
+-                goto out;
+-            }
+-            hsize_t start = (hsize_t)recxs[i].rx_idx;
+-            hsize_t count = (hsize_t)recxs[i].rx_nr;
+-            status = H5Sselect_hyperslab(hdf5->rx_dspace,
+-                                         H5S_SELECT_AND, &start,
+-                                         NULL, &count, NULL);
+-            if (status < 0) {
+-                MFU_LOG(MFU_LOG_ERR, "Failed to select hyperslab");
+-                rc = 1;
+-                goto out;
+-            }
++                stats->bytes_read += map_len;
+ 
+-            status = H5Dwrite(hdf5->rx_dset, hdf5->rx_dtype,
+-                              hdf5->rx_memspace, hdf5->rx_dspace,
+-                              H5P_DEFAULT, sgl.sg_iovs[0].iov_buf);
+-            if (status < 0) {
+-                MFU_LOG(MFU_LOG_ERR, "Failed to write rx_dset");
+-                rc = 1;
+-                goto out;
+-            }
+-            /* get size of buffer needed
+-             * from nalloc
+-             */
+-            status = H5Sencode1(hdf5->rx_dspace, NULL, &nalloc);
+-            if (status < 0) {
+-                MFU_LOG(MFU_LOG_ERR, "Failed to get size of buffer needed");
+-                rc = 1;
+-                goto out;
+-            }
+-            /* encode dataspace description
+-             * in buffer then store in
+-             * attribute on dataset
+-             */
+-            encode_buf = MFU_CALLOC(nalloc, sizeof(unsigned char));
+-            if (encode_buf == NULL) {
+-                rc = ENOMEM;
+-                goto out;
+-            }
+-            status = H5Sencode1(hdf5->rx_dspace, encode_buf,
+-                                &nalloc);
+-            if (status < 0) {
+-                MFU_LOG(MFU_LOG_ERR, "Failed to encode dataspace");
+-                rc = 1;
+-                goto out;
+-            }
+-            /* created attribute in HDF5 file with encoded
+-             * dataspace for this record extent */
+-            path_len = snprintf(number_str, ATTR_NAME_LEN, "%lu",
+-                                (*ak_index));
+-            if (path_len >= ATTR_NAME_LEN) {
+-                MFU_LOG(MFU_LOG_ERR, "number_str is too long");
+-                rc = 1;
+-                goto out;
+-            }
+-            path_len = snprintf(attr_num_str, ATTR_NAME_LEN, "-%d", attr_num);
+-            if (path_len >= ATTR_NAME_LEN) {
+-                MFU_LOG(MFU_LOG_ERR, "attr number str is too long");
+-                rc = 1;
+-                goto out;
+-            }
+-            path_len = snprintf(attr_name, ATTR_NAME_LEN, "%s%lu%d", "A-",
+-                                *ak_index, attr_num);
+-            if (path_len >= ATTR_NAME_LEN) {
+-                MFU_LOG(MFU_LOG_ERR, "attr name is too long");
+-                rc = 1;
+-                goto out;
+-            }
+-            hdf5->attr_dims[0] = 1;
+-            hdf5->attr_dspace = H5Screate_simple(1, hdf5->attr_dims, NULL);
+-            if (hdf5->attr_dspace < 0) {
+-                MFU_LOG(MFU_LOG_ERR, "failed to create attr");
+-                rc = 1;
+-                goto out;
+-            }
+-            hdf5->attr_dtype = H5Tcreate(H5T_OPAQUE, nalloc);
+-            if (hdf5->attr_dtype < 0) {
+-                MFU_LOG(MFU_LOG_ERR, "failed to create attr dtype");
+-                rc = 1;
+-                goto out;
+-            }
+-            hdf5->selection_attr = H5Acreate2(hdf5->rx_dset,
+-                                              attr_name,
+-                                              hdf5->attr_dtype,
+-                                              hdf5->attr_dspace,
+-                                              H5P_DEFAULT,
+-                                              H5P_DEFAULT);
+-            if (hdf5->selection_attr < 0) {
+-                MFU_LOG(MFU_LOG_ERR, "failed to create selection attr");
+-                rc = 1;
+-                goto out;
+-            }
+-            status = H5Awrite(hdf5->selection_attr, hdf5->attr_dtype,
+-                              encode_buf);
+-            if (status < 0) {
+-                MFU_LOG(MFU_LOG_ERR, "failed to write attr");
+-                rc = 1;
+-                goto out;
+-            }
+-            if (hdf5->selection_attr > 0) {
+-                H5Aclose(hdf5->selection_attr);
+-            }
+-            if (hdf5->rx_memspace > 0) {
+-                H5Sclose(hdf5->rx_memspace);
+-            }
+-            if (hdf5->attr_dtype > 0) {
+-                H5Tclose(hdf5->attr_dtype);
++                rc = serialize_recx_write(hdf5, ak_index, attr_num,
++                                          map->rx_idx, map->rx_nr, buf + off);
++                if (rc != 0) {
++                    goto out;
++                }
++                attr_num++;
+             }
+-            mfu_free(&encode_buf);
++
+             mfu_free(&buf);
+-            attr_num++;
+         }
+     }
+ out:
++    mfu_free(&buf);
++    mfu_free(&iom.iom_recxs);
+     if (hdf5->rx_dset > 0) {
+         H5Dclose(hdf5->rx_dset);
+     }
+     if (hdf5->rx_dtype > 0) {
+         H5Tclose(hdf5->rx_dtype);
+     }
+-    if (rc != 0) {
+-        if (hdf5->selection_attr > 0) {
+-            H5Aclose(hdf5->selection_attr);
+-        }
+-        if (hdf5->rx_memspace > 0) {
+-            H5Sclose(hdf5->rx_memspace);
+-        }
+-        mfu_free(&encode_buf);
+-    }
+     return rc;
+ }
+ 
+@@ -3030,6 +3221,7 @@ static int serialize_akeys(struct hdf5_args *hdf5,
+                            daos_key_t diov,
+                            uint64_t *dk_index,
+                            uint64_t *ak_index,
++                           daos_handle_t th,
+                            daos_handle_t *oh,
+                            mfu_daos_stats_t *stats)
+ {
+@@ -3065,7 +3257,7 @@ static int serialize_akeys(struct hdf5_args *hdf5,
+         d_iov_set(&akey_iov, akey_enum_buf, ENUM_DESC_BUF);
+ 
+         /* get akeys */
+-        rc = daos_obj_list_akey(*oh, DAOS_TX_NONE, &diov,
++        rc = daos_obj_list_akey(*oh, th, &diov,
+                                 &akey_number, akey_kds,
+                                 &akey_sgl, &akey_anchor, NULL);
+         if (rc != 0) {
+@@ -3114,7 +3306,7 @@ static int serialize_akeys(struct hdf5_args *hdf5,
+             * and if that returns iod_size == 0, then a single
+             * value does not exist.
+             */
+-            rc = daos_obj_fetch(*oh, DAOS_TX_NONE, 0, &diov,
++            rc = daos_obj_fetch(*oh, th, 0, &diov,
+                                 1, &iod, NULL, NULL, NULL);
+             if (rc != 0) {
+                 MFU_LOG(MFU_LOG_ERR, "failed to fetch object");
+@@ -3140,14 +3332,14 @@ static int serialize_akeys(struct hdf5_args *hdf5,
+                 }
+ 
+                 rc = serialize_recx_array(hdf5, &diov, &aiov, rec_name,
+-                                          ak_index, oh, &iod, stats);
++                                          ak_index, th, oh, &iod, stats);
+                 if (rc != 0) {
+                     MFU_LOG(MFU_LOG_ERR, "failed to serialize recx array: %d",
+                             rc);
+                     goto out;
+                 }
+             } else {
+-                rc = serialize_recx_single(hdf5, &diov, oh,
++                rc = serialize_recx_single(hdf5, &diov, th, oh,
+                                            &iod, ak_index, stats);
+                 if (rc != 0) {
+                     MFU_LOG(MFU_LOG_ERR, "failed to serialize recx single: %d",
+@@ -3168,6 +3360,7 @@ out:
+ static int serialize_dkeys(struct hdf5_args *hdf5,
+                            uint64_t *dk_index,
+                            uint64_t *ak_index,
++                           daos_handle_t th,
+                            daos_handle_t *oh,
+                            int *oid_index,
+                            daos_args_t *da,
+@@ -3210,14 +3403,14 @@ static int serialize_dkeys(struct hdf5_args *hdf5,
+         d_iov_set(&dkey_iov, dkey_enum_buf, ENUM_DESC_BUF);
+ 
+         if (is_kv) {
+-            rc = daos_kv_list(*oh, DAOS_TX_NONE, &dkey_number,
++            rc = daos_kv_list(*oh, th, &dkey_number,
+                               dkey_kds, &dkey_sgl, &dkey_anchor, NULL);
+             if (rc != 0) {
+                 MFU_LOG(MFU_LOG_ERR, "failed to list dkeys: "DF_RC, DP_RC(rc));
+                 goto out;
+             }
+         } else {
+-            rc = daos_obj_list_dkey(*oh, DAOS_TX_NONE, &dkey_number,
++            rc = daos_obj_list_dkey(*oh, th, &dkey_number,
+                                     dkey_kds, &dkey_sgl, &dkey_anchor, NULL);
+             if (rc != 0) {
+                 MFU_LOG(MFU_LOG_ERR, "failed to list dkeys: "DF_RC, DP_RC(rc));
+@@ -3275,7 +3468,7 @@ static int serialize_dkeys(struct hdf5_args *hdf5,
+                 }
+ 
+                 /* TODO: serialize the array that was read */
+-                rc = serialize_kv_rec(hdf5, diov, oh, dk_index, key_val, stats);
++                rc = serialize_kv_rec(hdf5, diov, th, oh, dk_index, key_val, stats);
+                 if (rc != 0) {
+                     MFU_LOG(MFU_LOG_ERR, "Failed to serialize kv record: "DF_RC, DP_RC(rc));
+                     rc = 1;
+@@ -3283,7 +3476,7 @@ static int serialize_dkeys(struct hdf5_args *hdf5,
+                 }
+             } else {
+                 rc = serialize_akeys(hdf5, diov, dk_index, ak_index,
+-                                     oh, stats); 
++                                     th, oh, stats); 
+                 if (rc != 0) {
+                     MFU_LOG(MFU_LOG_ERR, "failed to list akeys: %d", rc);
+                     rc = 1;
+@@ -4129,6 +4322,8 @@ int daos_cont_serialize_hdlr(int rank, struct hdf5_args *hdf5, char *output_dir,
+     uint64_t        dk_index = 0;
+     uint64_t        ak_index = 0;
+     daos_handle_t   oh;
++    daos_handle_t   th = DAOS_TX_NONE;
++    bool            th_open = false;
+     float           version = 0.0;
+     char            *filename = NULL;
+     char            cont_str[FILENAME_LEN];
+@@ -4180,6 +4375,16 @@ int daos_cont_serialize_hdlr(int rank, struct hdf5_args *hdf5, char *output_dir,
+     hdf5->ak = &(hdf5->akey_data);
+     hdf5->oid = &(hdf5->oid_data);
+ 
++    /* every read of the source must come from the snapshot, otherwise the enumeration and the
++     * fetch of what it returned can land on different epochs */
++    rc = daos_tx_open_snap(da->src_coh, da->src_epc, &th, NULL);
++    if (rc != 0) {
++        MFU_LOG(MFU_LOG_ERR, "failed to open snapshot transaction: "DF_RC, DP_RC(rc));
++        rc = 1;
++        goto out;
++    }
++    th_open = true;
++
+     /* size is total oids for this rank, loop over each oid and serialize */
+     for (i = 0; i < num_oids; i++) {
+         /* open DAOS object based on oid to get obj
+@@ -4204,7 +4409,7 @@ int daos_cont_serialize_hdlr(int rank, struct hdf5_args *hdf5, char *output_dir,
+                 goto out;
+             }
+             rc = serialize_dkeys(hdf5, &dk_index, &ak_index,
+-                                 &oh, &i, da, oid, is_kv, stats);
++                                 th, &oh, &i, da, oid, is_kv, stats);
+             if (rc != 0) {
+                 MFU_LOG(MFU_LOG_ERR, "failed to serialize keys: %d", rc);
+                 goto out;
+@@ -4222,7 +4427,7 @@ int daos_cont_serialize_hdlr(int rank, struct hdf5_args *hdf5, char *output_dir,
+                 goto out;
+             }
+             rc = serialize_dkeys(hdf5, &dk_index, &ak_index,
+-                                 &oh, &i, da, oid, is_kv, stats);
++                                 th, &oh, &i, da, oid, is_kv, stats);
+             if (rc != 0) {
+                 MFU_LOG(MFU_LOG_ERR, "failed to serialize keys: %d", rc);
+                 goto out;
+@@ -4330,6 +4535,13 @@ int daos_cont_serialize_hdlr(int rank, struct hdf5_args *hdf5, char *output_dir,
+     }
+ 
+ out:
++    if (th_open) {
++        int tmp_rc = daos_tx_close(th, NULL);
++        if (tmp_rc != 0) {
++            MFU_LOG(MFU_LOG_ERR, "failed to close snapshot transaction: "DF_RC, DP_RC(tmp_rc));
++            rc = 1;
++        }
++    }
+     /* free dkey, akey values and single record values */
+     for (i = 0; i < stats->total_dkeys; i++) {
+         mfu_free(&((*hdf5->dk)[i].dkey_val.p));
+diff --git a/src/common/mfu_daos.h b/src/common/mfu_daos.h
+index ab7ec66..47816d8 100644
+--- a/src/common/mfu_daos.h
++++ b/src/common/mfu_daos.h
+@@ -50,6 +50,8 @@ typedef struct {
+     enum daos_cont_props dst_cont_type; /* type of the destination container */
+     bool daos_preserve;                 /* preserve daos cont props and user attrs */
+     char *daos_preserve_path;           /* set path to write daos props and user attrs */
++    unsigned int default_src_cont_open_flags; /* default flags for container open */
++    unsigned int default_dst_cont_open_flags; /* default flags for container close */
+ } daos_args_t;
+ 
+ /* struct for holding statistics */
+diff --git a/src/common/mfu_flist_archive.c b/src/common/mfu_flist_archive.c
+index f5ba861..aaeffcd 100644
+--- a/src/common/mfu_flist_archive.c
++++ b/src/common/mfu_flist_archive.c
+@@ -427,7 +427,17 @@ static int encode_header(
+             }
+             archive_read_disk_set_behavior(source, flags);
+ 
+-            /* build the entry by querying the item associated with the open file descriptor */
++            /* build the entry by querying the item associated with the open
++             * file descriptor, on which libarchive calls fstat(). For symlinks,
++             * ignore this file description to make libarchive() call lstat() on
++             * the file instead and define a symlink entry eventually.
++             */
++            mfu_filetype type = mfu_flist_file_get_type(flist, idx);
++            if (type == MFU_TYPE_LINK) {
++                mfu_close(fname, fd);
++                fd = -1;
++            }
++
+             int r = archive_read_disk_entry_from_file(source, entry, fd, NULL);
+             if (r != ARCHIVE_OK) {
+                 MFU_LOG(MFU_LOG_ERR, "Failed to define entry for '%s': archive_read_disk_entry_from_file(): %s",
+diff --git a/src/common/mfu_flist_copy.c b/src/common/mfu_flist_copy.c
+index 1e724fe..5541369 100644
+--- a/src/common/mfu_flist_copy.c
++++ b/src/common/mfu_flist_copy.c
+@@ -1242,6 +1242,7 @@ static int mfu_create_file(
+      * for regular files, dev argument is supposed to be ignored,
+      * see makedev() to create valid dev */
+     dev_t dev;
++    bool file_exists = false;
+     memset(&dev, 0, sizeof(dev_t));
+     int mknod_rc = mfu_file_mknod(dest_path, DCOPY_DEF_PERMS_FILE | S_IFREG, dev, mfu_dst_file);
+     if(mknod_rc < 0) {
+@@ -1249,6 +1250,7 @@ static int mfu_create_file(
+             /* destination already exists, no big deal, but print warning */
+             MFU_LOG(MFU_LOG_WARN, "Original file exists, skip the creation: `%s' (errno=%d %s)",
+                     dest_path, errno, strerror(errno));
++	    file_exists = true;
+         } else {
+             /* failed to create inode, that's a problem */
+             MFU_LOG(MFU_LOG_ERR, "File `%s' mknod() failed (errno=%d %s)",
+@@ -1269,31 +1271,46 @@ static int mfu_create_file(
+         }
+     }
+ 
+-    /* Truncate destination files to 0 bytes when sparse file is enabled,
+-     * this is because we will not overwrite sections corresponding to holes
+-     * and we need those to be set to 0 */
+-    if (copy_opts->sparse) {
+-        /* truncate destination file to 0 bytes */
++    if (file_exists) {
+         struct stat st;
+         int status = mfu_file_lstat(dest_path, &st, mfu_dst_file);
+-        if (status == 0) {
+-            /* destination exists, truncate it to 0 bytes */
++	if (status != 0) {
++            MFU_LOG(MFU_LOG_ERR, "mfu_file_lstat() file: `%s' (errno=%d %s)",
++                    dest_path, errno, strerror(errno));
++	    mfu_free(&dest_path);
++            return -1;
++	}
++	bool need_truncate = false;
++	/* Truncate destination files to 0 bytes when sparse file is enabled,
++	 * this is because we will not overwrite sections corresponding to holes
++	 * and we need those to be set to 0 */
++	if (copy_opts->sparse) {
++            need_truncate = true;
++	} else {
++	    /* if src_file size < dest_file size, we also truncate */
++	    struct stat src_st;
++	    status = mfu_file_lstat(src_path, &src_st, mfu_src_file);
++	    if (status != 0) {
++		MFU_LOG(MFU_LOG_ERR, "mfu_file_lstat() file: `%s' (errno=%d %s)",
++			src_path, errno, strerror(errno));
++		mfu_free(&dest_path);
++		return -1;
++	    }
++	    if (src_st.st_size < st.st_size)
++                need_truncate = true;
++	}
++
++	if (need_truncate) {
++            /* truncate destination file to 0 bytes */
+             status = mfu_file_truncate(dest_path, 0, mfu_dst_file);
+             if (status) {
+                 /* when using sparse file optimization, consider this to be an error,
+                  * since we will not be overwriting the holes */
+                 MFU_LOG(MFU_LOG_ERR, "Failed to truncate destination file: `%s' (errno=%d %s)",
+                           dest_path, errno, strerror(errno));
+-                rc = -1;
+-            }
+-        } else if (errno == -ENOENT) {
+-            /* destination does not exist, which is fine */
+-            status = 0;
+-        } else {
+-            /* had an error stating destination file */
+-            MFU_LOG(MFU_LOG_ERR, "mfu_file_lstat() file: `%s' (errno=%d %s)",
+-                    dest_path, errno, strerror(errno));
+-        }
++		rc = -1;
++	    }
++	}
+     }
+ 
+ #ifdef HPSS_SUPPORT
+@@ -1722,7 +1739,7 @@ static int mfu_copy_file_normal(
+ 
+     /* initialize our starting offset within the file */
+     off_t off = offset;
+-
++    bool need_truncate = false;
+     /* write data */
+     uint64_t total_bytes = 0;
+     while (total_bytes < length) {
+@@ -1787,6 +1804,8 @@ static int mfu_copy_file_normal(
+                  * current file if we fail before truncating */
+                 char* bufzero = ((char*)buf + bytes_read);
+                 memset(bufzero, 0, remainder);
++		/* truncate only in this case, otherwise truncate is not necessary */
++		need_truncate = true;
+             }
+ 
+             /* assumes buf_size is magic size for O_DIRECT */
+@@ -1800,6 +1819,7 @@ static int mfu_copy_file_normal(
+         int skip_write = 0;
+         if (copy_opts->sparse && mfu_is_all_null(buf, bytes_to_write)) {
+             skip_write = 1;
++            need_truncate = true;
+         }
+ 
+         /* write data to destination file if needed */
+@@ -1847,7 +1867,11 @@ static int mfu_copy_file_normal(
+     }
+ #endif
+ 
+-    /* if we wrote the last chunk, truncate the file */
++    /* if not using O_DIRECT, we already truncated the file at the beginning, we do not need to do
++     * it again. If using O_DIRECT, truncate only if we wrote beyond the src EOF. */
++    if (!need_truncate)
++	    return 0;
++
+     off_t last_written = offset + length;
+     off_t file_size_offt = (off_t) file_size;
+     if (last_written >= file_size_offt || file_size == 0) {
+@@ -1864,7 +1888,45 @@ static int mfu_copy_file_normal(
+     return 0;
+ }
+ 
+-static int mfu_copy_file_fiemap(
++struct mfu_extent {
++    __u64 me_logical;  /* logical offset in bytes for the start of the extent */
++    __u64 me_length;   /* length in bytes for this extent */
++};
++
++struct mfu_extent_list {
++    __u32 mel_mapped_extents;/* number of extents that were mapped */
++    __u32 mel_extent_count;  /* size of fm_extents array */
++    struct mfu_extent mel_extents[0]; /* array of mapped extents */
++};
++
++/*
++ * If we are resizing an existing allocation, the new extent_count must be
++ * larger than the old one.
++ */
++struct mfu_extent_list *mfu_extent_list_realloc(struct mfu_extent_list *orig, size_t extent_count)
++{
++    size_t extent_list_size = sizeof(struct mfu_extent_list) + sizeof(struct mfu_extent) * extent_count;
++    size_t old_size = 0;
++
++    if (orig) {
++        if (extent_count <= orig->mel_extent_count) {
++            return NULL;
++        }
++
++        old_size = sizeof(struct mfu_extent_list) + sizeof(struct mfu_extent) * orig->mel_extent_count;
++    }
++
++    struct mfu_extent_list* extent_list = (struct mfu_extent_list*) realloc(orig, extent_list_size);
++    if (extent_list == NULL) {
++        return NULL;
++    }
++
++    memset((char *)extent_list + old_size, 0, extent_list_size - old_size);
++    extent_list->mel_extent_count = extent_count;
++    return extent_list;
++}
++
++static struct mfu_extent_list * mfu_fiemap_get_extents(
+     const char* src,
+     const char* dest,
+     uint64_t offset,
+@@ -1876,24 +1938,13 @@ static int mfu_copy_file_fiemap(
+     mfu_file_t* mfu_dst_file)
+ {
+     *normal_copy_required = true;
+-    if (copy_opts->direct) {
+-        goto fail_normal_copy;
+-    }
+-
+-#ifdef DAOS_SUPPORT
+-    /* Not yet supported */
+-    if (mfu_src_file->type == DFS) {
+-        goto fail_normal_copy;
+-    }
+-#endif
+-
+-    size_t last_ext_start = offset;
+-    size_t last_ext_len = 0;
++    uint64_t last_byte = offset + length;
++    struct mfu_extent_list* extent_list = NULL;
+ 
+     struct fiemap *fiemap = (struct fiemap*)malloc(sizeof(struct fiemap));
+     if (fiemap == NULL) {
+         MFU_LOG(MFU_LOG_ERR, "Out of memory allocating fiemap");
+-        goto fail_normal_copy;
++        goto fail_no_fiemap;
+     }
+     memset(fiemap, 0, sizeof(struct fiemap));
+ 
+@@ -1903,11 +1954,6 @@ static int mfu_copy_file_fiemap(
+     fiemap->fm_extent_count   = 0;
+     fiemap->fm_mapped_extents = 0;
+ 
+-    struct stat sb;
+-    if (fstat(mfu_src_file->fd, &sb) < 0) {
+-        goto fail_fiemap;
+-    }
+-
+     if (ioctl(mfu_src_file->fd, FS_IOC_FIEMAP, fiemap) < 0) {
+         if (errno == ENOTSUP) {
+             /* silently ignore */
+@@ -1915,7 +1961,7 @@ static int mfu_copy_file_fiemap(
+             MFU_LOG(MFU_LOG_ERR, "fiemap ioctl() failed for src '%s' (errno=%d %s)",
+                     src, errno, strerror(errno));
+         }
+-        goto fail_fiemap;
++        goto fail_free_fiemap;
+     }
+ 
+     size_t extents_size = sizeof(struct fiemap_extent) * (fiemap->fm_mapped_extents);
+@@ -1925,7 +1971,7 @@ static int mfu_copy_file_fiemap(
+     struct fiemap* new_fiemap = (struct fiemap*) realloc(fiemap, sizeof(struct fiemap) + extents_size);
+     if (new_fiemap == NULL) {
+         MFU_LOG(MFU_LOG_ERR, "Out of memory reallocating fiemap");
+-        goto fail_fiemap;
++        goto fail_free_fiemap;
+     }
+     fiemap = new_fiemap;
+ 
+@@ -1933,14 +1979,18 @@ static int mfu_copy_file_fiemap(
+     fiemap->fm_extent_count   = fiemap->fm_mapped_extents;
+     fiemap->fm_mapped_extents = 0;
+ 
++    extent_list = mfu_extent_list_realloc(NULL, fiemap->fm_extent_count);
++    if (extent_list == NULL) {
++        MFU_LOG(MFU_LOG_ERR, "Out of memory allocating extent_list with count %d", fiemap->fm_extent_count);
++        goto fail_free_fiemap;
++    }
++
+     if (ioctl(mfu_src_file->fd, FS_IOC_FIEMAP, fiemap) < 0) {
+         MFU_LOG(MFU_LOG_ERR, "fiemap ioctl() failed for src '%s' (errno=%d %s)",
+                 src, errno, strerror(errno));
+-        goto fail_fiemap;
++        goto fail_free_fiemap;
+     }
+ 
+-    uint64_t last_byte = offset + length;
+-
+     if (fiemap->fm_mapped_extents > 0) {
+         uint64_t fe_logical = fiemap->fm_extents[0].fe_logical;
+         uint64_t fe_length  = fiemap->fm_extents[0].fe_length;
+@@ -1957,8 +2007,184 @@ static int mfu_copy_file_fiemap(
+         }
+     }
+ 
++    for (ssize_t idx = 0; idx < fiemap->fm_mapped_extents; idx++) {
++        extent_list->mel_extents[idx].me_logical = fiemap->fm_extents[idx].fe_logical;
++        extent_list->mel_extents[idx].me_length = fiemap->fm_extents[idx].fe_length;
++    }
++    extent_list->mel_mapped_extents = fiemap->fm_mapped_extents;
++
++    free(fiemap);
++
+     *normal_copy_required = false;
+ 
++    return extent_list;
++
++fail_free_fiemap:
++    free(fiemap);
++    free(extent_list);
++
++fail_no_fiemap:
++    return NULL;
++}
++
++/*
++ * if returned extent_list * is non-NULL, and normal_copy_required == false,
++ * then the extent [ offset, offset+length ) is within a hole, and there is
++ * no data to copy.
++ */
++static struct mfu_extent_list * mfu_lseek_get_extents(
++    const char* src,
++    const char* dest,
++    uint64_t offset,
++    uint64_t length,
++    uint64_t file_size,
++    bool* normal_copy_required,
++    mfu_copy_opts_t* copy_opts,
++    mfu_file_t* mfu_src_file,
++    mfu_file_t* mfu_dst_file)
++{
++    *normal_copy_required = true;
++    uint64_t logical_off = offset;
++    uint64_t last_byte = offset + length;
++    int op;
++    int idx;
++    uint64_t start;
++
++    /* Verify that SEEK_HOLE and SEEK_DATA are supported */
++    if ((mfu_file_lseek(src, mfu_src_file, offset, SEEK_HOLE) == (off_t)-1) ||
++        (mfu_file_lseek(src, mfu_src_file, offset, SEEK_DATA) == (off_t)-1)) {
++        goto fail_no_extent_list;
++    }
++
++
++    /* initial guess at max number of extents, can revise */
++    size_t extent_count = 16;
++    struct mfu_extent_list* extent_list = mfu_extent_list_realloc(NULL, extent_count);
++    if (extent_list == NULL) {
++        MFU_LOG(MFU_LOG_ERR, "Out of memory allocating extent_list with count %d", extent_count);
++        goto fail_no_extent_list;
++    }
++
++    op = SEEK_DATA;
++    idx = 0;
++
++    MFU_LOG(MFU_LOG_DBG, "src %s map from lseek():", src);
++    start = offset;
++    while (offset < last_byte) {
++        offset = mfu_file_lseek(src, mfu_src_file, offset, op);
++
++	if (offset == -1) {
++            MFU_LOG(MFU_LOG_ERR, "Couldn't seek in src path `%s' (errno=%d %s)",
++                src, errno, strerror(errno));
++            goto fail_free_extent_list;
++        }
++
++	if (offset > last_byte) {
++	    offset = last_byte;
++
++	    if (offset == start) {
++                break;
++	    }
++        }
++
++        if (op == SEEK_HOLE) {
++            extent_list->mel_extents[idx].me_logical =  start;
++            extent_list->mel_extents[idx++].me_length = offset - start;
++            extent_list->mel_mapped_extents++;
++            MFU_LOG(MFU_LOG_DBG, "src %s extent %d logical %llu length %llu:",
++                src, extent_list->mel_mapped_extents-1,
++                extent_list->mel_extents[idx].me_logical,
++                extent_list->mel_extents[idx++].me_length);
++        }
++
++        if (idx >= extent_list->mel_extent_count) {
++            MFU_LOG(MFU_LOG_DBG, "Extent count %d is too small, resizing x2", extent_count);
++
++            extent_count *= 2;
++            struct mfu_extent_list* new_extent_list = mfu_extent_list_realloc(extent_list, extent_count);
++            if (new_extent_list == NULL) {
++                MFU_LOG(MFU_LOG_ERR, "Out of memory allocating extent_list with count %d", extent_count);
++                /* need to free the original allocation since the realloc failed */
++                goto fail_free_extent_list;
++            }
++            extent_list = new_extent_list;
++        }
++
++        /* setup for next chunk */
++        start = offset;
++        if (op == SEEK_HOLE)
++            op = SEEK_DATA;
++        else
++            op = SEEK_HOLE;
++    }
++
++    *normal_copy_required = false;
++
++    MFU_LOG(MFU_LOG_DBG, "src %s logical %llu length %llu has %d mapped data hunks",
++	src, logical_off, length, extent_list->mel_mapped_extents);
++
++    return extent_list;
++
++fail_free_extent_list:
++    free(extent_list);
++
++fail_no_extent_list:
++    return NULL;
++}
++
++static int mfu_copy_file_extents(
++    const char* src,
++    const char* dest,
++    uint64_t offset,
++    uint64_t length,
++    uint64_t file_size,
++    bool* normal_copy_required,
++    mfu_copy_opts_t* copy_opts,
++    mfu_file_t* mfu_src_file,
++    mfu_file_t* mfu_dst_file)
++{
++    size_t last_ext_start = offset;
++    size_t last_ext_len = 0;
++    uint64_t last_byte = offset + length;
++    struct mfu_extent_list* extent_list;
++
++    *normal_copy_required = true;
++    if (copy_opts->direct) {
++        goto fail_normal_copy;
++    }
++
++    struct stat sb;
++    if (fstat(mfu_src_file->fd, &sb) < 0) {
++        goto fail_normal_copy;
++    }
++
++#ifdef DAOS_SUPPORT
++    /* Not yet supported */
++    if (mfu_src_file->type == DFS) {
++        goto fail_normal_copy;
++    }
++#endif
++
++    /* get extents using SEEK_DATA and SEEK_HOLE */
++    extent_list = mfu_lseek_get_extents( src, dest, offset, length,
++        file_size, normal_copy_required, copy_opts, mfu_src_file,
++        mfu_dst_file);
++
++    if (!extent_list || *normal_copy_required == true) {
++        if (extent_list) {
++            free(extent_list);
++        }
++
++        /* extents acquired by fiemap ioctl */
++        extent_list = mfu_fiemap_get_extents( src, dest,
++            offset, length, file_size, normal_copy_required, copy_opts,
++            mfu_src_file, mfu_dst_file);
++
++        if (!extent_list || *normal_copy_required == true) {
++            goto fail_fiemap;
++        }
++    }
++
+     /* seek to offset in source file */
+     if (mfu_file_lseek(src, mfu_src_file, (off_t)last_ext_start, SEEK_SET) < 0) {
+         MFU_LOG(MFU_LOG_ERR, "Couldn't seek in source path `%s' (errno=%d %s)",
+@@ -1974,7 +2200,7 @@ static int mfu_copy_file_fiemap(
+     }
+ 
+     unsigned int i;
+-    for (i = 0; i < fiemap->fm_mapped_extents; i++) {
++    for (i = 0; i < extent_list->mel_mapped_extents; i++) {
+         size_t ext_start;
+         size_t ext_len;
+         size_t ext_hole_size;
+@@ -1982,8 +2208,8 @@ static int mfu_copy_file_fiemap(
+         size_t buf_size = copy_opts->buf_size;
+         void* buf = copy_opts->block_buf1;
+ 
+-        ext_start = fiemap->fm_extents[i].fe_logical;
+-        ext_len = fiemap->fm_extents[i].fe_length;
++        ext_start = extent_list->mel_extents[i].me_logical;
++        ext_len = extent_list->mel_extents[i].me_length;
+         ext_hole_size = ext_start - (last_ext_start + last_ext_len);
+ 
+         if (ext_hole_size) {
+@@ -2044,11 +2270,12 @@ static int mfu_copy_file_fiemap(
+         mfu_copy_stats.total_size += (int64_t) last_byte;
+     }
+ 
+-    free(fiemap);
++    free( extent_list );
++
+     return 0;
+ 
+ fail_fiemap:
+-    free(fiemap);
++    free( extent_list );
+ 
+ fail_normal_copy:
+     return -1;
+@@ -2086,7 +2313,7 @@ static int mfu_copy_file(
+ 
+     if (copy_opts->sparse) {
+         bool normal_copy_required;
+-        ret = mfu_copy_file_fiemap(src, dest, offset, length, file_size,
++        ret = mfu_copy_file_extents(src, dest, offset, length, file_size,
+                                &normal_copy_required, copy_opts,
+                                mfu_src_file, mfu_dst_file);
+         if (!ret || !normal_copy_required) {
+@@ -2324,106 +2551,6 @@ static void mfu_sync_all(const char* msg)
+     }
+ }
+ 
+-static void print_summary(mfu_flist flist)
+-{
+-    uint64_t total_dirs    = 0;
+-    uint64_t total_files   = 0;
+-    uint64_t total_links   = 0;
+-    uint64_t total_unknown = 0;
+-    uint64_t total_bytes   = 0;
+-
+-    /* get our rank and the size of comm_world */
+-    int rank, ranks;
+-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+-    MPI_Comm_size(MPI_COMM_WORLD, &ranks);
+-
+-    /* step through and print data */
+-    uint64_t idx = 0;
+-    uint64_t max = mfu_flist_size(flist);
+-    while (idx < max) {
+-        if (mfu_flist_have_detail(flist)) {
+-            /* get mode */
+-            mode_t mode = (mode_t) mfu_flist_file_get_mode(flist, idx);
+-
+-            /* get size */
+-            uint64_t size = mfu_flist_file_get_size(flist, idx);
+-
+-            /* set file type */
+-            if (S_ISDIR(mode)) {
+-                total_dirs++;
+-            }
+-            else if (S_ISREG(mode)) {
+-                total_files++;
+-                total_bytes += size;
+-            }
+-            else if (S_ISLNK(mode)) {
+-                total_links++;
+-            }
+-            else {
+-                /* unknown file type */
+-                total_unknown++;
+-            }
+-        }
+-        else {
+-            /* get type */
+-            mfu_filetype type = mfu_flist_file_get_type(flist, idx);
+-
+-            if (type == MFU_TYPE_DIR) {
+-                total_dirs++;
+-            }
+-            else if (type == MFU_TYPE_FILE) {
+-                total_files++;
+-            }
+-            else if (type == MFU_TYPE_LINK) {
+-                total_links++;
+-            }
+-            else {
+-                /* unknown file type */
+-                total_unknown++;
+-            }
+-        }
+-
+-        /* go to next file */
+-        idx++;
+-    }
+-
+-    /* get total directories, files, links, and bytes */
+-    uint64_t all_dirs, all_files, all_links, all_unknown, all_bytes;
+-    uint64_t all_count = mfu_flist_global_size(flist);
+-    MPI_Allreduce(&total_dirs,    &all_dirs,    1, MPI_UINT64_T, MPI_SUM, MPI_COMM_WORLD);
+-    MPI_Allreduce(&total_files,   &all_files,   1, MPI_UINT64_T, MPI_SUM, MPI_COMM_WORLD);
+-    MPI_Allreduce(&total_links,   &all_links,   1, MPI_UINT64_T, MPI_SUM, MPI_COMM_WORLD);
+-    MPI_Allreduce(&total_unknown, &all_unknown, 1, MPI_UINT64_T, MPI_SUM, MPI_COMM_WORLD);
+-    MPI_Allreduce(&total_bytes,   &all_bytes,   1, MPI_UINT64_T, MPI_SUM, MPI_COMM_WORLD);
+-
+-    /* convert total size to units */
+-    if (mfu_debug_level >= MFU_LOG_VERBOSE && rank == 0) {
+-        MFU_LOG(MFU_LOG_INFO, "Items: %llu", (unsigned long long) all_count);
+-        MFU_LOG(MFU_LOG_INFO, "  Directories: %llu", (unsigned long long) all_dirs);
+-        MFU_LOG(MFU_LOG_INFO, "  Files: %llu", (unsigned long long) all_files);
+-        MFU_LOG(MFU_LOG_INFO, "  Links: %llu", (unsigned long long) all_links);
+-        /* MFU_LOG("  Unknown: %lu", (unsigned long long) all_unknown); */
+-
+-        if (mfu_flist_have_detail(flist)) {
+-            double agg_size_tmp;
+-            const char* agg_size_units;
+-            mfu_format_bytes(all_bytes, &agg_size_tmp, &agg_size_units);
+-
+-            uint64_t size_per_file = 0.0;
+-            if (all_files > 0) {
+-                size_per_file = (uint64_t)((double)all_bytes / (double)all_files);
+-            }
+-            double size_per_file_tmp;
+-            const char* size_per_file_units;
+-            mfu_format_bytes(size_per_file, &size_per_file_tmp, &size_per_file_units);
+-
+-            MFU_LOG(MFU_LOG_INFO, "Data: %.3lf %s (%.3lf %s per file)", agg_size_tmp, agg_size_units, size_per_file_tmp, size_per_file_units);
+-        }
+-    }
+-
+-    return;
+-}
+-
+ int mfu_flist_copy(
+     mfu_flist src_cp_list,          /* list of source items to be copied */
+     int numpaths,                   /* number of entries in paths array below */
+diff --git a/src/common/mfu_flist_walk.c b/src/common/mfu_flist_walk.c
+index 7a5ce6e..b267cb5 100644
+--- a/src/common/mfu_flist_walk.c
++++ b/src/common/mfu_flist_walk.c
+@@ -115,7 +115,7 @@ static int build_path(char* path, size_t path_len, const char* dir, const char*
+     } else {
+         new_len = snprintf(path, path_len, "%s/%s", dir, name);
+     }
+-    if (new_len > path_len) {
++    if (new_len < 0 || (size_t) new_len >= path_len) {
+         MFU_LOG(MFU_LOG_ERR, "Path name is too long, %lu chars exceeds limit %lu: '%s/%s'",
+                 new_len, path_len, dir, name);
+         WALK_RESULT = -1;
+diff --git a/src/common/mfu_sha256.c b/src/common/mfu_sha256.c
+new file mode 100644
+index 0000000..03a266e
+--- /dev/null
++++ b/src/common/mfu_sha256.c
+@@ -0,0 +1,161 @@
++/*
++ * mfu_sha256 - self-contained SHA-256 (FIPS 180-4).
++ *
++ * Adapted for mpifileutils from Brad Conte's (brad AT bradconte.com)
++ * public-domain SHA-256 implementation:
++ *   https://github.com/B-Con/crypto-algorithms
++ * The original states: "This code is released into the public domain free of
++ * any restrictions."  It is therefore compatible with the BSD-3-Clause license
++ * of mpifileutils.
++ *
++ * Changes from the original: renamed to the mfu_sha256 API, fixed-width
++ * integer types from <stdint.h>, mfu_sha256_update takes a const void* buffer,
++ * and message-schedule words are assembled with explicit uint32_t casts to
++ * avoid signed-shift overflow.  Byte-wise message loads and digest stores make
++ * the output independent of host byte order (identical on amd64 and arm64).
++ */
++
++#include <string.h>
++
++#include "mfu_sha256.h"
++
++#define ROTRIGHT(a, b) (((a) >> (b)) | ((a) << (32 - (b))))
++
++#define CH(x, y, z)  (((x) & (y)) ^ (~(x) & (z)))
++#define MAJ(x, y, z) (((x) & (y)) ^ ((x) & (z)) ^ ((y) & (z)))
++#define EP0(x)  (ROTRIGHT(x, 2) ^ ROTRIGHT(x, 13) ^ ROTRIGHT(x, 22))
++#define EP1(x)  (ROTRIGHT(x, 6) ^ ROTRIGHT(x, 11) ^ ROTRIGHT(x, 25))
++#define SIG0(x) (ROTRIGHT(x, 7) ^ ROTRIGHT(x, 18) ^ ((x) >> 3))
++#define SIG1(x) (ROTRIGHT(x, 17) ^ ROTRIGHT(x, 19) ^ ((x) >> 10))
++
++static const uint32_t k[64] = {
++    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
++    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
++    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
++    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
++    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
++    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
++    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
++    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
++};
++
++static void mfu_sha256_transform(mfu_sha256_ctx* ctx, const uint8_t data[])
++{
++    uint32_t a, b, c, d, e, f, g, h, i, j, t1, t2, m[64];
++
++    for (i = 0, j = 0; i < 16; ++i, j += 4) {
++        m[i] = ((uint32_t)data[j]     << 24) |
++               ((uint32_t)data[j + 1] << 16) |
++               ((uint32_t)data[j + 2] <<  8) |
++               ((uint32_t)data[j + 3]);
++    }
++    for ( ; i < 64; ++i) {
++        m[i] = SIG1(m[i - 2]) + m[i - 7] + SIG0(m[i - 15]) + m[i - 16];
++    }
++
++    a = ctx->state[0];
++    b = ctx->state[1];
++    c = ctx->state[2];
++    d = ctx->state[3];
++    e = ctx->state[4];
++    f = ctx->state[5];
++    g = ctx->state[6];
++    h = ctx->state[7];
++
++    for (i = 0; i < 64; ++i) {
++        t1 = h + EP1(e) + CH(e, f, g) + k[i] + m[i];
++        t2 = EP0(a) + MAJ(a, b, c);
++        h = g;
++        g = f;
++        f = e;
++        e = d + t1;
++        d = c;
++        c = b;
++        b = a;
++        a = t1 + t2;
++    }
++
++    ctx->state[0] += a;
++    ctx->state[1] += b;
++    ctx->state[2] += c;
++    ctx->state[3] += d;
++    ctx->state[4] += e;
++    ctx->state[5] += f;
++    ctx->state[6] += g;
++    ctx->state[7] += h;
++}
++
++void mfu_sha256_init(mfu_sha256_ctx* ctx)
++{
++    ctx->datalen = 0;
++    ctx->bitlen = 0;
++    ctx->state[0] = 0x6a09e667;
++    ctx->state[1] = 0xbb67ae85;
++    ctx->state[2] = 0x3c6ef372;
++    ctx->state[3] = 0xa54ff53a;
++    ctx->state[4] = 0x510e527f;
++    ctx->state[5] = 0x9b05688c;
++    ctx->state[6] = 0x1f83d9ab;
++    ctx->state[7] = 0x5be0cd19;
++}
++
++void mfu_sha256_update(mfu_sha256_ctx* ctx, const void* data, size_t len)
++{
++    const uint8_t* bytes = (const uint8_t*) data;
++    size_t i;
++
++    for (i = 0; i < len; ++i) {
++        ctx->data[ctx->datalen] = bytes[i];
++        ctx->datalen++;
++        if (ctx->datalen == 64) {
++            mfu_sha256_transform(ctx, ctx->data);
++            ctx->bitlen += 512;
++            ctx->datalen = 0;
++        }
++    }
++}
++
++void mfu_sha256_final(mfu_sha256_ctx* ctx, uint8_t digest[MFU_SHA256_DIGEST_LEN])
++{
++    uint32_t i = ctx->datalen;
++
++    /* Pad whatever data is left in the buffer. */
++    if (ctx->datalen < 56) {
++        ctx->data[i++] = 0x80;
++        while (i < 56) {
++            ctx->data[i++] = 0x00;
++        }
++    } else {
++        ctx->data[i++] = 0x80;
++        while (i < 64) {
++            ctx->data[i++] = 0x00;
++        }
++        mfu_sha256_transform(ctx, ctx->data);
++        memset(ctx->data, 0, 56);
++    }
++
++    /* Append the total message length in bits and transform one last time. */
++    ctx->bitlen += (uint64_t) ctx->datalen * 8;
++    ctx->data[63] = (uint8_t)(ctx->bitlen);
++    ctx->data[62] = (uint8_t)(ctx->bitlen >> 8);
++    ctx->data[61] = (uint8_t)(ctx->bitlen >> 16);
++    ctx->data[60] = (uint8_t)(ctx->bitlen >> 24);
++    ctx->data[59] = (uint8_t)(ctx->bitlen >> 32);
++    ctx->data[58] = (uint8_t)(ctx->bitlen >> 40);
++    ctx->data[57] = (uint8_t)(ctx->bitlen >> 48);
++    ctx->data[56] = (uint8_t)(ctx->bitlen >> 56);
++    mfu_sha256_transform(ctx, ctx->data);
++
++    /* SHA-256 output is big-endian; extract each state word byte-by-byte so
++     * the result is independent of the host's byte order. */
++    for (i = 0; i < 4; ++i) {
++        digest[i]      = (uint8_t)((ctx->state[0] >> (24 - i * 8)) & 0xff);
++        digest[i + 4]  = (uint8_t)((ctx->state[1] >> (24 - i * 8)) & 0xff);
++        digest[i + 8]  = (uint8_t)((ctx->state[2] >> (24 - i * 8)) & 0xff);
++        digest[i + 12] = (uint8_t)((ctx->state[3] >> (24 - i * 8)) & 0xff);
++        digest[i + 16] = (uint8_t)((ctx->state[4] >> (24 - i * 8)) & 0xff);
++        digest[i + 20] = (uint8_t)((ctx->state[5] >> (24 - i * 8)) & 0xff);
++        digest[i + 24] = (uint8_t)((ctx->state[6] >> (24 - i * 8)) & 0xff);
++        digest[i + 28] = (uint8_t)((ctx->state[7] >> (24 - i * 8)) & 0xff);
++    }
++}
+diff --git a/src/common/mfu_sha256.h b/src/common/mfu_sha256.h
+new file mode 100644
+index 0000000..b09906a
+--- /dev/null
++++ b/src/common/mfu_sha256.h
+@@ -0,0 +1,54 @@
++/*
++ * mfu_sha256 - self-contained SHA-256 (FIPS 180-4).
++ *
++ * Adapted for mpifileutils from Brad Conte's public-domain SHA-256
++ * (https://github.com/B-Con/crypto-algorithms).  The original code is
++ * released into the public domain free of any restrictions.  Vendoring it
++ * here provides a small, dependency-free SHA-256 so that ddup no longer
++ * requires OpenSSL.
++ *
++ * The context is a flat, pointer-free struct so it may be snapshotted with a
++ * plain memcpy: ddup copies a running context and finalizes the copy to obtain
++ * an intermediate digest while continuing to update the original.  The
++ * implementation is endian independent and produces standard big-endian
++ * SHA-256 output, identical on amd64 and arm64.
++ */
++
++#ifndef MFU_SHA256_H
++#define MFU_SHA256_H
++
++#include <stddef.h>
++#include <stdint.h>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++/* length of a SHA-256 digest in bytes */
++#define MFU_SHA256_DIGEST_LEN 32
++
++/* SHA-256 hashing context.  This is a plain, pointer-free struct so that it
++ * can be copied by value (memcpy) to snapshot intermediate hash state. */
++typedef struct {
++    uint8_t  data[64];   /* buffered bytes of the current 64-byte block */
++    uint32_t datalen;    /* number of bytes currently buffered in data[] */
++    uint64_t bitlen;     /* total message length processed so far, in bits */
++    uint32_t state[8];   /* current hash state (H0..H7) */
++} mfu_sha256_ctx;
++
++/* initialize a hashing context */
++void mfu_sha256_init(mfu_sha256_ctx* ctx);
++
++/* feed len bytes of data into the running hash */
++void mfu_sha256_update(mfu_sha256_ctx* ctx, const void* data, size_t len);
++
++/* finalize the hash, writing MFU_SHA256_DIGEST_LEN (32) bytes to digest;
++ * ctx is consumed and must be re-initialized with mfu_sha256_init before
++ * it is used again */
++void mfu_sha256_final(mfu_sha256_ctx* ctx, uint8_t digest[MFU_SHA256_DIGEST_LEN]);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* MFU_SHA256_H */
+diff --git a/src/ddup/CMakeLists.txt b/src/ddup/CMakeLists.txt
+index d0bf7d0..d64e8f5 100644
+--- a/src/ddup/CMakeLists.txt
++++ b/src/ddup/CMakeLists.txt
+@@ -1,2 +1 @@
+ MFU_ADD_TOOL(ddup)
+-TARGET_LINK_LIBRARIES(ddup ${OPENSSL_LIBRARIES})
+diff --git a/src/ddup/ddup.c b/src/ddup/ddup.c
+index 05515dc..76fc014 100644
+--- a/src/ddup/ddup.c
++++ b/src/ddup/ddup.c
+@@ -4,7 +4,6 @@
+ #include <stdio.h>
+ #include <string.h>
+ #include <getopt.h>
+-#include <openssl/sha.h>
+ #include <assert.h>
+ #include <inttypes.h>
+ 
+@@ -12,9 +11,10 @@
+ #include "dtcmp.h"
+ #include "mfu.h"
+ #include "list.h"
++#include "mfu_sha256.h"
+ 
+ /* number of uint64_t values in our key
+- * 1 for group ID + (SHA256_DIGEST_LENGTH / 8) */
++ * 1 for group ID + (MFU_SHA256_DIGEST_LEN / 8) */
+ #define DDUP_KEY_SIZE 5
+ 
+ /* amount of data to read in order to compute hash */
+@@ -40,11 +40,11 @@ static void print_usage(void)
+ /* create MPI datatypes for key and key and satellite data */
+ static void mpi_type_init(MPI_Datatype* key, MPI_Datatype* keysat)
+ {
+-    assert(SHA256_DIGEST_LENGTH == (DDUP_KEY_SIZE - 1) * 8);
++    assert(MFU_SHA256_DIGEST_LEN == (DDUP_KEY_SIZE - 1) * 8);
+ 
+     /*
+      * Build MPI datatype for key.
+-     * 1 for group ID + (SHA256_DIGEST_LENGTH / 8)
++     * 1 for group ID + (MFU_SHA256_DIGEST_LEN / 8)
+      */
+     MPI_Type_contiguous(DDUP_KEY_SIZE, MPI_UINT64_T, key);
+     MPI_Type_commit(key);
+@@ -155,14 +155,14 @@ out:
+ }
+ 
+ struct file_item {
+-    SHA256_CTX ctx;
++    mfu_sha256_ctx ctx;
+ };
+ 
+ /* print SHA256 value to stdout */
+ static void dump_sha256_digest(char* digest_string, unsigned char digest[])
+ {
+     int i;
+-    for (i = 0; i < SHA256_DIGEST_LENGTH; i++) {
++    for (i = 0; i < MFU_SHA256_DIGEST_LEN; i++) {
+         sprintf(&digest_string[i * 2], "%02x", (unsigned int)digest[i]);
+     }
+ }
+@@ -175,7 +175,7 @@ int main(int argc, char** argv)
+ 
+     uint64_t chunk_size = DDUP_CHUNK_SIZE;
+ 
+-    SHA256_CTX* ctx_ptr;
++    mfu_sha256_ctx* ctx_ptr;
+ 
+     MPI_Init(NULL, NULL);
+     mfu_init();
+@@ -371,7 +371,7 @@ int main(int argc, char** argv)
+         ptr[DDUP_KEY_SIZE] = i;
+ 
+         /* initialize the SHA256 hash state for this file */
+-        SHA256_Init(&file_items[i].ctx);
++        mfu_sha256_init(&file_items[i].ctx);
+ 
+         /* increment our file count */
+         new_checking_files++;
+@@ -432,16 +432,17 @@ int main(int argc, char** argv)
+ 
+             /* update the SHA256 context for this file */
+             ctx_ptr = &file_items[idx].ctx;
+-            SHA256_Update(ctx_ptr, chunk_buf, data_size);
++            mfu_sha256_update(ctx_ptr, chunk_buf, data_size);
+ 
+             /*
+              * Use SHA256 value as key.
+-             * This is actually an hack, but SHA256_Final can't
+-             * be called multiple times with out changing ctx
++             * This is actually an hack, but mfu_sha256_final can't
++             * be called multiple times with out changing ctx, so we
++             * finalize a copy of the running context instead.
+              */
+-            SHA256_CTX ctx_tmp;
++            mfu_sha256_ctx ctx_tmp;
+             memcpy(&ctx_tmp, ctx_ptr, sizeof(ctx_tmp));
+-            SHA256_Final((unsigned char*)(ptr + 1), &ctx_tmp);
++            mfu_sha256_final(&ctx_tmp, (unsigned char*)(ptr + 1));
+ 
+             /* move on to next file in the list */
+             ptr += DDUP_KEY_SIZE + 1;
+@@ -488,10 +489,10 @@ int main(int argc, char** argv)
+                  * duplicate with other files that also have
+                  * matching group_id[i]
+                  */
+-                unsigned char digest[SHA256_DIGEST_LENGTH];
+-                SHA256_Final(digest, ctx_ptr);
++                unsigned char digest[MFU_SHA256_DIGEST_LEN];
++                mfu_sha256_final(ctx_ptr, digest);
+ 
+-                char digest_string[SHA256_DIGEST_LENGTH * 2 + 1];
++                char digest_string[MFU_SHA256_DIGEST_LEN * 2 + 1];
+                 dump_sha256_digest(digest_string, digest);
+                 printf("%s %s\n", fname, digest_string);
+             } else {
+diff --git a/src/drm/drm.c b/src/drm/drm.c
+index 7e227fc..be533b4 100644
+--- a/src/drm/drm.c
++++ b/src/drm/drm.c
+@@ -93,6 +93,9 @@ int main(int argc, char** argv)
+ #ifdef DAOS_SUPPORT
+     /* DAOS vars */
+     daos_args_t* daos_args = daos_args_new();
++
++    /* Deleting always requires write permission */
++    daos_args->default_src_cont_open_flags = DAOS_COO_RW;
+ #endif
+ 
+     /* with drm, we don't stat files on walk by default,
+diff --git a/src/dsh/dsh.c b/src/dsh/dsh.c
+index bdb2b4c..973eb1c 100644
+--- a/src/dsh/dsh.c
++++ b/src/dsh/dsh.c
+@@ -1222,99 +1222,6 @@ static int sort_files_stat(const char* sortfields, mfu_flist* pflist)
+     return 0;
+ }
+ 
+-static void print_summary(mfu_flist flist)
+-{
+-    /* get our rank and the size of comm_world */
+-    int rank, ranks;
+-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+-    MPI_Comm_size(MPI_COMM_WORLD, &ranks);
+-
+-    /* step through and print data */
+-    uint64_t idx = 0;
+-    uint64_t max = mfu_flist_size(flist);
+-    while (idx < max) {
+-        if (mfu_flist_have_detail(flist)) {
+-            /* get mode */
+-            mode_t mode = (mode_t) mfu_flist_file_get_mode(flist, idx);
+-
+-            /* set file type */
+-            if (S_ISDIR(mode)) {
+-                total_dirs++;
+-            }
+-            else if (S_ISREG(mode)) {
+-                total_files++;
+-            }
+-            else if (S_ISLNK(mode)) {
+-                total_links++;
+-            }
+-            else {
+-                /* unknown file type */
+-                total_unknown++;
+-            }
+-
+-            uint64_t size = mfu_flist_file_get_size(flist, idx);
+-            total_bytes += size;
+-        }
+-        else {
+-            /* get type */
+-            mfu_filetype type = mfu_flist_file_get_type(flist, idx);
+-
+-            if (type == MFU_TYPE_DIR) {
+-                total_dirs++;
+-            }
+-            else if (type == MFU_TYPE_FILE) {
+-                total_files++;
+-            }
+-            else if (type == MFU_TYPE_LINK) {
+-                total_links++;
+-            }
+-            else {
+-                /* unknown file type */
+-                total_unknown++;
+-            }
+-        }
+-
+-        /* go to next file */
+-        idx++;
+-    }
+-
+-    /* get total directories, files, links, and bytes */
+-    uint64_t all_dirs, all_files, all_links, all_unknown, all_bytes;
+-    uint64_t all_count = mfu_flist_global_size(flist);
+-    MPI_Allreduce(&total_dirs,    &all_dirs,    1, MPI_UINT64_T, MPI_SUM, MPI_COMM_WORLD);
+-    MPI_Allreduce(&total_files,   &all_files,   1, MPI_UINT64_T, MPI_SUM, MPI_COMM_WORLD);
+-    MPI_Allreduce(&total_links,   &all_links,   1, MPI_UINT64_T, MPI_SUM, MPI_COMM_WORLD);
+-    MPI_Allreduce(&total_unknown, &all_unknown, 1, MPI_UINT64_T, MPI_SUM, MPI_COMM_WORLD);
+-    MPI_Allreduce(&total_bytes,   &all_bytes,   1, MPI_UINT64_T, MPI_SUM, MPI_COMM_WORLD);
+-
+-    /* convert total size to units */
+-    if (verbose && rank == 0) {
+-        printf("Items: %llu\n", (unsigned long long) all_count);
+-        printf("  Directories: %llu\n", (unsigned long long) all_dirs);
+-        printf("  Files: %llu\n", (unsigned long long) all_files);
+-        printf("  Links: %llu\n", (unsigned long long) all_links);
+-        /* printf("  Unknown: %lu\n", (unsigned long long) all_unknown); */
+-
+-        if (mfu_flist_have_detail(flist)) {
+-            double agg_size_tmp;
+-            const char* agg_size_units;
+-            mfu_format_bytes(all_bytes, &agg_size_tmp, &agg_size_units);
+-
+-            uint64_t size_per_file = 0.0;
+-            if (all_files > 0) {
+-                size_per_file = (uint64_t)((double)all_bytes / (double)all_files);
+-            }
+-            double size_per_file_tmp;
+-            const char* size_per_file_units;
+-            mfu_format_bytes(size_per_file, &size_per_file_tmp, &size_per_file_units);
+-
+-            printf("Data: %.3lf %s (%.3lf %s per file)\n", agg_size_tmp, agg_size_units, size_per_file_tmp, size_per_file_units);
+-        }
+-    }
+-
+-    return;
+-}
+-
+ static char mode_format[11];
+ static void prepare_mode_format(mode_t mode)
+ {
+diff --git a/src/dsync/dsync.c b/src/dsync/dsync.c
+index 0db4951..2b4276f 100644
+--- a/src/dsync/dsync.c
++++ b/src/dsync/dsync.c
+@@ -3171,6 +3171,7 @@ int main(int argc, char **argv)
+             copy_opts->dereference = 1;
+             walk_opts->dereference = 1;
+             copy_opts->no_dereference = 0;
++            break;
+         case 'P':
+             /* turn on no_dereference.
+              * turn off dereference */
+diff --git a/src/dwalk/dwalk.c b/src/dwalk/dwalk.c
+index 61f1677..520205b 100644
+--- a/src/dwalk/dwalk.c
++++ b/src/dwalk/dwalk.c
+@@ -317,7 +317,8 @@ static void print_usage(void)
+     printf("  -l, --lite              - walk file system without stat\n");
+     printf("  -s, --sort <fields>     - sort output by comma-delimited fields\n");
+     printf("  -d, --distribution <field>:<separators> \n                          - print distribution by field\n");
+-    printf("  -f, --file_histogram    - print default size distribution of items\n");
++    printf("  -f, --file_histogram, --file-histogram\n");
++    printf("                          - print default size distribution of items\n");
+     printf("  -p, --print             - print files to screen\n");
+     printf("      --no-atime          - use with -l; do not update the file last access time\n");
+     printf("  -L, --dereference       - follow symbolic links\n");
+@@ -390,6 +391,7 @@ int main(int argc, char** argv)
+         {"sort",           1, 0, 's'},
+         {"distribution",   1, 0, 'd'},
+         {"file_histogram", 0, 0, 'f'},
++        {"file-histogram", 0, 0, 'f'},
+         {"print",          0, 0, 'p'},
+         {"no-atime",       0, 0, 'n'},
+         {"dereference",    0, 0, 'L'},
+diff --git a/test/CMakeLists.txt b/test/CMakeLists.txt
+index e69de29..c8fb81f 100644
+--- a/test/CMakeLists.txt
++++ b/test/CMakeLists.txt
+@@ -0,0 +1,10 @@
++# Known-answer test for the self-contained mfu_sha256 implementation.
++# Compile mfu_sha256.c directly into the test so it stays standalone (no MPI /
++# libmfu link required).  src/common is already on the include path (added
++# with INCLUDE_DIRECTORIES(BEFORE ...) in the top-level CMakeLists).
++ADD_EXECUTABLE(test_sha256
++  tests/test_sha256/test_sha256.c
++  ${CMAKE_SOURCE_DIR}/src/common/mfu_sha256.c
++)
++SET_TARGET_PROPERTIES(test_sha256 PROPERTIES C_STANDARD 99)
++ADD_TEST(NAME sha256_kat COMMAND test_sha256)
+diff --git a/test/tests/test_sha256/test_sha256.c b/test/tests/test_sha256/test_sha256.c
+new file mode 100644
+index 0000000..6bc98ed
+--- /dev/null
++++ b/test/tests/test_sha256/test_sha256.c
+@@ -0,0 +1,143 @@
++/*
++ * Known-answer tests for the self-contained mfu_sha256 implementation.
++ *
++ * Validates that mfu_sha256 produces byte-correct standard SHA-256 output
++ * against the canonical FIPS 180-4 test vectors, that streaming (multi-call
++ * update) matches a one-shot hash, and that the "snapshot a running context
++ * and finalize the copy" pattern ddup relies on works.  This is a plain
++ * standalone program (no MPI): it returns EXIT_FAILURE on any mismatch so it
++ * can run as a CTest.  Because the vectors are architecture independent, a
++ * pass here on both amd64 and arm64 confirms the endian-neutral output.
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <stdint.h>
++
++#include "mfu_sha256.h"
++
++#define HEXLEN (2 * MFU_SHA256_DIGEST_LEN + 1)
++
++/* well-known SHA-256 digests */
++static const char* SHA_EMPTY  = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
++static const char* SHA_ABC    = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
++static const char* SHA_448    = "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1";
++static const char* SHA_1M_A   = "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0";
++
++/* the standard 448-bit message; note it begins with "abc" */
++static const char* MSG_448 = "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq";
++
++static void to_hex(const uint8_t digest[MFU_SHA256_DIGEST_LEN], char out[HEXLEN])
++{
++    static const char hexchars[] = "0123456789abcdef";
++    int i;
++    for (i = 0; i < MFU_SHA256_DIGEST_LEN; i++) {
++        out[2 * i]     = hexchars[(digest[i] >> 4) & 0xf];
++        out[2 * i + 1] = hexchars[digest[i] & 0xf];
++    }
++    out[2 * MFU_SHA256_DIGEST_LEN] = '\0';
++}
++
++/* hash an entire buffer with a single update call */
++static void sha256_oneshot(const void* data, size_t len, char hex[HEXLEN])
++{
++    mfu_sha256_ctx ctx;
++    uint8_t digest[MFU_SHA256_DIGEST_LEN];
++    mfu_sha256_init(&ctx);
++    mfu_sha256_update(&ctx, data, len);
++    mfu_sha256_final(&ctx, digest);
++    to_hex(digest, hex);
++}
++
++static int check(const char* label, const char* got, const char* expected)
++{
++    if (strcmp(got, expected) == 0) {
++        printf("PASS %s\n", label);
++        return 0;
++    }
++    printf("FAIL %s\n  expected %s\n  got      %s\n", label, expected, got);
++    return 1;
++}
++
++int main(void)
++{
++    int failures = 0;
++    char hex[HEXLEN];
++    size_t n448 = strlen(MSG_448);
++
++    /* One-shot known-answer tests. */
++    sha256_oneshot("", 0, hex);
++    failures += check("empty string", hex, SHA_EMPTY);
++
++    sha256_oneshot("abc", 3, hex);
++    failures += check("\"abc\"", hex, SHA_ABC);
++
++    sha256_oneshot(MSG_448, n448, hex);
++    failures += check("448-bit message", hex, SHA_448);
++
++    /* Streaming: feed the 448-bit message one byte at a time; must equal the
++     * one-shot digest.  Exercises the partial-block buffering ddup depends on. */
++    {
++        mfu_sha256_ctx ctx;
++        uint8_t digest[MFU_SHA256_DIGEST_LEN];
++        size_t i;
++        mfu_sha256_init(&ctx);
++        for (i = 0; i < n448; i++) {
++            mfu_sha256_update(&ctx, MSG_448 + i, 1);
++        }
++        mfu_sha256_final(&ctx, digest);
++        to_hex(digest, hex);
++        failures += check("448-bit streamed one byte at a time", hex, SHA_448);
++    }
++
++    /* Snapshot-and-continue: copy a running context, finalize the copy for an
++     * intermediate digest, and confirm the original keeps hashing correctly.
++     * This is exactly the pattern ddup uses (memcpy of the ctx, then final on
++     * the copy). */
++    {
++        mfu_sha256_ctx ctx, snapshot;
++        uint8_t digest[MFU_SHA256_DIGEST_LEN];
++
++        mfu_sha256_init(&ctx);
++        mfu_sha256_update(&ctx, "abc", 3);
++
++        /* finalize a copy after "abc" -> must equal sha256("abc") */
++        memcpy(&snapshot, &ctx, sizeof(snapshot));
++        mfu_sha256_final(&snapshot, digest);
++        to_hex(digest, hex);
++        failures += check("snapshot after \"abc\" == sha256(\"abc\")", hex, SHA_ABC);
++
++        /* original must be undisturbed: continue with the rest of the 448-bit
++         * message so the whole thing is "abc" + remainder */
++        mfu_sha256_update(&ctx, MSG_448 + 3, n448 - 3);
++        mfu_sha256_final(&ctx, digest);
++        to_hex(digest, hex);
++        failures += check("continue after snapshot == sha256(448-bit)", hex, SHA_448);
++    }
++
++    /* Multi-block streaming: one million 'a' characters fed in chunks. */
++    {
++        mfu_sha256_ctx ctx;
++        uint8_t digest[MFU_SHA256_DIGEST_LEN];
++        char buf[4096];
++        size_t remaining = 1000000;
++        memset(buf, 'a', sizeof(buf));
++        mfu_sha256_init(&ctx);
++        while (remaining > 0) {
++            size_t chunk = remaining < sizeof(buf) ? remaining : sizeof(buf);
++            mfu_sha256_update(&ctx, buf, chunk);
++            remaining -= chunk;
++        }
++        mfu_sha256_final(&ctx, digest);
++        to_hex(digest, hex);
++        failures += check("one million 'a' characters", hex, SHA_1M_A);
++    }
++
++    if (failures == 0) {
++        printf("\nAll SHA-256 known-answer tests passed.\n");
++        return EXIT_SUCCESS;
++    }
++    printf("\n%d SHA-256 known-answer test(s) FAILED.\n", failures);
++    return EXIT_FAILURE;
++}

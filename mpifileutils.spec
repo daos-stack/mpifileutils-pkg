@@ -50,7 +50,7 @@
 
 Name:		mpifileutils
 Version:	0.12
-Release:	2%{?commit:.g%{shortcommit}}%{?dist}
+Release:	3%{?commit:.g%{shortcommit}}%{?dist}
 Summary:	File utilities designed for scalability and performance
 
 Group:		System Environment/Libraries
@@ -277,6 +277,9 @@ done
 %endif
 
 %changelog
+* Tue Sep 15 2026 Dalton A. Bohning <dalton.bohning@hpe.com> - 0.12-3
+- Update to patch 978ed4f to include iom fix
+
 * Wed Apr 09 2025 Dalton A. Bohning <dalton.bohning@hpe.com> - 0.12-2
 - Update to patch 11ac264 to fix drm
 
