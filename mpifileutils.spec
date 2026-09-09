@@ -50,7 +50,7 @@
 
 Name:		mpifileutils
 Version:	0.12
-Release:	2%{?commit:.g%{shortcommit}}%{?dist}
+Release:	3%{?commit:.g%{shortcommit}}%{?dist}
 Summary:	File utilities designed for scalability and performance
 
 Group:		System Environment/Libraries
@@ -59,6 +59,7 @@ URL:		https://hpc.github.io/mpifileutils
 Source:		https://github.com/hpc/%{name}/archive/v%{version}.tar.gz
 %if "%{?commit}" != ""
 Patch1: %{version}..%{commit}.patch
+Patch2: clone_iom.patch
 %endif
 BuildRoot:	%_topdir/BUILDROOT
 %if (0%{?suse_version} >= 1500)
@@ -277,6 +278,9 @@ done
 %endif
 
 %changelog
+* Wed Sep 09 2026 Dalton A. Bohning <dalton.bohning@hpe.com> - 0.12-3
+- Update with clone iom patch
+
 * Wed Apr 09 2025 Dalton A. Bohning <dalton.bohning@hpe.com> - 0.12-2
 - Update to patch 11ac264 to fix drm
 
