@@ -197,18 +197,20 @@ for mpi in %{?mpi_list}; do
 	mkdir $mpi
 	pushd $mpi
 	%module_load $mpi
-	%cmake ../ -DENABLE_DAOS=ON							\
-		-DENABLE_LIBARCHIVE=OFF							\
-		-DENABLE_HDF5=ON							\
-		-DDTCMP_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}		\
-		-DDTCMP_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libdtcmp.so		\
-		-DLibCircle_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}	\
+	%cmake ../ -DENABLE_DAOS=ON													\
+		-DENABLE_LIBARCHIVE=OFF													\
+		-DENABLE_HDF5=ON														\
+		-DMPI_C_COMPILER=%{mpi_libdir}/$mpi/bin/mpicc							\
+		-DMPI_CXX_COMPILER=%{mpi_libdir}/$mpi/bin/mpicc							\
+		-DDTCMP_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}			\
+		-DDTCMP_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libdtcmp.so			\
+		-DLibCircle_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}		\
 		-DLibCircle_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libcircle.so	\
-		-DHDF5_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}		\
-		-DHDF5_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libhdf5.so		\
-		-DWITH_DAOS_PREFIX=/usr							\
-		-DCMAKE_INSTALL_INCLUDEDIR=%{mpi_includedir}/$mpi%{mpi_include_ext}	\
-		-DCMAKE_INSTALL_PREFIX=%{mpi_libdir}/$mpi				\
+		-DHDF5_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}			\
+		-DHDF5_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libhdf5.so			\
+		-DWITH_DAOS_PREFIX=/usr													\
+		-DCMAKE_INSTALL_INCLUDEDIR=%{mpi_includedir}/$mpi%{mpi_include_ext}		\
+		-DCMAKE_INSTALL_PREFIX=%{mpi_libdir}/$mpi								\
 		-DCMAKE_INSTALL_LIBDIR=%{mpi_lib_ext}
 
 	make
