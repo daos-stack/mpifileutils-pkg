@@ -201,6 +201,7 @@ for mpi in %{?mpi_list}; do
 		-DENABLE_LIBARCHIVE=OFF													\
 		-DENABLE_HDF5=ON														\
 		-DMPI_C_COMPILER=%{mpi_libdir}/$mpi/bin/mpicc							\
+		-DMPI_CXX_COMPILER=%{mpi_libdir}/$mpi/bin/mpicxx						\
 		-DDTCMP_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}			\
 		-DDTCMP_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libdtcmp.so			\
 		-DLibCircle_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}		\
