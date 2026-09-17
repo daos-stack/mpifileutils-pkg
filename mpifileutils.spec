@@ -197,9 +197,12 @@ for mpi in %{?mpi_list}; do
 	mkdir $mpi
 	pushd $mpi
 	%module_load $mpi
+	which mpicc
 	%cmake ../ -DENABLE_DAOS=ON													\
 		-DENABLE_LIBARCHIVE=OFF													\
 		-DENABLE_HDF5=ON														\
+		-DMPI_HOME=%{mpi_libdir}/$mpi											\
+		-DLD_LIBRARY_PATH=%{mpi_libdir}/$mpi:$LD_LIBRARY_PATH					\
 		-DMPI_C_COMPILER=%{mpi_libdir}/$mpi/bin/mpicc							\
 		-DMPI_CXX_COMPILER=%{mpi_libdir}/$mpi/bin/mpicxx						\
 		-DDTCMP_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}			\
