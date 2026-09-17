@@ -72,6 +72,7 @@ BuildRequires: Lmod
 BuildRequires: bzip2-devel
 BuildRequires: openssl-devel
 %endif
+Requires: daos
 BuildRequires: daos-devel
 BuildRequires: gcc-c++
 BuildRequires: libuuid-devel
