@@ -50,7 +50,7 @@
 
 Name:		mpifileutils
 Version:	0.12
-Release:	2%{?commit:.g%{shortcommit}}%{?dist}
+Release:	3%{?commit:.g%{shortcommit}}%{?dist}
 Summary:	File utilities designed for scalability and performance
 
 Group:		System Environment/Libraries
@@ -72,6 +72,7 @@ BuildRequires: Lmod
 BuildRequires: bzip2-devel
 BuildRequires: openssl-devel
 %endif
+Requires: daos
 BuildRequires: daos-devel
 BuildRequires: gcc-c++
 BuildRequires: libuuid-devel
@@ -197,18 +198,24 @@ for mpi in %{?mpi_list}; do
 	mkdir $mpi
 	pushd $mpi
 	%module_load $mpi
-	%cmake ../ -DENABLE_DAOS=ON							\
-		-DENABLE_LIBARCHIVE=OFF							\
-		-DENABLE_HDF5=ON							\
-		-DDTCMP_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}		\
-		-DDTCMP_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libdtcmp.so		\
-		-DLibCircle_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}	\
+	which mpicc
+	%cmake ../ -DENABLE_DAOS=ON													\
+		-DENABLE_LIBARCHIVE=OFF													\
+		-DENABLE_HDF5=ON														\
+		-DMPI_HOME=%{mpi_libdir}/$mpi											\
+		-DMPI_C_COMPILER=%{mpi_libdir}/$mpi/bin/mpicc							\
+		-DCMAKE_C_COMPILER=%{mpi_libdir}/$mpi/bin/mpicc							\
+		-DMPI_CXX_COMPILER=%{mpi_libdir}/$mpi/bin/mpicxx						\
+		-DCMAKE_CXX_COMPILER=%{mpi_libdir}/$mpi/bin/mpicxx						\
+		-DDTCMP_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}			\
+		-DDTCMP_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libdtcmp.so			\
+		-DLibCircle_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}		\
 		-DLibCircle_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libcircle.so	\
-		-DHDF5_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}		\
-		-DHDF5_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libhdf5.so		\
-		-DWITH_DAOS_PREFIX=/usr							\
-		-DCMAKE_INSTALL_INCLUDEDIR=%{mpi_includedir}/$mpi%{mpi_include_ext}	\
-		-DCMAKE_INSTALL_PREFIX=%{mpi_libdir}/$mpi				\
+		-DHDF5_INCLUDE_DIRS=%{mpi_includedir}/$mpi%{mpi_include_ext}			\
+		-DHDF5_LIBRARIES=%{mpi_libdir}/$mpi/%{mpi_lib_ext}/libhdf5.so			\
+		-DWITH_DAOS_PREFIX=/usr													\
+		-DCMAKE_INSTALL_INCLUDEDIR=%{mpi_includedir}/$mpi%{mpi_include_ext}		\
+		-DCMAKE_INSTALL_PREFIX=%{mpi_libdir}/$mpi								\
 		-DCMAKE_INSTALL_LIBDIR=%{mpi_lib_ext}
 
 	make
@@ -277,6 +284,9 @@ done
 %endif
 
 %changelog
+* Tue Sep 15 2026 Dalton A. Bohning <dalton.bohning@hpe.com> - 0.12-3
+- Update to patch 978ed4f to include iom fix
+
 * Wed Apr 09 2025 Dalton A. Bohning <dalton.bohning@hpe.com> - 0.12-2
 - Update to patch 11ac264 to fix drm
 
